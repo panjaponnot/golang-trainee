@@ -167,9 +167,9 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 	index := f.NewSheet(mode)
 	// Set value of a cell.
 
-	f.SetCellValue(mode, "A1", "Employee ID")
-	f.SetCellValue(mode, "B1", "SO Number")
-	f.SetCellValue(mode, "C1", "Customer ID")
+	f.SetCellValue(mode, "A1", "SO Number")
+	f.SetCellValue(mode, "B1", "Customer ID")
+	f.SetCellValue(mode, "C1", "Customer Name")
 	f.SetCellValue(mode, "D1", "Contract Start Date")
 	f.SetCellValue(mode, "E1", "Contract End Date")
 	f.SetCellValue(mode, "F1", "SO Refer")
@@ -442,9 +442,9 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 	index := f.NewSheet(mode)
 	// Set value of a cell.
 
-	f.SetCellValue(mode, "A1", "Employee ID")
-	f.SetCellValue(mode, "B1", "SO Number")
-	f.SetCellValue(mode, "C1", "Customer ID")
+	f.SetCellValue(mode, "A1", "SO Number")
+	f.SetCellValue(mode, "B1", "Customer ID")
+	f.SetCellValue(mode, "C1", "Customer Name")
 	f.SetCellValue(mode, "D1", "Contract Start Date")
 	f.SetCellValue(mode, "E1", "Contract End Date")
 	f.SetCellValue(mode, "F1", "SO Refer")
