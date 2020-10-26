@@ -1,0 +1,40 @@
+version: "3.3"
+services:
+  # redis:
+  #   image: redis:alpine
+  #   command: redis-server --maxclients 100000
+  #   restart: on-failure
+  #   ports:
+  #     - 6379:6379
+  # db:
+  #   image: mariadb:10.3
+  #   command: mysqld --character-set-server=utf8 --collation-server=utf8_unicode_ci
+  #   restart: on-failure
+  #   ports:
+  #     - 3306:3306
+  #   volumes:
+  #     - ./db:/var/lib/mysql
+  #   environment:
+  #     - MYSQL_DATABASE=rpt
+  #     - MYSQL_USER=rpt
+  #     - MYSQL_PASSWORD=jPjo8Su3sJknRDulAxcCMPhxVTdBdW3ZHHM6vJZN
+  #     - MYSQL_ROOT_PASSWORD=QVfJu5BJsuQM6d2Y
+  test:
+    image: sale_ranking_server:test
+    restart: on-failure
+    ports:
+    - 5001:5000
+    environment:
+      - SERVER_MODE=prod
+      - DB_HOST=db
+      - DB_USERNAME=root
+      - DB_PASSWORD=mis@Pass01
+      - DB_NAME=ratingscoring_test1
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RECAPTCHA_SECRET=6Ldu3uIUAAAAAOeTaPJBXjgfPqVaK74pKxOdZcGy
+      - ATTENDANT_TOKEN=DVIdkD7Bg/Gc8z1+O9tcAup44PMHbX1JxQYOLDiyRD4xd9m+IsEW8QoafTzPXWw5Dw==
+      - ATTENDANT_TOKEN_TYPE=Bearer
+    # depends_on:
+    #   - db
+    #   - redis
