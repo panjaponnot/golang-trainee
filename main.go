@@ -132,14 +132,14 @@ func clearUpCronService() {
 }
 
 func initApiRouter(ctx *echo.Echo) error {
-	apiV1 := ctx.Group("/api/v2")
+	apiV2 := ctx.Group("/api/v2")
 	// Authentication - api
 	// if err := auth.InitApiRouter(apiV1.Group("/auth")); err != nil {
 	// 	return err
 	// }
 
 	// User Management  - api
-	if err := export.InitApiRouter(apiV1.Group("/export")); err != nil {
+	if err := export.InitApiRouter(apiV2.Group("/export")); err != nil {
 		return err
 	}
 
