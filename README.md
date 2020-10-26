@@ -1,1 +1,1 @@
-# INET - Template Golang 
+# INET - Sale Ranking Server Golang 

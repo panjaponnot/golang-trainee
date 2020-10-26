@@ -12,8 +12,8 @@ func InitApiRouter(g *echo.Group) error {
 	// 	return skipper.Test(c)
 	// }}))
 
-	g.GET("", GetReportExcelSOPendingEndPoint)
-	g.GET("/test", TestbotEndPoint)
+	g.GET("/pending", GetReportExcelSOPendingEndPoint)
+	g.GET("/so", GetReportExcelSOEndPoint)
 
 	return nil
 }
