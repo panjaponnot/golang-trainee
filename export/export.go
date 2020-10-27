@@ -57,11 +57,17 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	}
 	oneId := strings.TrimSpace(c.QueryParam("one_id"))
-	yearDefault := time.Now()
-	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("year")), 10); err == nil {
-		yearDefault = time.Unix(util.ConvertTimeStamp(f), 0)
+
+	year := strings.TrimSpace(c.QueryParam("year"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("year")), 10); err == nil {
+			yearDefault = time.Unix(util.ConvertTimeStamp(f), 0)
+		}
+		years, _, _ := yearDefault.Date()
+		year = strconv.Itoa(years)
 	}
-	year, _, _ := yearDefault.Date()
+
 	log.Infoln(pkgName, year)
 	log.Infoln(" query staff ")
 	if err := db.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ? 
@@ -121,46 +127,6 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		Status            string  `json:"status"`
 		Remark            string  `json:"remark"`
 	}{}
-	// if err := db.Ctx().Raw(`
-	// SELECT so_mssql.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,
-	//                 	DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
-	//                 	PeriodAmount, SUM(PeriodAmount) as TotalAmount,
-	//                 	staff_id,prefix,fname,lname,nname,position,department,
-	//                 	(case
-	//                 		when pay_type is null then ''
-	//                 		else pay_type end
-	//                 	) as pay_type,
-	//                 	(case
-	//                 		when so_type is null then ''
-	//                 		else so_type end
-	//                 	) as so_type,
-	//                 	(case
-	//                 		when status is null then 0
-	//                 		else status end
-	//                 	) as status,
-	//                 	(case
-	//                 		when tb_expire.remark is null then ''
-	//                 		else tb_expire.remark end
-	//                 	) as remark
-	//                 from so_mssql
-	//                 left join
-	//                 (
-	//                     select staff_id, prefix, fname, lname, nname, position, department from staff_info
-	//                 ) tb_sale on so_mssql.sale_code = tb_sale.staff_id
-	//                 left join
-	//                 (
-	//                 	select pay_type,sonumber,so_type from check_so
-	//                 ) tb_check on so_mssql.sonumber = tb_check.sonumber
-	//                 left join
-	//                 (
-	//                 	select id,sonumber,status,remark from check_expire
-	//                 ) tb_expire on so_mssql.sonumber = tb_expire.sonumber
-	//                 WHERE Active_Inactive = 'Active' and has_refer = 0 and year(ContractEndDate) = ? and staff_id in (?)
-	//                 group by sonumber;
-	// `, year, listStaffId).Scan(&rawData).Error; err != nil {
-
-	// 	log.Errorln(pkgName, err, "Select data error")  ,status,so_type,pay_type
-	// }
 
 	if err := db.Ctx().Raw(`
 	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount, SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,
@@ -279,7 +245,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 	colRemark := "X"
 
 	for k, v := range rawData {
-		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
+
 		f.SetCellValue(mode, fmt.Sprint(colSoNumber, k+2), v.SOnumber)
 		f.SetCellValue(mode, fmt.Sprint(colCustomerId, k+2), v.CustomerId)
 		f.SetCellValue(mode, fmt.Sprint(colCustomerName, k+2), v.CustomerName)

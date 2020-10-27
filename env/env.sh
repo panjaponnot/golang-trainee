@@ -18,6 +18,7 @@
 # export DB_PASSWORD=mis@Pass01
 export DB_HOST=203.151.56.242
 export DB_USERNAME=root
+# export DB_NAME=ratingscoring
 export DB_NAME=ratingscoring_test1
 export DB_PASSWORD=mis@Pass01 
 
