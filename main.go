@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"sale_ranking/auth"
 	"sale_ranking/core"
 	"sale_ranking/export"
 	"sale_ranking/pkg/database"
@@ -134,9 +135,9 @@ func clearUpCronService() {
 func initApiRouter(ctx *echo.Echo) error {
 	apiV2 := ctx.Group("/api/v2")
 	// Authentication - api
-	// if err := auth.InitApiRouter(apiV1.Group("/auth")); err != nil {
-	// 	return err
-	// }
+	if err := auth.InitApiRouter(apiV2.Group("/auth")); err != nil {
+		return err
+	}
 
 	// User Management  - api
 	if err := export.InitApiRouter(apiV2.Group("/export")); err != nil {

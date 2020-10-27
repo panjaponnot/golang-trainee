@@ -3,8 +3,8 @@ package auth
 import (
 	"context"
 	"fmt"
-	"golang_template/core"
 	"net/http"
+	"sale_ranking/core"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -86,6 +86,39 @@ func UserPermissionMiddleware(config Config) echo.MiddlewareFunc {
 				return next(c)
 			}
 			return c.JSON(http.StatusForbidden, nil)
+		}
+	}
+}
+
+// middleware use //
+func UseAuthMiddleware(config Config) echo.MiddlewareFunc {
+	if config.Skipper == nil {
+		config.Skipper = DefaultConfig.Skipper
+	}
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if config.Skipper(c) {
+				return next(c)
+			}
+			claims, err := core.DecodeAccessToken(GetTokenFromHeader(c, "Bearer", echo.HeaderAuthorization))
+			if err != nil {
+				return echo.ErrUnauthorized
+			}
+			key := fmt.Sprintf("%s:%s", sessionKey, claims.Id)
+			var session CacheSession
+			if err := redis.Get(key, &session); err != nil {
+				return echo.ErrUnauthorized
+			} else {
+				return next(c)
+			}
+			// if session.AccountId == claims.Subject && session.Ip == c.RealIP() && session.Agent == c.Request().UserAgent() {
+			// 	_ = redis.Set(key, session, sessionTimeOut)
+			// 	request := c.Request()
+			// 	authCtx := context.WithValue(request.Context(), authorizedContext, session)
+			// 	c.SetRequest(request.WithContext(authCtx))
+			// 	return next(c)
+			// }
+			// return echo.ErrUnauthorized
 		}
 	}
 }

@@ -3,14 +3,14 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"golang_template/core"
-	m "golang_template/model"
-	"golang_template/pkg/attendant"
-	"golang_template/pkg/cache"
-	"golang_template/pkg/database"
-	"golang_template/pkg/log"
-	"golang_template/pkg/server"
 	"net/http"
+	"sale_ranking/core"
+	m "sale_ranking/model"
+	"sale_ranking/pkg/attendant"
+	"sale_ranking/pkg/cache"
+	"sale_ranking/pkg/database"
+	"sale_ranking/pkg/log"
+	"sale_ranking/pkg/server"
 	"strings"
 	"time"
 
@@ -65,7 +65,9 @@ func InitApiRouter(g *echo.Group) error {
 	// Skipper
 	g.Use(UserAuthMiddleware(Config{Skipper: func(c echo.Context) bool {
 		skipper := server.NewSkipperPath("")
-		skipper.Add("/api/v1/auth/ticket", http.MethodGet)
+		skipper.Add("/api/v2/auth/ticket", http.MethodGet)
+		skipper.Add("/api/v2/auth/login", http.MethodGet)
+
 		return skipper.Test(c)
 	}}))
 	// Router
