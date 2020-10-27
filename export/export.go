@@ -183,7 +183,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 								select staff_id, prefix, fname, lname, nname, position, department from staff_info
 							
 							) tb_sale on so_mssql.sale_code = tb_sale.staff_id
-							WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = '2020' 
+							WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ? 
 							group by sonumber
 			) as tb_so_number
 			left join
