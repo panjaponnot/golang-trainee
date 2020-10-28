@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"sale_ranking/api"
 	"sale_ranking/auth"
 	"sale_ranking/core"
-	"sale_ranking/export"
 	"sale_ranking/pkg/database"
 	"sale_ranking/pkg/log"
 	"sale_ranking/pkg/server"
@@ -140,7 +140,7 @@ func initApiRouter(ctx *echo.Echo) error {
 	}
 
 	// User Management  - api
-	if err := export.InitApiRouter(apiV2.Group("/export")); err != nil {
+	if err := api.InitApiRouter(apiV2.Group("")); err != nil {
 		return err
 	}
 

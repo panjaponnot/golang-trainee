@@ -17,7 +17,7 @@ type ClientClaims struct {
 
 func GetApiClientByName(name string) (m.ApiClient, string, error) {
 	var apiClient m.ApiClient
-	if err := db.Ctx().Model(&m.ApiClient{}).Where(m.ApiClient{Name: name}).First(&apiClient).Error; err != nil {
+	if err := dbSale.Ctx().Model(&m.ApiClient{}).Where(m.ApiClient{Name: name}).First(&apiClient).Error; err != nil {
 		return apiClient, "", err
 	}
 	token, err := GetApiClientTokenKey(apiClient.Name)
@@ -26,7 +26,7 @@ func GetApiClientByName(name string) (m.ApiClient, string, error) {
 
 func GetApiClientList() ([]m.ApiClient, error) {
 	var apiClients []m.ApiClient
-	if err := db.Ctx().Model(&m.ApiClient{}).Find(&apiClients).Error; err != nil {
+	if err := dbSale.Ctx().Model(&m.ApiClient{}).Find(&apiClients).Error; err != nil {
 		return apiClients, err
 	}
 	return apiClients, nil
@@ -34,7 +34,7 @@ func GetApiClientList() ([]m.ApiClient, error) {
 
 func AddNewApiClient(name string) (m.ApiClient, string, error) {
 	var apiClient m.ApiClient
-	if err := db.Ctx().Model(&m.ApiClient{}).Where(m.ApiClient{Name: name}).Attrs(m.ApiClient{Name: name}).FirstOrCreate(&apiClient).Error; err != nil {
+	if err := dbSale.Ctx().Model(&m.ApiClient{}).Where(m.ApiClient{Name: name}).Attrs(m.ApiClient{Name: name}).FirstOrCreate(&apiClient).Error; err != nil {
 		return apiClient, "", err
 	}
 	token, err := GetApiClientTokenKey(apiClient.Name)
@@ -91,7 +91,7 @@ func AddApiClient(name string) int {
 }
 
 func DeleteApiClient(name string) int {
-	if err := db.Ctx().Model(m.ApiClient{}).Where(m.ApiClient{Name: name}).Unscoped().Delete(&m.ApiClient{}).Error; err != nil {
+	if err := dbSale.Ctx().Model(m.ApiClient{}).Where(m.ApiClient{Name: name}).Unscoped().Delete(&m.ApiClient{}).Error; err != nil {
 		log.Errorln("Error -:", err)
 		return 1
 	}

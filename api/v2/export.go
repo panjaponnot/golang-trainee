@@ -1,4 +1,4 @@
-package export
+package v2
 
 import (
 	"fmt"
@@ -21,17 +21,23 @@ import (
 const pkgName = "EXPORT"
 
 var (
-	db    database.Database
-	redis cache.Redis
+	dbSale     database.Database
+	dbQuataion database.Database
+	redis      cache.Redis
 )
 
 func initDataStore() error {
 	// Database
-	db = core.NewDatabase(pkgName)
-	if err := db.Connect(); err != nil {
+	dbSale = core.NewDatabase(pkgName, "sale")
+	if err := dbSale.Connect(); err != nil {
 		log.Errorln(pkgName, err, "Connect to database error")
 		return err
 	}
+	// dbQuataion = core.NewDatabase(pkgName, "sale")
+	// if err := dbQuataion.Connect(); err != nil {
+	// 	log.Errorln(pkgName, err, "Connect to database error")
+	// 	return err
+	// }
 	// Redis cache
 	redis = core.NewRedis()
 	if err := redis.Ping(); err != nil {
@@ -70,7 +76,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 
 	log.Infoln(pkgName, year)
 	log.Infoln(" query staff ")
-	if err := db.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ? 
+	if err := dbSale.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ? 
 	union
 	SELECT staff_id, "normal" as role, staff_child from staff_info where one_id = ? `, oneId, oneId).Scan(&staff).Error; err != nil {
 		log.Errorln(pkgName, err, "Select staff error")
@@ -86,7 +92,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		for _, v := range staff {
 			log.Infoln(pkgName, v.Role)
 			if strings.TrimSpace(v.Role) == "admin" {
-				if err := db.Ctx().Raw(`select staff_id from staff_info;`).Scan(&staffs).Error; err != nil {
+				if err := dbSale.Ctx().Raw(`select staff_id from staff_info;`).Scan(&staffs).Error; err != nil {
 					log.Errorln(pkgName, err, "Select data error")
 				}
 				if len(staffs) != 0 {
@@ -128,7 +134,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		Remark            string  `json:"remark"`
 	}{}
 
-	if err := db.Ctx().Raw(`
+	if err := dbSale.Ctx().Raw(`
 	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount, SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,
 	(case
 		when status is null then 0
@@ -295,7 +301,7 @@ func TestbotEndPoint(c echo.Context) error {
 		// Role       string `json:"role"`
 		// StaffChild string `json:"staff_child"`
 	}{}
-	if err := db.Ctx().Raw(`SELECT * FROM user_info`).Scan(&d).Error; err != nil {
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info`).Scan(&d).Error; err != nil {
 		log.Errorln(pkgName, err, "Select data error")
 	}
 
@@ -310,7 +316,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 	}
 	oneId := strings.TrimSpace(c.QueryParam("one_id"))
 	var user []m.UserInfo
-	if err := db.Ctx().Raw(` SELECT * FROM user_info WHERE role = 'admin' AND one_id = ? `, oneId).Scan(&user).Error; err != nil {
+	if err := dbSale.Ctx().Raw(` SELECT * FROM user_info WHERE role = 'admin' AND one_id = ? `, oneId).Scan(&user).Error; err != nil {
 		log.Errorln(pkgName, err, "User Not Found")
 		if !gorm.IsRecordNotFoundError(err) {
 			log.Errorln(pkgName, err, "Select user Error")
@@ -346,7 +352,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 	}{}
 	if len(user) != 0 {
 
-		if err := db.Ctx().Raw(`SELECT * FROM (SELECT check_so.remark_sale as remark,check_so.status_sale,check_so.status_so as status_so,check_so.sonumber,
+		if err := dbSale.Ctx().Raw(`SELECT * FROM (SELECT check_so.remark_sale as remark,check_so.status_sale,check_so.status_so as status_so,check_so.sonumber,
 			Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
 			so_refer,sale_code,sale_lead,PeriodAmount,so_type,pay_type,
 			in_factor,sale_factor,
@@ -397,7 +403,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			StaffId    string `json:"staff_id"`
 			StaffChild string `json:"staff_child"`
 		}{}
-		if err := db.Ctx().Raw(`SELECT * FROM staff_info where one_id = ?`, oneId).Scan(&staff).Error; err != nil {
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info where one_id = ?`, oneId).Scan(&staff).Error; err != nil {
 			log.Errorln(pkgName, err, "Select data error")
 		}
 
@@ -413,7 +419,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			log.Infoln(pkgName, "not found team", staff)
 		}
 
-		if err := db.Ctx().Raw(`SELECT * FROM (SELECT check_so.status_so as status_so,check_so.status_sale as status_sale,so_mssql.sonumber,Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
+		if err := dbSale.Ctx().Raw(`SELECT * FROM (SELECT check_so.status_so as status_so,check_so.status_sale as status_sale,so_mssql.sonumber,Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
 			so_refer,sale_code,sale_lead,PeriodAmount,so_type,pay_type,
 			in_factor,sale_factor,
 			SUM(PeriodAmount) as TotalAmount_old,

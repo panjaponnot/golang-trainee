@@ -16,12 +16,16 @@
 # export DB_USERNAME=root
 # export DB_NAME=ratingscoring_test1
 # export DB_PASSWORD=mis@Pass01
-export DB_HOST=203.151.56.242
-export DB_USERNAME=root
-# export DB_NAME=ratingscoring
-export DB_NAME=ratingscoring_test1
-export DB_PASSWORD=mis@Pass01 
+export DB_SALE_HOST=203.151.56.242
+export DB_SALE_USERNAME=root
+export DB_SALE_NAME=ratingscoring_test1
+export DB_SALE_PASSWORD=mis@Pass01 
 
+export DB_QUOTATION_HOST=203.154.135.51
+export DB_QUOTATION_USERNAME=root
+export DB_QUOTATION_NAME=quatation
+export DB_QUOTATION_PASSWORD=118E84FDC1207D817492A
+export DB_QUOTATION_PORT=3313
 
 # export REDIS_HOST=redis
 # export REDIS_PORT=6379

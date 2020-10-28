@@ -1,6 +1,8 @@
-package export
+package api
 
 import (
+	v2 "sale_ranking/api/v2"
+
 	"github.com/labstack/echo/v4"
 )
 
@@ -12,8 +14,8 @@ func InitApiRouter(g *echo.Group) error {
 	// 	return skipper.Test(c)
 	// }}))
 
-	g.GET("/pending", GetReportExcelSOPendingEndPoint)
-	g.GET("/so", GetReportExcelSOEndPoint)
+	g.GET("/pending", v2.GetReportExcelSOPendingEndPoint)
+	g.GET("/so", v2.GetReportExcelSOEndPoint)
 
 	return nil
 }

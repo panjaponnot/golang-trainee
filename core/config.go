@@ -25,11 +25,24 @@ type Claims struct {
 const (
 	// System Environment variable
 	// Database
-	envDbHost     = "DB_HOST"
-	envDbPort     = "DB_PORT"
-	envDbUsername = "DB_USERNAME"
-	envDbPassword = "DB_PASSWORD"
-	envDbName     = "DB_NAME"
+	// envDbHost     = "DB_HOST"
+	// envDbPort     = "DB_PORT"
+	// envDbUsername = "DB_USERNAME"
+	// envDbPassword = "DB_PASSWORD"
+	// envDbName     = "DB_NAME"
+
+	// db sale
+	envDbSaleHost     = "DB_SALE_HOST"
+	envDbSalePort     = "DB_SALE_PORT"
+	envDbSaleUsername = "DB_SALE_USERNAME"
+	envDbSalePassword = "DB_SALE_PASSWORD"
+	envDbSaleName     = "DB_SALE_NAME"
+	// db quotation
+	envDbQuotationHost     = "DB_QUOTATION_HOST"
+	envDbQuotationPort     = "DB_QUOTATION_PORT"
+	envDbQuotationUsername = "DB_QUOTATION_USERNAME"
+	envDbQuotationPassword = "DB_QUOTATION_PASSWORD"
+	envDbQuotationName     = "DB_QUOTATION_NAME"
 
 	// attendant
 	envAttendantToken     = "ATTENDANT_TOKEN"
@@ -78,8 +91,8 @@ var (
 	reCaptCha           recaptcha.ReCAPTCHA
 )
 
-func NewDatabase(packageName string) database.Database {
-	return NewDatabaseWithConfig(getDatabaseConfig(packageName), database.DriverMySQL)
+func NewDatabase(packageName string, name string) database.Database {
+	return NewDatabaseWithConfig(getDatabaseConfig(packageName, name), database.DriverMySQL)
 }
 
 func NewDatabaseWithConfig(cfg database.Config, driver string) database.Database {
@@ -122,17 +135,45 @@ func CronService() *crontab.Service {
 	return &cronService
 }
 
-func getDatabaseConfig(packageName string) database.Config {
+func getDatabaseConfig(packageName string, dbName string) database.Config {
+	switch dbName {
+	case "quotation":
+		return database.Config{
+			Host:        util.GetEnv(envDbQuotationHost, "127.0.0.1"),
+			Port:        util.GetEnv(envDbQuotationPort, "3306"),
+			Username:    util.GetEnv(envDbQuotationUsername, ""),
+			Password:    util.GetEnv(envDbQuotationPassword, ""),
+			Name:        util.GetEnv(envDbQuotationName, ""),
+			Prod:        util.IsProduction(),
+			PackageName: packageName,
+		}
+	case "salerank":
+		return database.Config{
+			Host:        util.GetEnv(envDbSaleHost, "127.0.0.1"),
+			Port:        util.GetEnv(envDbSalePort, "3306"),
+			Username:    util.GetEnv(envDbSaleUsername, ""),
+			Password:    util.GetEnv(envDbSalePassword, ""),
+			Name:        util.GetEnv(envDbSaleName, ""),
+			Prod:        util.IsProduction(),
+			PackageName: packageName,
+		}
+	}
 	return database.Config{
-		Host:        util.GetEnv(envDbHost, "127.0.0.1"),
-		Port:        util.GetEnv(envDbPort, "3306"),
-		Username:    util.GetEnv(envDbUsername, ""),
-		Password:    util.GetEnv(envDbPassword, ""),
-		Name:        util.GetEnv(envDbName, ""),
-		Prod:        util.IsProduction(),
 		PackageName: packageName,
 	}
 }
+
+// func getDatabaseMssqlConfig(packageName string) database.Config {
+// 	return database.Config{
+// 		Host:        util.GetEnv(envDbSaleHost, "127.0.0.1"),
+// 		Port:        util.GetEnv(envDbSalePort, "3306"),
+// 		Username:    util.GetEnv(envDbSaleUsername, ""),
+// 		Password:    util.GetEnv(envDbSalePassword, ""),
+// 		Name:        util.GetEnv(envDbSaleName, ""),
+// 		Prod:        util.IsProduction(),
+// 		PackageName: packageName,
+// 	}
+// }
 
 func getRedisConfig() cache.Config {
 	return cache.Config{

@@ -81,7 +81,7 @@ func InitApiRouter(g *echo.Group) error {
 
 func initDataStore() error {
 	// Database
-	db = core.NewDatabase(pkgName)
+	db = core.NewDatabase(pkgName, "salerank")
 	if err := db.Connect(); err != nil {
 		log.Errorln(pkgName, err, "Connect to database error")
 		return err

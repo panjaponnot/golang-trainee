@@ -16,8 +16,9 @@ import (
 const pkgName = "CORE"
 
 var (
-	db    database.Database
-	redis cache.Redis
+	dbSale     database.Database
+	dbQuataion database.Database
+	redis      cache.Redis
 
 	cronService crontab.Service
 )
@@ -38,20 +39,26 @@ func init() {
 }
 
 func InitCoreService() error {
-	// Database
-	db = NewDatabase(pkgName)
-	if err := db.Connect(); err != nil {
+	// Database Sale
+	dbSale = NewDatabase(pkgName, "salerank")
+	if err := dbSale.Connect(); err != nil {
 		log.Errorln(pkgName, err, "Connect to database error")
 		return err
 	}
-	log.Infoln(pkgName, "Connected to database server.")
-
-	// Migrate database
-	if err := db.MigrateDatabase(tables); err != nil {
-		log.Errorln(pkgName, err, "Migrate database error")
+	log.Infoln(pkgName, "Connected to database sale ranking server.")
+	// Database Quataion
+	dbQuataion = NewDatabase(pkgName, "quotation")
+	if err := dbQuataion.Connect(); err != nil {
+		log.Errorln(pkgName, err, "Connect to database error")
 		return err
 	}
-	log.Infoln(pkgName, "Migrated database schema.")
+	log.Infoln(pkgName, "Connected to database quotation server.")
+	// Migrate database
+	// if err := db.MigrateDatabase(tables); err != nil {
+	// 	log.Errorln(pkgName, err, "Migrate database error")
+	// 	return err
+	// }
+	// log.Infoln(pkgName, "Migrated database schema.")
 
 	// Redis cache
 	redis = NewRedis()
