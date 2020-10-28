@@ -1,12 +1,9 @@
-package v2
+package api
 
 import (
 	"fmt"
 	"net/http"
-	"sale_ranking/core"
 	m "sale_ranking/model"
-	"sale_ranking/pkg/cache"
-	"sale_ranking/pkg/database"
 	"sale_ranking/pkg/log"
 	"sale_ranking/pkg/util"
 	"strconv"
@@ -17,35 +14,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo/v4"
 )
-
-const pkgName = "EXPORT"
-
-var (
-	dbSale     database.Database
-	dbQuataion database.Database
-	redis      cache.Redis
-)
-
-func initDataStore() error {
-	// Database
-	dbSale = core.NewDatabase(pkgName, "sale")
-	if err := dbSale.Connect(); err != nil {
-		log.Errorln(pkgName, err, "Connect to database error")
-		return err
-	}
-	// dbQuataion = core.NewDatabase(pkgName, "sale")
-	// if err := dbQuataion.Connect(); err != nil {
-	// 	log.Errorln(pkgName, err, "Connect to database error")
-	// 	return err
-	// }
-	// Redis cache
-	redis = core.NewRedis()
-	if err := redis.Ping(); err != nil {
-		log.Errorln(pkgName, err, "Connect to redis error ->")
-		return err
-	}
-	return nil
-}
 
 // GetUserEndpoint for Get user
 func GetReportExcelSOPendingEndPoint(c echo.Context) error {
@@ -82,7 +50,6 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "Select staff error")
 		return echo.ErrInternalServerError
 	}
-	// var staffs []model.StaffInfo
 	staffs := []struct {
 		StaffId    string `json:"staff_id"`
 		StaffChild string `json:"staff_child"`
