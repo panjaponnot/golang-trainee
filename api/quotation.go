@@ -48,9 +48,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		years, _, _ := yearDefault.Date()
 		year = strconv.Itoa(years)
 	}
-	// search := strings.TrimSpace(c.QueryParam("search"))
-	// quarter := strings.TrimSpace(c.QueryParam("quarter"))
-	// month := strings.TrimSpace(c.QueryParam("month"))
+
 	if strings.TrimSpace(c.QueryParam("id")) == "" {
 		return echo.ErrBadRequest
 	}
@@ -66,7 +64,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		month = fmt.Sprintf("AND MONTH(start_date) = %s", strings.TrimSpace(c.QueryParam("month")))
 	}
 	if strings.TrimSpace(c.QueryParam("search")) != "" {
-		search = fmt.Sprintf("AND INSTR(CONCAT_WS('|', company_name, 	service, employee_code, salename, team), %s)", strings.TrimSpace(c.QueryParam("search")))
+		search = fmt.Sprintf("AND INSTR(CONCAT_WS('|', company_name, service, employee_code, salename, team), %s)", strings.TrimSpace(c.QueryParam("search")))
 	}
 
 	dataResult := struct {
@@ -83,6 +81,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		ReasonLost   interface{}
 		CountService interface{}
 		CountCompany interface{}
+		CountType    interface{}
 	}{}
 
 	var user []m.UserInfo
@@ -121,7 +120,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(9)
+	wg.Add(10)
 	go func() {
 		// work
 		var dataRaw []QuotationJoin
@@ -275,6 +274,24 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		dataCount.CountCompany = dataRaw
 		wg.Done()
 	}()
+	go func() {
+		// count service
+		var dataRaw []struct {
+			TotalPrice float64 `json:"total_price"`
+			TotalType  int     `json:"total_type"`
+			Type       string  `json:"type"`
+		}
+		sql := fmt.Sprintf(`SELECT SUM(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price,COUNT(type) as total_type,type FROM quatation_th 
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL) 
+		AND YEAR(start_date) = ? %s %s %s %s  GROUP BY type`, textStaffId, quarter, month, search)
+		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
+			hasErr += 1
+		}
+		dataCount.CountType = dataRaw
+		wg.Done()
+	}()
 	wg.Wait()
 
 	if hasErr != 0 {
@@ -293,6 +310,7 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		"reason_lost": dataCount.ReasonLost,
 		"service":     dataCount.CountService,
 		"company":     dataCount.CountCompany,
+		"type":        dataCount.CountType,
 	}
 	return c.JSON(http.StatusOK, dataResult)
 }
