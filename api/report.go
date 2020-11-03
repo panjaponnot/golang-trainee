@@ -21,7 +21,6 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, err)
 	}
 	defer dbSale.Close()
-
 	if strings.TrimSpace(c.QueryParam(("staff_id"))) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Message: "invalid staff id"})
 	}

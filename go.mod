@@ -5,7 +5,6 @@ go 1.15
 require (
 	github.com/360EntSecGroup-Skylar/excelize v1.4.1
 	github.com/Luzifer/go-openssl v2.0.0+incompatible
-	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
 	github.com/carlescere/scheduler v0.0.0-20170109141437-ee74d2f83d82
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
