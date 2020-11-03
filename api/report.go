@@ -26,16 +26,16 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 	if strings.TrimSpace(c.QueryParam(("staff_id"))) == "" {
 		return c.JSON(http.StatusBadRequest, model.Result{Message: "invalid staff id"})
 	}
-	// staffId := strings.TrimSpace(c.QueryParam(("staff_id")))
+	staffId := strings.TrimSpace(c.QueryParam(("staff_id")))
 	filter := strings.TrimSpace(c.QueryParam(("filter")))
-	listStaffId, err := CheckPermissionOrg(strings.TrimSpace(c.QueryParam(("staff_id"))))
+	listStaffId, err := CheckPermissionOrg(staffId)
 	if err != nil {
 		log.Errorln(pkgName, err, "func check permission error :-")
 		return c.JSON(http.StatusInternalServerError, model.Result{Error: "check permission error"})
 	}
 	// fmt.Println("listStaffId ===>", listStaffId[strings.TrimSpace(c.QueryParam(("staff_id")))])
-	fmt.Println("listStaffId ===>", len(listStaffId))
-	// return c.JSON(http.StatusNoContent, nil)
+
+	// return c.JSON(http.StatusOK, listStaffId)
 	if len(listStaffId) == 0 {
 		return c.JSON(http.StatusNoContent, nil)
 	}
@@ -84,6 +84,7 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 	}
 	var org []OrgChart
 	var filterOrg []OrgChart
+	// var defaultOrg []OrgChart
 	var inv []InvBefore
 	var result model.Result
 	today := time.Now()
@@ -182,7 +183,8 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
             	where staff_id is not null and staff_id <> ''
 			) all_ranking LEFT JOIN staff_images ON all_ranking.one_id = staff_images.one_id
 			group by staff_id`
-	sqlFilter := `select staff_id,fname,lname,nname,department,sum(inv_amount) as inv_amount,max(goal_total) as goal_total, 0 as inv_amount_old, -5 as score_target,
+
+	sqlDefault := `select staff_id,fname,lname,nname,department,sum(inv_amount) as inv_amount,max(goal_total) as goal_total, 0 as inv_amount_old, -5 as score_target,
             -10 as score_sf, 0.0 as sale_factor,sum(total_so) as total_so, sum(sum_if) as if_factor, sum(engcost) as engcost, sum(revenue) as revenue,
             -6 as score_if, 0.0 as in_factor,
             all_ranking.one_id, image,filename, -100 as growth_rate, -5 as score_growth,0 as score_all,quarter,year,position,job_months,staff_child
@@ -255,9 +257,8 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
             	) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_code
             	where staff_id is not null and staff_id <> ''
 			) all_ranking LEFT JOIN staff_images ON all_ranking.one_id = staff_images.one_id
-            WHERE INSTR(CONCAT_WS('|', fname,staff_id,lname,nname,department,all_ranking.one_id,position), ?)
+            WHERE INSTR(CONCAT_WS('|', fname,staff_id,lname,nname,department,all_ranking.one_id,position), ?) AND staff_id IN (?)
 			group by staff_id`
-
 	sqlInv := `select staff_id,count(staff_id) as checkdata,sum(inv_amount) as inv_amount
                 from (
                 	select staff_id,sum(PeriodAmount) as inv_amount,count(sonumber) as total_so
@@ -304,14 +305,21 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		if err := dbSale.Ctx().Raw(sqlFilter, filter).Offset(p.Offset()).Limit(p.Size).Scan(&filterOrg).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sqlDefault, filter, listStaffId[staffId]).Offset(p.Offset()).Limit(p.Size).Scan(&filterOrg).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
 				hasErr += 1
 			}
 		}
 		wg.Done()
 	}()
-
+	// go func() {
+	// 	if err := dbSale.Ctx().Raw(sqlDefault, "").Offset(p.Offset()).Limit(p.Size).Scan(&defaultOrg).Error; err != nil {
+	// 		if !gorm.IsRecordNotFoundError(err) {
+	// 			hasErr += 1
+	// 		}
+	// 	}
+	// 	wg.Done()
+	// }()
 	wg.Wait()
 	if hasErr != 0 {
 		return echo.ErrInternalServerError
@@ -375,14 +383,19 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 
 			// filter data
 			for _, fil := range filterOrg {
-				if fil.StaffId == o.StaffId {
-					dataResult = append(dataResult, o)
+				for _, v := range s {
+					if fil.StaffId == v && o.StaffId == v {
+						dataResult = append(dataResult, o)
+					}
 				}
 			}
 		}
+
 	}
 
+	fmt.Println(len(filterOrg))
 	fmt.Println(len(dataResult))
+	fmt.Println("listStaffId ===>", listStaffId)
 	// fmt.Println(quarterBeforeNum)
 	// fmt.Println(yearNow)
 	result.Data = dataResult
@@ -399,9 +412,9 @@ func CheckPermissionOrg(id string) (map[string][]string, error) {
 		return nil, err
 	}
 	if len(user) != 0 {
-		var staff []model.StaffInfo
 
 		mapStaff := map[string][]string{}
+		var staff []model.StaffInfo
 		if err := dbSale.Ctx().Raw(`SELECT staff_id,staff_child from staff_info where staff_id NOT IN (?);`, notSale).Scan(&staff).Error; err != nil {
 			return nil, err
 		}
@@ -423,7 +436,11 @@ func CheckPermissionOrg(id string) (map[string][]string, error) {
 		}
 		return mapStaff, nil
 	} else {
-		var listStaffId []string
+		var staffAll []model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT staff_id,staff_child from staff_info where staff_id NOT IN (?);`, notSale).Scan(&staffAll).Error; err != nil {
+			return nil, err
+		}
+
 		mapStaff := map[string][]string{}
 		staff := struct {
 			StaffId    string `json:"staff_id"`
@@ -433,18 +450,35 @@ func CheckPermissionOrg(id string) (map[string][]string, error) {
 			log.Errorln(pkgName, err, "Select data error")
 			return nil, nil
 		}
-
+		var rawdata []string
 		if strings.TrimSpace(staff.StaffChild) != "" {
 			raw := strings.Split(staff.StaffChild, ",")
 			for _, id := range raw {
-				listStaffId = append(listStaffId, id)
+				rawdata = append(rawdata, id)
 			}
-			listStaffId = append(listStaffId, staff.StaffId)
+			rawdata = append(rawdata, staff.StaffId)
 		} else {
-			listStaffId = append(listStaffId, staff.StaffId)
+			rawdata = append(rawdata, staff.StaffId)
 		}
-		if _, ok := mapStaff[id]; !ok {
-			mapStaff[id] = listStaffId
+
+		for _, v := range staffAll {
+			for _, c := range rawdata {
+				if v.StaffId == c {
+					var listStaffId []string
+					if strings.TrimSpace(v.StaffChild) != "" {
+						raw := strings.Split(v.StaffChild, ",")
+						for _, id := range raw {
+							listStaffId = append(listStaffId, id)
+						}
+						listStaffId = append(listStaffId, v.StaffId)
+					} else {
+						listStaffId = append(listStaffId, v.StaffId)
+					}
+					if _, ok := mapStaff[v.StaffId]; !ok {
+						mapStaff[v.StaffId] = listStaffId
+					}
+				}
+			}
 		}
 
 		return mapStaff, nil
