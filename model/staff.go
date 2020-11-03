@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"time"
 )
 
@@ -14,6 +15,16 @@ type StaffInfo struct {
 	Position   string `json:"position"`
 	Department string `json:"department"`
 	StaffChild string `json:"staff_child"`
+}
+
+type StaffImg struct {
+	StaffId    string `json:"staff_id"`
+	Prefix     string `json:"prefix"`
+	Fname      string `json:"fname"`
+	Lname      string `json:"lname"`
+	Nname      string `json:"nname"`
+	StaffImage []byte `json:"staff_image"`
+	Img        string `json:"img"`
 }
 
 type UserInfo struct {
@@ -94,4 +105,9 @@ type StaffAbility struct {
 	Mark    string `json:"mark"`
 	Comment string `json:"comment"`
 	Status  string `json:"status"`
+}
+
+type StaffPicture struct {
+	StaffId string       `json:"staff_id"`
+	Img     bytes.Buffer `json:"staff_img" gorm:"column:staff_img"`
 }

@@ -58,7 +58,8 @@ func InitApiRouter(g *echo.Group) error {
 	quotation.GET("/summary", GetSummaryQuotationEndPoint)
 
 	staff := g.Group("/staff")
-	// report.GET("/org", GetDataOrgChartEndPoint)
+
+	staff.GET("", GetStaffEndPoint)
 	// report.GET("/ranking/base", GetRankingBaseSale)
 
 	return nil
