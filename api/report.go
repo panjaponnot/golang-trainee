@@ -2,7 +2,7 @@ package api
 
 import (
 	"net/http"
-	"sale_ranking/model"
+	m "sale_ranking/model"
 	"sale_ranking/pkg/log"
 	"sale_ranking/pkg/server"
 	"sale_ranking/pkg/util"
@@ -23,14 +23,14 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 	defer dbSale.Close()
 
 	if strings.TrimSpace(c.QueryParam(("staff_id"))) == "" {
-		return c.JSON(http.StatusBadRequest, model.Result{Message: "invalid staff id"})
+		return c.JSON(http.StatusBadRequest, m.Result{Message: "invalid staff id"})
 	}
 	staffId := strings.TrimSpace(c.QueryParam(("staff_id")))
 	filter := strings.TrimSpace(c.QueryParam(("filter")))
 	listStaffId, err := CheckPermissionOrg(staffId)
 	if err != nil {
 		log.Errorln(pkgName, err, "func check permission error :-")
-		return c.JSON(http.StatusInternalServerError, model.Result{Error: "check permission error"})
+		return c.JSON(http.StatusInternalServerError, m.Result{Error: "check permission error"})
 	}
 	// fmt.Println("listStaffId ===>", listStaffId[strings.TrimSpace(c.QueryParam(("staff_id")))])
 
@@ -46,46 +46,12 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 		p.Page = server.DefaultQueryPage
 		p.Size = server.MaxQuerySize
 	}
-	type OrgChart struct {
-		StaffId      string  `json:"staff_id"`
-		Fname        string  `json:"fname"`
-		Lname        string  `json:"lname"`
-		Nname        string  `json:"nname"`
-		Position     string  `json:"position"`
-		Department   string  `json:"department"`
-		StaffChild   string  `json:"staff_child"`
-		InvAmount    float64 `json:"inv_amount"`
-		InvAmountOld float64 `json:"inv_amount_old"`
-		GoalTotal    float64 `json:"goal_total"`
-		ScoreTarget  float64 `json:"score_target"`
-		ScoreSf      float64 `json:"score_sf"`
-		SaleFactor   float64 `json:"sale_factor"`
-		TotalSo      float64 `json:"total_so"`
-		IfFactor     float64 `json:"if_factor"`
-		EngCost      float64 `json:"engcost" gorm:"column:engcost"`
-		Revenue      float64 `json:"revanue"`
-		ScoreIf      float64 `json:"score_if"`
-		InFactor     float64 `json:"in_factor"`
-		OneId        string  `json:"one_id"`
-		// Image        string  `json:"image"`
-		FileName    string  `json:"filename" gorm:"column:filename"`
-		GrowthRate  float64 `json:"growth_rate"`
-		ScoreGrowth string  `json:"score_growth"`
-		ScoreAll    float64 `json:"score_all"`
-		Quarter     string  `json:"quarter"`
-		Year        float64 `json:"year"`
-		JobMonths   int     `json:"job_months"`
-	}
-	type InvBefore struct {
-		StaffID   string  `json:"staff_id"`
-		InvAmount float64 `json:"inv_amount"`
-		CheckData int     `json:"check_data" gorm:"column:checkdata"`
-	}
-	var org []OrgChart
-	var filterOrg []OrgChart
+
+	var org []m.OrgChart
+	var filterOrg []m.OrgChart
 	// var defaultOrg []OrgChart
-	var inv []InvBefore
-	var result model.Result
+	var inv []m.InvBefore
+	var result m.Result
 	today := time.Now()
 	yearNow, mon, _ := today.Date()
 	yearBefore := yearNow
@@ -324,7 +290,7 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 		return echo.ErrInternalServerError
 	}
 
-	var dataResult []OrgChart
+	var dataResult []m.OrgChart
 	// set data
 	for _, o := range org {
 		if s, ok := listStaffId[o.StaffId]; ok {
@@ -402,7 +368,7 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 }
 
 func CheckPermissionOrg(id string) (map[string][]string, error) {
-	var user []model.UserInfo
+	var user []m.UserInfo
 	notSale := util.GetEnv("ACCOUNT_NOT_SALE", "")
 	sqlUsr := `SELECT * from user_info WHERE role = 'admin' and staff_id = ?`
 	if err := dbSale.Ctx().Raw(sqlUsr, id).Scan(&user).Error; err != nil {
@@ -411,7 +377,7 @@ func CheckPermissionOrg(id string) (map[string][]string, error) {
 	if len(user) != 0 {
 
 		mapStaff := map[string][]string{}
-		var staff []model.StaffInfo
+		var staff []m.StaffInfo
 		if err := dbSale.Ctx().Raw(`SELECT staff_id,staff_child from staff_info where staff_id NOT IN (?);`, notSale).Scan(&staff).Error; err != nil {
 			return nil, err
 		}
@@ -433,7 +399,7 @@ func CheckPermissionOrg(id string) (map[string][]string, error) {
 		}
 		return mapStaff, nil
 	} else {
-		var staffAll []model.StaffInfo
+		var staffAll []m.StaffInfo
 		if err := dbSale.Ctx().Raw(`SELECT staff_id,staff_child from staff_info where staff_id NOT IN (?);`, notSale).Scan(&staffAll).Error; err != nil {
 			return nil, err
 		}
