@@ -43,30 +43,51 @@ func CheckPermissionBaseSale(id string, filter string) (map[string][]string, err
 		}
 		return mapStaff, nil
 	} else {
-		var listStaffId []string
 		mapStaff := map[string][]string{}
 		staff := struct {
 			StaffId    string `json:"staff_id"`
 			StaffChild string `json:"staff_child"`
 		}{}
-		sql := fmt.Sprintf(`SELECT staff_id,staff_child,department from staff_info WHERE staff_id = ? AND department NOT IN  ( select department from staff_info where %s)`, filter)
+		var staffAll []model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT staff_id,staff_child from staff_info where staff_id NOT IN (?);`, notSale).Scan(&staffAll).Error; err != nil {
+			return nil, err
+		}
+		sql := fmt.Sprintf(`SELECT staff_id,staff_child,department from staff_info WHERE  department NOT IN  ( select department from staff_info where %s )`, filter)
 
-		if err := dbSale.Ctx().Raw(sql, id).Scan(&staff).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql).Scan(&staff).Error; err != nil {
 			log.Errorln(pkgName, err, "Select data error")
 			return nil, nil
 		}
 
+		var rawdata []string
 		if strings.TrimSpace(staff.StaffChild) != "" {
 			raw := strings.Split(staff.StaffChild, ",")
 			for _, id := range raw {
-				listStaffId = append(listStaffId, id)
+				rawdata = append(rawdata, id)
 			}
-			listStaffId = append(listStaffId, staff.StaffId)
+			rawdata = append(rawdata, staff.StaffId)
 		} else {
-			listStaffId = append(listStaffId, staff.StaffId)
+			rawdata = append(rawdata, staff.StaffId)
 		}
-		if _, ok := mapStaff[id]; !ok {
-			mapStaff[id] = listStaffId
+
+		for _, v := range staffAll {
+			for _, c := range rawdata {
+				if v.StaffId == c {
+					var listStaffId []string
+					if strings.TrimSpace(v.StaffChild) != "" {
+						raw := strings.Split(v.StaffChild, ",")
+						for _, id := range raw {
+							listStaffId = append(listStaffId, id)
+						}
+						listStaffId = append(listStaffId, v.StaffId)
+					} else {
+						listStaffId = append(listStaffId, v.StaffId)
+					}
+					if _, ok := mapStaff[v.StaffId]; !ok {
+						mapStaff[v.StaffId] = listStaffId
+					}
+				}
+			}
 		}
 
 		return mapStaff, nil

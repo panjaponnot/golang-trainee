@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"sale_ranking/model"
 	"sale_ranking/pkg/log"
@@ -393,11 +392,9 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 
 	}
 
-	fmt.Println(len(filterOrg))
-	fmt.Println(len(dataResult))
-	fmt.Println("listStaffId ===>", listStaffId)
-	// fmt.Println(quarterBeforeNum)
-	// fmt.Println(yearNow)
+	// fmt.Println(len(filterOrg))
+	// fmt.Println(len(dataResult))
+	// fmt.Println("listStaffId ===>", listStaffId)
 	result.Data = dataResult
 	result.Count = len(dataResult)
 	result.Total = len(org)
