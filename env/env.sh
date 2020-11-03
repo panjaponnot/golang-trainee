@@ -34,8 +34,8 @@ export REDIS_HOST=203.154.34.24
 export REDIS_PORT=80
 
 export CONDITION_BASE_SALE='recovery','key account','up&cross','retention','JV'
-export CONDITION_GOV_KEY_SALE=key account
-export CONDITION_GOV_RECOVER_SALE=recovery
+export CONDITION_GOV_KEY_SALE='key','account'
+export CONDITION_GOV_RECOVER_SALE='recovery'
 export ACCOUNT_NOT_SALE='61073','62125','62273','57030','60265','61025','62186','19007','62268'
 
 

@@ -21,14 +21,14 @@ type OrgChart struct {
 	ScoreIf      float64 `json:"score_if"`
 	InFactor     float64 `json:"in_factor"`
 	OneId        string  `json:"one_id"`
-	// Image        string  `json:"image"`
-	FileName    string  `json:"filename" gorm:"column:filename"`
-	GrowthRate  float64 `json:"growth_rate"`
-	ScoreGrowth float64 `json:"score_growth"`
-	ScoreAll    float64 `json:"score_all"`
-	Quarter     string  `json:"quarter"`
-	Year        float64 `json:"year"`
-	JobMonths   int     `json:"job_months"`
+	Image        string  `json:"image"`
+	FileName     string  `json:"filename" gorm:"column:filename"`
+	GrowthRate   float64 `json:"growth_rate"`
+	ScoreGrowth  float64 `json:"score_growth"`
+	ScoreAll     float64 `json:"score_all"`
+	Quarter      string  `json:"quarter"`
+	Year         float64 `json:"year"`
+	JobMonths    int     `json:"job_months"`
 }
 
 type InvBefore struct {
