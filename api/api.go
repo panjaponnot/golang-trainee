@@ -61,6 +61,8 @@ func InitApiRouter(g *echo.Group) error {
 
 	// staff := g.Group("/staff")
 	// report.GET("/org", GetDataOrgChartEndPoint)
+	staff := g.Group("/staff")
+	staff.GET("", GetStaffEndPoint)
 	// report.GET("/ranking/base", GetRankingBaseSale)
 
 	return nil
