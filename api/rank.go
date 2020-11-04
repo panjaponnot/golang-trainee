@@ -16,67 +16,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func CheckPermissionBaseSale(id string, filter string) ([]string, error) {
-	var user []m.UserInfo
-	notSale := util.GetEnv("ACCOUNT_NOT_SALE", "")
-	sqlUsr := `SELECT * from user_info WHERE role = 'admin' and staff_id = ?`
-	if err := dbSale.Ctx().Raw(sqlUsr, id).Scan(&user).Error; err != nil {
-		return nil, err
-	}
-	if len(user) != 0 {
-		var staff []m.StaffInfo
-		// mapStaff := map[string][]string{}
-		sql := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id NOT IN (?) and department NOT IN  ( select department from staff_info where %s)`, filter)
-		if err := dbSale.Ctx().Raw(sql, notSale).Scan(&staff).Error; err != nil {
-			return nil, err
-		}
-
-		var listStaffId []string
-		for _, s := range staff {
-			listStaffId = append(listStaffId, s.StaffId)
-			// if strings.TrimSpace(s.StaffChild) != "" {
-			// 	raw := strings.Split(s.StaffChild, ",")
-			// 	for _, id := range raw {
-			// 		listStaffId = append(listStaffId, id)
-			// 	}
-			// 	listStaffId = append(listStaffId, s.StaffId)
-			// } else {
-			// 	listStaffId = append(listStaffId, s.StaffId)
-			// }
-			// if _, ok := mapStaff[s.StaffId]; !ok {
-			// 	mapStaff[s.StaffId] = listStaffId
-			// }
-		}
-		return listStaffId, nil
-	} else {
-		var staff []m.StaffInfo
-		// mapStaff := map[string][]string{}
-		sql := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id NOT IN (?) and department NOT IN  ( select department from staff_info where %s)`, filter)
-		if err := dbSale.Ctx().Raw(sql, notSale).Scan(&staff).Error; err != nil {
-			return nil, err
-		}
-
-		var listStaffId []string
-		for _, s := range staff {
-			listStaffId = append(listStaffId, s.StaffId)
-			// if strings.TrimSpace(s.StaffChild) != "" {
-			// 	raw := strings.Split(s.StaffChild, ",")
-			// 	for _, id := range raw {
-			// 		listStaffId = append(listStaffId, id)
-			// 	}
-			// 	listStaffId = append(listStaffId, s.StaffId)
-			// } else {
-			// 	listStaffId = append(listStaffId, s.StaffId)
-			// }
-			// if _, ok := mapStaff[s.StaffId]; !ok {
-			// 	mapStaff[s.StaffId] = listStaffId
-			// }
-		}
-
-		return listStaffId, nil
-	}
-}
-
 func GetRankingBaseSale(c echo.Context) error {
 	filterDepart := strings.Split(util.GetEnv("CONDITION_BASE_SALE", ""), ",")
 	var dFilter []string
@@ -382,43 +321,6 @@ func GetRankingBaseSale(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-func CheckPermissionKeyAccount(id string, filter string) ([]string, error) {
-	var user []m.UserInfo
-	notSale := util.GetEnv("ACCOUNT_NOT_SALE", "")
-	sqlUsr := `SELECT * from user_info WHERE role = 'admin' and staff_id = ?`
-	if err := dbSale.Ctx().Raw(sqlUsr, id).Scan(&user).Error; err != nil {
-		return nil, err
-	}
-	if len(user) != 0 {
-		var staff []m.StaffInfo
-		sql := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id NOT IN (?) and department  IN  ( select department from staff_info where %s)`, filter)
-		if err := dbSale.Ctx().Raw(sql, notSale).Scan(&staff).Error; err != nil {
-			log.Errorln(pkgName, err, "user select error")
-			return nil, err
-		}
-
-		var listStaffId []string
-		for _, s := range staff {
-			listStaffId = append(listStaffId, s.StaffId)
-		}
-		return listStaffId, nil
-	} else {
-		var staff []m.StaffInfo
-		sql := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id NOT IN (?) and department  IN  ( select department from staff_info where %s)`, filter)
-		if err := dbSale.Ctx().Raw(sql, notSale).Scan(&staff).Error; err != nil {
-			log.Errorln(pkgName, err, "user select error")
-			return nil, err
-		}
-
-		var listStaffId []string
-		for _, s := range staff {
-			listStaffId = append(listStaffId, s.StaffId)
-		}
-
-		return listStaffId, nil
-	}
-
-}
 func GetRankingKeyAccountEndPoint(c echo.Context) error {
 	if err := initDataStore(); err != nil {
 		log.Errorln(pkgName, err, "connect database error")
@@ -723,43 +625,6 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-func CheckPermissionRecovery(id string, filter string) ([]string, error) {
-	var user []m.UserInfo
-	notSale := util.GetEnv("ACCOUNT_NOT_SALE", "")
-	sqlUsr := `SELECT * from user_info WHERE role = 'admin' and staff_id = ?`
-	if err := dbSale.Ctx().Raw(sqlUsr, id).Scan(&user).Error; err != nil {
-		return nil, err
-	}
-	if len(user) != 0 {
-		var staff []m.StaffInfo
-		sql := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id NOT IN (?) and department  IN  ( select department from staff_info where %s)`, filter)
-		if err := dbSale.Ctx().Raw(sql, notSale).Scan(&staff).Error; err != nil {
-			log.Errorln(pkgName, err, "user select error")
-			return nil, err
-		}
-
-		var listStaffId []string
-		for _, s := range staff {
-			listStaffId = append(listStaffId, s.StaffId)
-		}
-		return listStaffId, nil
-	} else {
-		var staff []m.StaffInfo
-		sql := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id NOT IN (?) and department  IN  ( select department from staff_info where %s)`, filter)
-		if err := dbSale.Ctx().Raw(sql, notSale).Scan(&staff).Error; err != nil {
-			log.Errorln(pkgName, err, "user select error")
-			return nil, err
-		}
-
-		var listStaffId []string
-		for _, s := range staff {
-			listStaffId = append(listStaffId, s.StaffId)
-		}
-
-		return listStaffId, nil
-	}
-
-}
 func GetRankingRecoveryEndPoint(c echo.Context) error {
 	if err := initDataStore(); err != nil {
 		log.Errorln(pkgName, err, "connect database error")

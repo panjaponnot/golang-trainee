@@ -21,4 +21,9 @@ services:
       - RECAPTCHA_SECRET=6Ldu3uIUAAAAAOeTaPJBXjgfPqVaK74pKxOdZcGy
       - ATTENDANT_TOKEN=DVIdkD7Bg/Gc8z1+O9tcAup44PMHbX1JxQYOLDiyRD4xd9m+IsEW8QoafTzPXWw5Dw==
       - ATTENDANT_TOKEN_TYPE=Bearer
+      - CONDITION_BASE_SALE='recovery','key account','up&cross','retention','JV'
+      - CONDITION_GOV_KEY_SALE='key','account'
+      - CONDITION_GOV_RECOVER_SALE='recovery'
+      - ACCOUNT_NOT_SALE='61073','62125','62273','57030','60265','61025','62186','19007','62268'
+
 
