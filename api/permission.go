@@ -124,7 +124,7 @@ func CheckPermissionRecovery(id string, filter string) ([]string, error) {
 
 func CheckTeamLeadEndPoint(c echo.Context) error {
 	id := c.Param("id")
-	fmt.Println("id ====>", id)
+
 	if err := initDataStore(); err != nil {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
@@ -137,7 +137,7 @@ func CheckTeamLeadEndPoint(c echo.Context) error {
 			return echo.ErrInternalServerError
 		}
 	}
-	log.Infoln("====== 1", user)
+
 	if len(user) != 0 {
 		return c.JSON(http.StatusOK, true)
 	}
