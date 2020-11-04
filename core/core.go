@@ -28,13 +28,6 @@ func init() {
 	tables = []interface{}{
 		// client
 		&m.ApiClient{},
-
-		// User managements
-		// &m.User{},
-		// &m.Role{},
-		// &m.Permission{},
-		// &m.UserActivityLog{},
-		// &m.Company{},
 	}
 }
 
