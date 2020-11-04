@@ -18,11 +18,12 @@ type StaffInfo struct {
 }
 
 type StaffImg struct {
-	StaffId    string `json:"staff_id"`
-	Prefix     string `json:"prefix"`
-	Fname      string `json:"fname"`
-	Lname      string `json:"lname"`
-	Nname      string `json:"nname"`
+	StaffId string `json:"staff_id"`
+	Prefix  string `json:"prefix"`
+	Fname   string `json:"fname"`
+	Lname   string `json:"lname"`
+	Nname   string `json:"nname"`
+	// StaffImage string `json:"staff_image"`
 	StaffImage []byte `json:"staff_image"`
 	Img        string `json:"img"`
 }
@@ -53,6 +54,20 @@ type StaffAll struct {
 	Department string `json:"department"`
 }
 
+type StaffProfile struct {
+	StaffId  string           `json:"staff_id"`
+	Prefix   string           `json:"prefix"`
+	Fname    string           `json:"fname"`
+	Lname    string           `json:"lname"`
+	Nname    string           `json:"nname"`
+	Position string           `json:"position"`
+	Mail     StaffMail        `json:"mail"`
+	OneMail  StaffOneMail     `json:"onemail"`
+	Tel      StaffTel         `json:"tel"`
+	Month    StaffGoalMonth   `json:"goalmonth"`
+	Quarter  StaffGoalQuarter `json:"goalquarter"`
+}
+
 type Staff struct {
 	StaffId string `json:"staff_id"`
 	Fname   string `json:"fname"`
@@ -75,18 +90,22 @@ type Staff struct {
 }
 
 type StaffMail struct {
-	Id      string `json:"id"`
-	Email   string `json:"email"`
-	Comment string `json:"comment"`
-	Status  string `json:"status"`
+	Id       string `json:"id"`
+	RefStaff string `json:"ref_staff"`
+	Mail     string `json:"mail"`
+}
+
+type StaffOneMail struct {
+	Id       string `json:"id"`
+	RefStaff string `json:"ref_staff"`
+	Onemail  string `json:"onemail"`
 }
 
 type StaffTel struct {
-	Id      string `json:"id"`
-	Tel     string `json:"tel"`
-	TelSup  string `json:"tel_sup"`
-	Comment string `json:"comment"`
-	Status  string `json:"status"`
+	Id       string `json:"id"`
+	RefStaff string `json:"ref_staff"`
+	Tel      string `json:"tel"`
+	TelSup   string `json:"tel_sup"`
 }
 
 type StaffPosition struct {
@@ -110,4 +129,26 @@ type StaffAbility struct {
 type StaffPicture struct {
 	StaffId string       `json:"staff_id"`
 	Img     bytes.Buffer `json:"staff_img" gorm:"column:staff_img"`
+}
+
+type StaffGoalMonth struct {
+	Id         string `json:"id"`
+	RefStaff   string `json:"ref_staff"`
+	Year       string `json:"year"`
+	Month      string `json:"month"`
+	GoalTotal  string `json:"goal_total"`
+	RealTotal  string `json:"real_total"`
+	CreateDate string `json:"create_date"`
+	CreateBy   string `json:"create_by"`
+}
+
+type StaffGoalQuarter struct {
+	Id         string `json:"id"`
+	RefStaff   string `json:"ref_staff"`
+	Year       string `json:"year"`
+	Quarter    string `json:"quarter"`
+	GoalTotal  string `json:"goal_total"`
+	RealTotal  string `json:"real_total"`
+	CreateDate string `json:"create_date"`
+	CreateBy   string `json:"create_by"`
 }
