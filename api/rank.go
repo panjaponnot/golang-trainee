@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -105,6 +106,7 @@ func GetRankingBaseSale(c echo.Context) error {
 		page = 1
 	}
 	q := strings.TrimSpace(c.QueryParam("quarter"))
+	filter := strings.TrimSpace(c.QueryParam("filter"))
 	today := time.Now()
 	yearNow, _, _ := today.Date()
 	yearBefore := yearNow
@@ -283,24 +285,43 @@ func GetRankingBaseSale(c echo.Context) error {
 	) all_ranking
 	WHERE staff_id in (?)
 	group by staff_id;`
+	sqlFilter := `select * from staff_info where INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,one_id), ?) `
 
-	if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
-		if gorm.IsRecordNotFoundError(err) {
-			return c.JSON(http.StatusNoContent, nil)
+	var staffInfo []m.StaffInfo
+	hasErr := 0
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+	go func() {
+		if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				log.Errorln(pkgName, err, "select data error :-")
+				hasErr += 1
+			}
 		}
-		log.Errorln(pkgName, err, "select data error :-")
-		return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
-	}
-
-	if err := dbSale.Ctx().Raw(sqlBefore, yearBefore, quarterBefore, quarterBeforeNum, yearBefore, listStaffId).Scan(&invBefore).Error; err != nil {
-		if gorm.IsRecordNotFoundError(err) {
-			return c.JSON(http.StatusNoContent, nil)
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(sqlBefore, yearBefore, quarterBefore, quarterBeforeNum, yearBefore, listStaffId).Scan(&invBefore).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				log.Errorln(pkgName, err, "select data error :-")
+				hasErr += 1
+			}
 		}
-		log.Errorln(pkgName, err, "select data error :-")
-		return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
-	}
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(sqlFilter, filter).Scan(&staffInfo).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				log.Errorln(pkgName, err, "select data error :-")
+				hasErr += 1
+			}
+		}
+		wg.Done()
+	}()
+	wg.Wait()
 
 	var dataResult []m.OrgChart
+	// var dataResult []m.OrgChart
 	for _, r := range report {
 		for _, i := range invBefore {
 			if i.StaffID == r.StaffId {
@@ -329,21 +350,34 @@ func GetRankingBaseSale(c echo.Context) error {
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
-		if r.StaffId == "62087" {
-			fmt.Println("score gr ===>", r.ScoreGrowth)
-			fmt.Println("score sf ===>", r.ScoreSf)
-			fmt.Println("score if ===>", r.ScoreIf)
-			fmt.Println("score tg ===>", r.ScoreTarget)
-			fmt.Println("score all ===>", r.ScoreAll)
+
+		if len(staffInfo) != 0 {
+			for _, st := range staffInfo {
+				if st.StaffId == r.StaffId {
+					dataResult = append(dataResult, r)
+				}
+			}
 		}
-		dataResult = append(dataResult, r)
+		// else {
+		// dataResult = append(dataResult, r)
+		// }
 	}
-	sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
-	end := (page * 10)
-	start := (page - 1) * 10
+
+	if len(dataResult) > 1 {
+		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
+	}
+
 	var result m.Result
-	result.Data = dataResult[start:end]
-	result.Count = len(dataResult[start:end])
+	if len(dataResult) > (page * 10) {
+		start := (page - 1) * 10
+		end := (page * 10)
+		result.Data = dataResult[start:end]
+		result.Count = len(dataResult[start:end])
+	} else {
+		start := (page * 10) - (10)
+		result.Data = dataResult[start:]
+		result.Count = len(dataResult[start:])
+	}
 	result.Total = len(dataResult)
 	return c.JSON(http.StatusOK, result)
 }
@@ -408,6 +442,7 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 	}
 
 	page, _ := strconv.Atoi(strings.TrimSpace(c.QueryParam("page")))
+	filter := strings.TrimSpace(c.QueryParam("filter"))
 	if strings.TrimSpace(c.QueryParam("page")) == "" {
 		page = 1
 	}
@@ -591,21 +626,44 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 	WHERE staff_id in (?)
 	group by staff_id;`
 
-	if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
-		if gorm.IsRecordNotFoundError(err) {
-			return c.JSON(http.StatusNoContent, nil)
-		}
-		log.Errorln(pkgName, err, "select data error :-")
-		return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
-	}
+	sqlFilter := `select * from staff_info where INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,one_id), ?) `
 
-	if err := dbSale.Ctx().Raw(sqlBefore, yearBefore, quarterBefore, quarterBeforeNum, yearBefore, listStaffId).Scan(&invBefore).Error; err != nil {
-		if gorm.IsRecordNotFoundError(err) {
-			return c.JSON(http.StatusNoContent, nil)
+	var staffInfo []m.StaffInfo
+	hasErr := 0
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+	go func() {
+		if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				// return c.JSON(http.StatusNoContent, nil)
+				hasErr += 1
+				log.Errorln(pkgName, err, "select data error :-")
+			}
+			// return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
 		}
-		log.Errorln(pkgName, err, "select data error :-")
-		return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
-	}
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(sqlBefore, yearBefore, quarterBefore, quarterBeforeNum, yearBefore, listStaffId).Scan(&invBefore).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				// return c.JSON(http.StatusNoContent, nil)
+				hasErr += 1
+				log.Errorln(pkgName, err, "select data error :-")
+			}
+			// return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
+		}
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(sqlFilter, filter).Scan(&staffInfo).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				log.Errorln(pkgName, err, "select data error :-")
+				hasErr += 1
+			}
+		}
+		wg.Done()
+	}()
+	wg.Wait()
 
 	var dataResult []m.OrgChart
 	for _, r := range report {
@@ -636,9 +694,20 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
-		dataResult = append(dataResult, r)
+		if len(staffInfo) != 0 {
+			for _, st := range staffInfo {
+				if st.StaffId == r.StaffId {
+					dataResult = append(dataResult, r)
+				}
+			}
+		}
+		// else {
+		// dataResult = append(dataResult, r)
+		// }
 	}
-	sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
+	if len(dataResult) > 1 {
+		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
+	}
 	var result m.Result
 	if len(dataResult) > (page * 10) {
 		start := (page - 1) * 10
@@ -718,6 +787,7 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 		page = 1
 	}
 	q := strings.TrimSpace(c.QueryParam("quarter"))
+	filter := strings.TrimSpace(c.QueryParam("filter"))
 	today := time.Now()
 	yearNow, _, _ := today.Date()
 	yearBefore := yearNow
@@ -896,22 +966,44 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 	) all_ranking
 	WHERE staff_id in (?)
 	group by staff_id;`
+	sqlFilter := `select * from staff_info where INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,one_id), ?) `
 
-	if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
-		if gorm.IsRecordNotFoundError(err) {
-			return c.JSON(http.StatusNoContent, nil)
+	var staffInfo []m.StaffInfo
+	hasErr := 0
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+	go func() {
+		if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				// return c.JSON(http.StatusNoContent, nil)
+				hasErr += 1
+				log.Errorln(pkgName, err, "select data error :-")
+			}
+			// return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
 		}
-		log.Errorln(pkgName, err, "select data error :-")
-		return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
-	}
-
-	if err := dbSale.Ctx().Raw(sqlBefore, yearBefore, quarterBefore, quarterBeforeNum, yearBefore, listStaffId).Scan(&invBefore).Error; err != nil {
-		if gorm.IsRecordNotFoundError(err) {
-			return c.JSON(http.StatusNoContent, nil)
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(sqlBefore, yearBefore, quarterBefore, quarterBeforeNum, yearBefore, listStaffId).Scan(&invBefore).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				// return c.JSON(http.StatusNoContent, nil)
+				hasErr += 1
+				log.Errorln(pkgName, err, "select data error :-")
+			}
+			// return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
 		}
-		log.Errorln(pkgName, err, "select data error :-")
-		return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
-	}
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(sqlFilter, filter).Scan(&staffInfo).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				hasErr += 1
+				log.Errorln(pkgName, err, "select data error :-")
+			}
+		}
+		wg.Done()
+	}()
+	wg.Wait()
 
 	var dataResult []m.OrgChart
 	for _, r := range report {
@@ -942,7 +1034,17 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
-		dataResult = append(dataResult, r)
+		// dataResult = append(dataResult, r)
+		if len(staffInfo) != 0 {
+			for _, st := range staffInfo {
+				if st.StaffId == r.StaffId {
+					dataResult = append(dataResult, r)
+				}
+			}
+		}
+		// else {
+		// dataResult = append(dataResult, r)
+		// }
 	}
 	sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
 	var result m.Result
