@@ -59,6 +59,8 @@ func InitApiRouter(g *echo.Group) error {
 	quotation := g.Group("/quotation")
 	quotation.GET("/summary", GetSummaryQuotationEndPoint)
 
+	permission := g.Group("/permission")
+	permission.GET("/lead/:id", CheckTeamLeadEndPoint)
 	// staff := g.Group("/staff")
 	// report.GET("/org", GetDataOrgChartEndPoint)
 	staff := g.Group("/staff")
