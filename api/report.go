@@ -447,3 +447,157 @@ func CheckPermissionOrg(id string) (map[string][]string, error) {
 	}
 	// return nil, nil
 }
+
+func GetReportSOPendingEndPoint(c echo.Context) error {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "init db error")
+	}
+
+	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	}
+
+	oneId := strings.TrimSpace(c.QueryParam("one_id"))
+	year := strings.TrimSpace(c.QueryParam("year"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("year")), 10); err == nil {
+			yearDefault = time.Unix(util.ConvertTimeStamp(f), 0)
+		}
+		years, _, _ := yearDefault.Date()
+		year = strconv.Itoa(years)
+	}
+
+	log.Infoln(pkgName, year)
+	log.Infoln(" query staff ")
+	staff := []struct {
+		StaffId    string `json:"staff_id"`
+		Role       string `json:"role"`
+		StaffChild string `json:"staff_child"`
+	}{}
+	if err := dbSale.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ? 
+	union
+	SELECT staff_id, "normal" as role, staff_child from staff_info where one_id = ? `, oneId, oneId).Scan(&staff).Error; err != nil {
+		log.Errorln(pkgName, err, "Select staff error")
+		return echo.ErrInternalServerError
+	}
+	staffs := []struct {
+		StaffId    string `json:"staff_id"`
+		StaffChild string `json:"staff_child"`
+	}{}
+	var listStaffId []string
+	if len(staff) != 0 {
+		for _, v := range staff {
+			log.Infoln(pkgName, v.Role)
+			if strings.TrimSpace(v.Role) == "admin" {
+				if err := dbSale.Ctx().Raw(`select staff_id from staff_info;`).Scan(&staffs).Error; err != nil {
+					log.Errorln(pkgName, err, "Select data error")
+				}
+				if len(staffs) != 0 {
+					for _, id := range staffs {
+						listStaffId = append(listStaffId, id.StaffId)
+					}
+				}
+			} else {
+				listStaffId = strings.Split(v.StaffChild, ",")
+			}
+		}
+	}
+	//////////////  getListStaffID  //////////////
+	type PendingData struct {
+		SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
+		CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
+		ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
+		SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
+		Day               string  `json:"day" gorm:"column:days"`
+		SoMonth           string  `json:"so_month" gorm:"column:so_month"`
+		SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
+		PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+		TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
+		StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
+		PayType           string  `json:"pay_type" gorm:"column:pay_type"`
+		SoType            string  `json:"so_type" gorm:"column:so_type"`
+		Prefix            string  `json:"prefix"`
+		Fname             string  `json:"fname"`
+		Lname             string  `json:"lname"`
+		Nname             string  `json:"nname"`
+		Position          string  `json:"position"`
+		Department        string  `json:"department"`
+		Status            string  `json:"status"`
+		Remark            string  `json:"remark"`
+	}
+	var rawData []PendingData
+	if err := dbSale.Ctx().Raw(`
+	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount, SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,
+	(case
+		when status is null then 0
+		else status end
+	) as status,
+	  (case
+		when tb_expire.remark is null then ''
+		else tb_expire.remark end
+	) as remark  from (
+		SELECT *  from (
+		SELECT 	Active_Inactive,has_refer,sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,
+				DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
+								PeriodAmount, SUM(PeriodAmount) as TotalAmount,
+								staff_id,prefix,fname,lname,nname,position,department
+								FROM so_mssql
+							left join
+							(
+								select staff_id, prefix, fname, lname, nname, position, department from staff_info
+							
+							) tb_sale on so_mssql.sale_code = tb_sale.staff_id
+							WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ? 
+							group by sonumber
+			) as tb_so_number
+			left join
+			(
+			 select 
+			 	(case
+					when pay_type is null then ''
+					else pay_type end
+				) as pay_type,
+				sonumber as so_check,
+				(case
+					when so_type is null then ''
+					else so_type end
+				) as so_type 
+			from check_so
+			) tb_check on tb_so_number.sonumber = tb_check.so_check
+		
+		) as tb_ch_so
+		left join
+		(
+		  select id,sonumber,
+		  	(case
+				when status is null then 0
+				else status end
+			) as status,
+		  	(case
+				when remark is null then ''
+				else remark end
+			) as remark 
+			from check_expire
+		  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
+		  group by tb_ch_so.sonumber
+		  `, listStaffId, year).Scan(&rawData).Error; err != nil {
+
+		log.Errorln(pkgName, err, "Select data error")
+	}
+
+	mapData := map[string][]PendingData{}
+
+	for _, v := range rawData {
+		mapData[v.SoMonth] = append(mapData[v.SoMonth], v)
+	}
+	var result m.Result
+	result.Data = mapData
+	result.Total = len(rawData)
+	return c.JSON(http.StatusOK, result)
+}

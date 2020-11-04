@@ -258,7 +258,9 @@ func GetRankingBaseSale(c echo.Context) error {
 		wg.Done()
 	}()
 	wg.Wait()
-
+	if hasErr != 0 {
+		return echo.ErrInternalServerError
+	}
 	var dataResult []m.OrgChart
 	// var dataResult []m.OrgChart
 	for _, r := range report {
@@ -566,7 +568,9 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	wg.Wait()
-
+	if hasErr != 0 {
+		return echo.ErrInternalServerError
+	}
 	var dataResult []m.OrgChart
 	for _, r := range report {
 		for _, i := range invBefore {
@@ -870,6 +874,9 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 	}()
 	wg.Wait()
 
+	if hasErr != 0 {
+		return echo.ErrInternalServerError
+	}
 	var dataResult []m.OrgChart
 	for _, r := range report {
 		for _, i := range invBefore {
@@ -911,7 +918,9 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 		// dataResult = append(dataResult, r)
 		// }
 	}
-	sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
+	if len(dataResult) != 0 {
+		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
+	}
 	var result m.Result
 	if len(dataResult) > (page * 10) {
 		start := (page - 1) * 10
