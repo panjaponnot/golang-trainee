@@ -277,3 +277,28 @@ func CreateStaffEndPoint(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, m.Result{Message: "create success"})
 }
+
+func EditStaffEndPoint(c echo.Context) error {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	defer dbSale.Close()
+	data := struct {
+		OneId   string `json:"one_id"`
+		StaffId string `json:"editstaff_id"`
+		Prefix  string `json:"prefix"`
+		Fname   string `json:"fname"`
+		Lname   string `json:"lname"`
+		Nname   string `json:"nname"`
+	}{}
+	if err := c.Bind(&data); err != nil {
+		return echo.ErrBadRequest
+	}
+	if err := dbSale.Ctx().Exec("UPDATE staff_info SET one_id = ?,staff_id = ?,prefix = ?,fname = ?,lname = ?,nname = ?", data.OneId, data.StaffId, data.Prefix, data.Fname, data.Lname, data.Nname).Error; err != nil {
+		log.Errorln("UPDATEStaffInfo error :-", err)
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	return c.JSON(http.StatusOK, m.Result{Message: "update success"})
+}
