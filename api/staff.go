@@ -175,3 +175,105 @@ func GetStaffProfileEndPoint(c echo.Context) error {
 	StaffInfo[0].Quarter = StaffGoalQuarter
 	return c.JSON(http.StatusOK, StaffInfo[0])
 }
+
+func CreateStaffEndPoint(c echo.Context) error {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	defer dbSale.Close()
+	hasErr := 0
+	data := struct {
+		OneId      string           `json:"one_id"`
+		StaffId    string           `json:"staff_id"`
+		Prefix     string           `json:"prefix"`
+		Fname      string           `json:"fname"`
+		Lname      string           `json:"lname"`
+		Nname      string           `json:"nname"`
+		Position   string           `json:"position"`
+		Department string           `json:"department"`
+		StaffChild string           `json:"staff_child"`
+		Mail       []m.StaffMail    `json:"mail"`
+		OneMail    []m.StaffOneMail `json:"OneMail"`
+		Tel        []m.StaffTel     `json:"Tel"`
+	}{}
+	if err := c.Bind(&data); err != nil {
+		return echo.ErrBadRequest
+	}
+
+	var StaffInfo []m.StaffInfo
+	if err := dbSale.Ctx().Raw(`SELECT staff_id from staff_info WHERE staff_id = ?;`, data.StaffId).Scan(&StaffInfo).Error; err != nil {
+		log.Errorln("CheckStaffInfo error :-", err)
+	}
+	if len(StaffInfo) > 0 {
+		return c.JSON(http.StatusBadRequest, m.Result{Message: "duplicate staff id"})
+	}
+
+	if err := dbSale.Ctx().Table("staff_info").Create(&data).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	if err := dbSale.Ctx().Raw(`SELECT staff_id from staff_info WHERE staff_id = ?;`, data.StaffId).Scan(&StaffInfo).Error; err != nil {
+		log.Errorln("CheckStaffInfo error :-", err)
+	}
+	if len(StaffInfo) == 0 {
+		return c.JSON(http.StatusBadRequest, m.Result{Message: "not find staff id"})
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+	go func() {
+		for _, mail := range data.Mail {
+			dataMail := struct {
+				RefStaff string `json:"ref_staff" gorm:"column:ref_staff"`
+				Mail     string `json:"mail"`
+			}{
+				RefStaff: data.StaffId,
+				Mail:     mail.Mail,
+			}
+			if err := dbSale.Ctx().Table("staff_mail").Create(&dataMail).Error; err != nil {
+				hasErr++
+			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		for _, onemail := range data.OneMail {
+			dataOneMail := struct {
+				RefStaff string `json:"ref_staff" gorm:"column:ref_staff"`
+				OneMail  string `json:"onemail"`
+			}{
+				RefStaff: data.StaffId,
+				OneMail:  onemail.Onemail,
+			}
+			if err := dbSale.Ctx().Table("staff_onemail").Create(&dataOneMail).Error; err != nil {
+				hasErr++
+			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		for _, tel := range data.Tel {
+			dataTel := struct {
+				RefStaff string `json:"ref_staff" gorm:"column:ref_staff"`
+				Tel      string `json:"tel"`
+				TelSub   string `json:"tel_sub"`
+			}{
+				RefStaff: data.StaffId,
+				Tel:      tel.Tel,
+				TelSub:   tel.TelSup,
+			}
+			if err := dbSale.Ctx().Table("staff_tel").Create(&dataTel).Error; err != nil {
+				hasErr++
+			}
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+
+	if hasErr != 0 {
+		return echo.ErrInternalServerError
+	}
+
+	return c.JSON(http.StatusOK, m.Result{Message: "create success"})
+}
