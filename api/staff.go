@@ -69,43 +69,6 @@ func GetStaffEndPoint(c echo.Context) error {
 	}
 	StaffInfo[0].Img = base64.StdEncoding.EncodeToString([]byte(StaffInfo[0].StaffImage))
 	return c.JSON(http.StatusOK, StaffInfo)
-	// StaffInfo.StaffImage = str((result[0]['staff_image']).decode("utf-8"))
-	// return json_response(StaffInfo, 200)
-	// wg := sync.WaitGroup{}
-	// wg.Add(4)
-	// go func() {
-
-	// 	for _, m := range data.Mail {
-	// 		if err := dbSale.Ctx().Table("staff_mail").Create(&m).Error; err != nil {
-	// 			return c.JSON(http.StatusInternalServerError, err)
-	// 		}
-	// 	}
-
-	// 	if err := dbSale.Ctx().Raw(`SELECT id, email, remark as comment, '' as status FROM staff_mail WHERE ref_staff = ?;`, data.StaffId).Scan(&StaffMail).Error; err != nil {
-	// 		log.Errorln("GetStaffMail error :-", err)
-	// 	}
-	// 	wg.Done()
-	// }()
-	// go func() {
-	// 	if err := dbSale.Ctx().Raw(`SELECT id, tel, tel_sup, remark as comment, '' as status FROM staff_tel WHERE ref_staff = ?;`, data.StaffId).Scan(&StaffTel).Error; err != nil {
-	// 		log.Errorln("GetStaffTel error :-", err)
-	// 	}
-	// 	wg.Done()
-	// }()
-	// go func() {
-	// 	if err := dbSale.Ctx().Raw(`SELECT id, position, division, department, start_date, remark as comment, '' as status FROM staff_position WHERE ref_staff = ?;`, data.StaffId).Scan(&StaffPosition).Error; err != nil {
-	// 		log.Errorln("GetStaffPosition error :-", err)
-	// 	}
-	// 	wg.Done()
-	// }()
-	// go func() {
-	// 	if err := dbSale.Ctx().Raw(`SELECT id, skill, mark, comment, '' as status FROM staff_ability WHERE ref_staff = ?;`, data.StaffId).Scan(&StaffAbility).Error; err != nil {
-	// 		log.Errorln("GetStaffAbility error :-", err)
-	// 	}
-	// 	wg.Done()
-	// }()
-	// wg.Wait()
-
 }
 
 func GetStaffProfileEndPoint(c echo.Context) error {
@@ -331,11 +294,33 @@ func DeleteStaffEndPoint(c echo.Context) error {
 		log.Errorln("DeleteStaffTel error :-", err)
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-
-	// if err := dbSale.Ctx().Model(m.ApiClient{}).Where(m.ApiClient{Name: name}).Unscoped().Delete(&m.ApiClient{}).Error; err != nil {
-	// 	log.Errorln("Error -:", err)
-	// 	return c.JSON(http.StatusInternalServerError, err)
-	// }
-
 	return c.JSON(http.StatusOK, m.Result{Message: "DELETE success"})
+}
+
+func GetStaffPictureEndPoint(c echo.Context) error {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	defer dbSale.Close()
+
+	StaffId := c.QueryParam(("one_id"))
+	if strings.TrimSpace(c.QueryParam(("one_id"))) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Message: "invalid one id"})
+	}
+	// log.Infoln(StaffId)
+	var StaffInfo []m.StaffImg
+	if err := dbSale.Ctx().Raw(`SELECT *
+	FROM staff_info AS sif
+	LEFT JOIN staff_images  AS sp
+	ON sif.one_id = sp.one_id
+	WHERE staff_info.one_id = ?
+	;`, StaffId).Scan(&StaffInfo).Error; err != nil {
+		log.Errorln("GetStaffInfoPicture error :-", err)
+	}
+	if len(StaffInfo) == 0 {
+		return c.JSON(http.StatusBadRequest, m.Result{Message: "cannot find staff id"})
+	}
+	StaffInfo[0].Img = base64.StdEncoding.EncodeToString([]byte(StaffInfo[0].StaffImage))
+	return c.JSON(http.StatusOK, StaffInfo)
 }
