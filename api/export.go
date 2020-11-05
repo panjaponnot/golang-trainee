@@ -259,21 +259,6 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 	// return c.JSON(http.StatusOK, model.Result{Data: rawData, Total: len(rawData)})
 }
 
-func TestbotEndPoint(c echo.Context) error {
-	if err := initDataStore(); err != nil {
-		log.Errorln(pkgName, err, "init db error")
-	}
-	d := struct {
-		StaffId string `json:"staff_id"`
-		// Role       string `json:"role"`
-		// StaffChild string `json:"staff_child"`
-	}{}
-	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info`).Scan(&d).Error; err != nil {
-		log.Errorln(pkgName, err, "Select data error")
-	}
-
-	return c.JSON(http.StatusOK, m.Result{Data: d})
-}
 func GetReportExcelSOEndPoint(c echo.Context) error {
 	if err := initDataStore(); err != nil {
 		log.Errorln(pkgName, err, "init db error")

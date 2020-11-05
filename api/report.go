@@ -601,3 +601,164 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 	result.Total = len(rawData)
 	return c.JSON(http.StatusOK, result)
 }
+
+func GetReportSOEndPoint(c echo.Context) error {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "init db error")
+	}
+	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	}
+	oneId := strings.TrimSpace(c.QueryParam("one_id"))
+	var user []m.UserInfo
+	if err := dbSale.Ctx().Raw(` SELECT * FROM user_info WHERE role = 'admin' AND one_id = ? `, oneId).Scan(&user).Error; err != nil {
+		log.Errorln(pkgName, err, "User Not Found")
+		if !gorm.IsRecordNotFoundError(err) {
+			log.Errorln(pkgName, err, "Select user Error")
+			return echo.ErrInternalServerError
+		}
+	}
+	rawData := []struct {
+		SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
+		CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
+		ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
+		SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
+		Day               string  `json:"day" gorm:"column:days"`
+		SoMonth           string  `json:"so_month" gorm:"column:so_month"`
+		SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
+		PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+		TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
+		StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
+		PayType           string  `json:"pay_type" gorm:"column:pay_type"`
+		SoType            string  `json:"so_type" gorm:"column:so_type"`
+		Prefix            string  `json:"prefix"`
+		Fname             string  `json:"fname"`
+		Lname             string  `json:"lname"`
+		Nname             string  `json:"nname"`
+		Position          string  `json:"position"`
+		Department        string  `json:"department"`
+		Status            string  `json:"status"`
+		Remark            string  `json:"remark"`
+	}{}
+	if len(user) != 0 {
+
+		if err := dbSale.Ctx().Raw(`SELECT * FROM (SELECT check_so.remark_sale as remark,check_so.status_sale,check_so.status_so as status_so,check_so.sonumber,
+			Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
+			so_refer,sale_code,sale_lead,PeriodAmount,so_type,pay_type,
+			in_factor,sale_factor,
+			SUM(PeriodAmount) as TotalAmount_old,
+			IFNULL(fname, '') as fname,
+			IFNULL(lname, '') as lname,
+			IFNULL(nname, '') as nname, department,TotalContractAmount as TotalAmount,SOWebStatus,pricesale,
+			datediff(ContractEndDate,ContractStartDate) as days , 'so' as role,
+			TIMESTAMPDIFF(month,ContractStartDate,DATE_ADD(ContractEndDate, INTERVAL 3 DAY)) as months
+		FROM (
+			select status_so,sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,so_refer,sale_code,sale_lead,PeriodAmount,
+			in_factor,sale_factor,(TotalContractAmount/1.07) as TotalContractAmount,
+			SOWebStatus,pricesale
+			from so_mssql
+			where has_refer = 0 and Active_Inactive = 'Active' and sonumber like '%SO%' and SOType <> 'Onetime' and SOType <> 'Project Base'
+		) so_mssql
+		left join check_so on check_so.sonumber = so_mssql.sonumber
+		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+		WHERE check_so.status_sale = 0 and check_so.remark_sale <> ''
+		group by sonumber
+		union
+		SELECT check_so.remark_sale as remark,check_so.status_sale,check_so.status_so as status_so,check_so.sonumber,Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
+			so_refer,sale_code,sale_lead,PeriodAmount,so_type,pay_type,
+			in_factor,sale_factor,
+			SUM(PeriodAmount) as TotalAmount_old,
+			IFNULL(fname, '') as fname,
+			IFNULL(lname, '') as lname,
+			IFNULL(nname, '') as nname, department,TotalContractAmount as TotalAmount,SOWebStatus,pricesale,
+			datediff(ContractEndDate,ContractStartDate) as days , 'so' as role,
+			TIMESTAMPDIFF(month,ContractStartDate,DATE_ADD(ContractEndDate, INTERVAL 3 DAY)) as months
+		FROM (
+			select status_so,sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,so_refer,sale_code,sale_lead,PeriodAmount,
+			in_factor,sale_factor,(TotalContractAmount/1.07) as TotalContractAmount,
+			SOWebStatus,PeriodAmount as pricesale
+			from so_mssql_navision
+			where has_refer = 0 and Active_Inactive = 'Active' and sonumber not like '%SO%' and SOType <> 'Onetime' and SOType <> 'Project Base'
+		) so_mssql
+		left join check_so on check_so.sonumber = so_mssql.sonumber
+		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+		WHERE check_so.status_sale = 0 and check_so.remark_sale <> ''
+		group by sonumber order by status_sale) as data`).Scan(&rawData).Error; err != nil {
+			log.Errorln(pkgName, err, "Select data error")
+		}
+
+	} else {
+		var listStaffId []string
+		staff := struct {
+			StaffId    string `json:"staff_id"`
+			StaffChild string `json:"staff_child"`
+		}{}
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info where one_id = ?`, oneId).Scan(&staff).Error; err != nil {
+			log.Errorln(pkgName, err, "Select data error")
+		}
+
+		if strings.TrimSpace(staff.StaffChild) != "" {
+			raw := strings.Split(staff.StaffChild, ",")
+			for _, id := range raw {
+				listStaffId = append(listStaffId, id)
+			}
+			listStaffId = append(listStaffId, staff.StaffId)
+			log.Infoln(pkgName, "has team", staff)
+		} else {
+			listStaffId = append(listStaffId, staff.StaffId)
+			log.Infoln(pkgName, "not found team", staff)
+		}
+
+		if err := dbSale.Ctx().Raw(`SELECT * FROM (SELECT check_so.status_so as status_so,check_so.status_sale as status_sale,so_mssql.sonumber,Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
+			so_refer,sale_code,sale_lead,PeriodAmount,so_type,pay_type,
+			in_factor,sale_factor,
+			SUM(PeriodAmount) as TotalAmount_old,
+			IFNULL(fname, '') as fname,
+			IFNULL(lname, '') as lname,
+			IFNULL(nname, '') as nname, department,TotalContractAmount as TotalAmount,SOWebStatus,pricesale,
+			datediff(ContractEndDate,ContractStartDate) as days ,check_so.remark_sale as remark,'sale' as role,
+			TIMESTAMPDIFF(month,ContractStartDate,DATE_ADD(ContractEndDate, INTERVAL 3 DAY)) as months
+		FROM (
+			select status_sale,sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,so_refer,sale_code,sale_lead,PeriodAmount,
+			in_factor,sale_factor,(TotalContractAmount/1.07) as TotalContractAmount,
+			SOWebStatus,pricesale
+			from so_mssql
+			where has_refer = 0 and Active_Inactive = 'Active' and sonumber like '%SO%' and SOType <> 'Onetime' and SOType <> 'Project Base'
+		) so_mssql
+		left join check_so on check_so.sonumber = so_mssql.sonumber
+		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+		WHERE sale_code in (?)
+			group by sonumber
+		union
+		SELECT check_so.status_so as status_so,check_so.status_sale as status_sale,so_mssql.sonumber,Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
+			so_refer,sale_code,sale_lead,PeriodAmount,so_type,pay_type,
+			in_factor,sale_factor,
+			SUM(PeriodAmount) as TotalAmount_old,
+			IFNULL(fname, '') as fname,
+			IFNULL(lname, '') as lname,
+			IFNULL(nname, '') as nname, department,TotalContractAmount as TotalAmount,SOWebStatus,pricesale,
+			datediff(ContractEndDate,ContractStartDate) as days ,check_so.remark_sale as remark,'sale' as role,
+			TIMESTAMPDIFF(month,ContractStartDate,DATE_ADD(ContractEndDate, INTERVAL 3 DAY)) as months
+		FROM (
+			select status_sale,sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,so_refer,sale_code,sale_lead,PeriodAmount,
+			in_factor,sale_factor,(TotalContractAmount/1.07) as TotalContractAmount,
+			SOWebStatus,PeriodAmount as pricesale
+			from so_mssql_navision
+			where has_refer = 0 and Active_Inactive = 'Active' and sonumber not like '%SO%' and SOType <> 'Onetime' and SOType <> 'Project Base'
+		) so_mssql
+		left join check_so on check_so.sonumber = so_mssql.sonumber
+		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+		WHERE sale_code in (?)
+			group by sonumber order by status_sale ) as data
+			`, listStaffId, listStaffId).Scan(&rawData).Error; err != nil {
+			log.Errorln(pkgName, err, "Select data error")
+		}
+	}
+
+	return c.JSON(http.StatusOK, rawData)
+}
