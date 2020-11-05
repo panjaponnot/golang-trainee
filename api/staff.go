@@ -302,3 +302,40 @@ func EditStaffEndPoint(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, m.Result{Message: "update success"})
 }
+
+func DeleteStaffEndPoint(c echo.Context) error {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	defer dbSale.Close()
+	data := struct {
+		Id string `json:"id"`
+	}{}
+	if err := c.Bind(&data); err != nil {
+		return echo.ErrBadRequest
+	}
+	if err := dbSale.Ctx().Exec("DELETE FROM staff_info WHERE id = ?", data.Id).Error; err != nil {
+		log.Errorln("DeleteStaffInfo error :-", err)
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	if err := dbSale.Ctx().Exec("DELETE FROM staff_mail WHERE ref_staff = ?", data.Id).Error; err != nil {
+		log.Errorln("DeleteStaffMail error :-", err)
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	if err := dbSale.Ctx().Exec("DELETE FROM staff_onemail WHERE ref_staff = ?", data.Id).Error; err != nil {
+		log.Errorln("DeleteStaffOneMail error :-", err)
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	if err := dbSale.Ctx().Exec("DELETE FROM staff_tel WHERE ref_staff = ?", data.Id).Error; err != nil {
+		log.Errorln("DeleteStaffTel error :-", err)
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	// if err := dbSale.Ctx().Model(m.ApiClient{}).Where(m.ApiClient{Name: name}).Unscoped().Delete(&m.ApiClient{}).Error; err != nil {
+	// 	log.Errorln("Error -:", err)
+	// 	return c.JSON(http.StatusInternalServerError, err)
+	// }
+
+	return c.JSON(http.StatusOK, m.Result{Message: "DELETE success"})
+}
