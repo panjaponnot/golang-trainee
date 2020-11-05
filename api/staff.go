@@ -324,3 +324,19 @@ func GetStaffPictureEndPoint(c echo.Context) error {
 	StaffInfo[0].Img = base64.StdEncoding.EncodeToString([]byte(StaffInfo[0].StaffImage))
 	return c.JSON(http.StatusOK, StaffInfo)
 }
+
+func GetAllStaffIdEndPoint(c echo.Context) error {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	defer dbSale.Close()
+	var StaffInfo []m.StaffId
+	if err := dbSale.Ctx().Raw(`SELECT staff_id FROM staff_info;`).Scan(&StaffInfo).Error; err != nil {
+		log.Errorln("GetStaffInfo error :-", err)
+	}
+	if len(StaffInfo) == 0 {
+		return c.JSON(http.StatusBadRequest, m.Result{Message: "cannot find staff id"})
+	}
+	return c.JSON(http.StatusOK, StaffInfo)
+}
