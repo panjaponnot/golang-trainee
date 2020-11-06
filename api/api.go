@@ -72,6 +72,7 @@ func InitApiRouter(g *echo.Group) error {
 	staff.PUT("", EditStaffEndPoint)
 	staff.DELETE("", DeleteStaffEndPoint)
 	staff.GET("staffpicture", GetStaffPictureEndPoint)
+	staff.GET("staffid", GetAllStaffIdEndPoint)
 	// report.GET("/ranking/base", GetRankingBaseSale)
 
 	return nil
