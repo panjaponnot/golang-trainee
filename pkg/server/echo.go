@@ -2,15 +2,16 @@ package server
 
 import (
 	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/facebookgo/grace/gracehttp"
 	echoPrometheus "github.com/globocom/echo-prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 type Config struct {
@@ -52,6 +53,7 @@ func New(config Config) Server {
 	}
 	if !s.config.Prod {
 		s.ctx.Use(s.logger())
+		_ = s.EnableCORS([]string{}, []string{})
 	}
 	return s
 }
@@ -97,7 +99,7 @@ func (s *Server) EnableCORS(allowOrigins []string, allowHeaders []string) error 
 	}
 	s.ctx.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: allowOrigins,
-		AllowHeaders: allowOrigins,
+		AllowHeaders: allowHeaders,
 	}))
 	return nil
 }
