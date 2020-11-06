@@ -359,7 +359,7 @@ func GetGroupChild(c echo.Context, group []m.GroupRelation) []m.GroupRelation {
 		if err := dbSale.Ctx().Raw(`SELECT id_group_child
 		FROM group_relation
 		WHERE id_group = ?`, IdGroup).Scan(&InsResult).Error; err != nil {
-			log.Errorln("GetStaffInfo error :-", err)
+			log.Errorln("GetInsResult error :-", err)
 		}
 		// if len(InsResult) == 0 {
 		// 	InsResult = []m.GroupRelation
@@ -392,7 +392,7 @@ func GetStaffByIdGroup(c echo.Context, group []m.GroupRelation) []m.StaffGroupRe
 		if err := dbSale.Ctx().Raw(`SELECT id_staff
 		FROM staff_group_relation
 		WHERE id_group = ?`, IdGroup).Scan(&InsResult).Error; err != nil {
-			log.Errorln("GetStaffInfo error :-", err)
+			log.Errorln("GetInsResult error :-", err)
 		}
 
 		for _, i := range InsResult {
@@ -417,4 +417,28 @@ func GetDupStaffId(sgr []m.StaffGroupRelation) []m.StaffGroupRelation {
 		check = 0
 	}
 	return CheckedStaffIdList
+}
+
+func GetStaffInfoById(c echo.Context, CheckedStaffIdList []m.StaffGroupRelation) []m.StaffInfo {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		// return c.JSON(http.StatusInternalServerError, err)
+	}
+	defer dbSale.Close()
+
+	var StaffInfo []m.StaffInfo
+	var Result []m.StaffInfo
+	var StaffId string
+	for _, c := range CheckedStaffIdList {
+		StaffId = c.IdStaff
+		if err := dbSale.Ctx().Raw(`SELECT prefix, fname, lname
+		FROM staff_info
+		WHERE staff_id = ?`, StaffId).Scan(&Result).Error; err != nil {
+			log.Errorln("GetStaffInfo error :-", err)
+		}
+		for _, r := range Result {
+			StaffInfo = append(StaffInfo, r)
+		}
+	}
+	return StaffInfo
 }
