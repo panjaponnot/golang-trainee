@@ -340,3 +340,81 @@ func GetAllStaffIdEndPoint(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, StaffInfo)
 }
+
+func GetGroupChild(c echo.Context, group []m.GroupRelation) []m.GroupRelation {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		// return c.JSON(http.StatusInternalServerError, err)
+	}
+	defer dbSale.Close()
+	var IdGroup string
+	var InsResult []m.GroupRelation
+	var Result []m.GroupRelation
+	for _, g := range group {
+		if g.IdGroup != "" {
+			IdGroup = g.IdGroup
+		} else {
+			IdGroup = g.IdGroupChild
+		}
+		if err := dbSale.Ctx().Raw(`SELECT id_group_child
+		FROM group_relation
+		WHERE id_group = ?`, IdGroup).Scan(&InsResult).Error; err != nil {
+			log.Errorln("GetStaffInfo error :-", err)
+		}
+		// if len(InsResult) == 0 {
+		// 	InsResult = []m.GroupRelation
+		// }
+		InsResult := GetGroupChild(c, InsResult)
+		//  + InsResult
+		for _, i := range InsResult {
+			InsResult = append(InsResult, i)
+		}
+		Result = InsResult
+	}
+	return Result
+}
+
+func GetStaffByIdGroup(c echo.Context, group []m.GroupRelation) []m.StaffGroupRelation {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		// return c.JSON(http.StatusInternalServerError, err)
+	}
+	defer dbSale.Close()
+	var IdGroup string
+	var InsResult []m.StaffGroupRelation
+	var IdStarfList []m.StaffGroupRelation
+	for _, g := range group {
+		if g.IdGroup != "" {
+			IdGroup = g.IdGroup
+		} else {
+			IdGroup = g.IdGroupChild
+		}
+		if err := dbSale.Ctx().Raw(`SELECT id_staff
+		FROM staff_group_relation
+		WHERE id_group = ?`, IdGroup).Scan(&InsResult).Error; err != nil {
+			log.Errorln("GetStaffInfo error :-", err)
+		}
+
+		for _, i := range InsResult {
+			IdStarfList = append(IdStarfList, i)
+		}
+	}
+	return IdStarfList
+}
+
+func GetDupStaffId(sgr []m.StaffGroupRelation) []m.StaffGroupRelation {
+	check := 0
+	var CheckedStaffIdList []m.StaffGroupRelation
+	for _, sgr := range sgr {
+		for _, c := range CheckedStaffIdList {
+			if sgr.IdStaff == c.IdStaff {
+				check++
+			}
+		}
+		if check == 0 {
+			CheckedStaffIdList = append(CheckedStaffIdList, sgr)
+		}
+		check = 0
+	}
+	return CheckedStaffIdList
+}
