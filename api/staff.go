@@ -16,8 +16,6 @@ func GetAllStaffEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
-	// var StaffAll []m.StaffAll
 	StaffAll := struct {
 		StaffId    string `json:"staff_id"`
 		Prefix     string `json:"prefix"`

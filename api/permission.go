@@ -129,7 +129,6 @@ func CheckTeamLeadEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
 	var user []m.UserInfo
 	if err := dbSale.Ctx().Raw(`SELECT * from user_info WHERE role = 'admin' and staff_id = ?`, id).Scan(&user).Error; err != nil {
 		if !gorm.IsRecordNotFoundError(err) {

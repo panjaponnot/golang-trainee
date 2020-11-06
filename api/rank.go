@@ -28,7 +28,7 @@ func GetRankingBaseSale(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
+
 	if strings.TrimSpace(c.QueryParam(("staff_id"))) == "" || strings.TrimSpace(c.QueryParam("quarter")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Message: "invalid staff id or quarter"})
 	}
@@ -328,7 +328,6 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
 	conKey := strings.Split(util.GetEnv("CONDITION_GOV_KEY_SALE", ""), ",")
 	var dFilter []string
 	for _, v := range conKey {
@@ -634,7 +633,6 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
 	conKey := strings.Split(util.GetEnv("CONDITION_GOV_RECOVER_SALE", ""), ",")
 	var dFilter []string
 	for _, v := range conKey {
