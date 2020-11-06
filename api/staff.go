@@ -16,8 +16,6 @@ func GetAllStaffEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
-	// var StaffAll []m.StaffAll
 	StaffAll := struct {
 		StaffId    string `json:"staff_id"`
 		Prefix     string `json:"prefix"`
@@ -47,7 +45,6 @@ func GetStaffEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
 
 	StaffId := c.QueryParam(("staff_id"))
 	if strings.TrimSpace(c.QueryParam(("staff_id"))) == "" {
@@ -76,7 +73,6 @@ func GetStaffProfileEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
 
 	StaffId := c.QueryParam(("staff_id"))
 	var StaffMail m.StaffMail
@@ -144,7 +140,7 @@ func CreateStaffEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
+
 	hasErr := 0
 	data := struct {
 		OneId      string           `json:"one_id"`
@@ -246,7 +242,7 @@ func EditStaffEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
+
 	data := struct {
 		OneId   string `json:"one_id"`
 		StaffId string `json:"editstaff_id"`
@@ -271,7 +267,7 @@ func DeleteStaffEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
+
 	data := struct {
 		Id string `json:"id"`
 	}{}
@@ -302,7 +298,6 @@ func GetStaffPictureEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
 
 	StaffId := c.QueryParam(("one_id"))
 	if strings.TrimSpace(c.QueryParam(("one_id"))) == "" {
@@ -330,7 +325,7 @@ func GetAllStaffIdEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "connect database error")
 		return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
+
 	var StaffInfo []m.StaffId
 	if err := dbSale.Ctx().Raw(`SELECT staff_id FROM staff_info;`).Scan(&StaffInfo).Error; err != nil {
 		log.Errorln("GetStaffInfo error :-", err)
@@ -346,7 +341,7 @@ func GetGroupChild(c echo.Context, group []m.GroupRelation) []m.GroupRelation {
 		log.Errorln(pkgName, err, "connect database error")
 		// return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
+
 	var IdGroup string
 	var InsResult []m.GroupRelation
 	var Result []m.GroupRelation
@@ -379,7 +374,7 @@ func GetStaffByIdGroup(c echo.Context, group []m.GroupRelation) []m.StaffGroupRe
 		log.Errorln(pkgName, err, "connect database error")
 		// return c.JSON(http.StatusInternalServerError, err)
 	}
-	defer dbSale.Close()
+
 	var IdGroup string
 	var InsResult []m.StaffGroupRelation
 	var IdStarfList []m.StaffGroupRelation
