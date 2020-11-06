@@ -28,6 +28,10 @@ type StaffImg struct {
 	Img        string `json:"img"`
 }
 
+type StaffId struct {
+	StaffId string `json:"staff_id"`
+}
+
 type UserInfo struct {
 	OneId      string    `json:"one_id"`
 	StaffId    string    `json:"staff_id"`
@@ -151,4 +155,13 @@ type StaffGoalQuarter struct {
 	RealTotal  string `json:"real_total"`
 	CreateDate string `json:"create_date"`
 	CreateBy   string `json:"create_by"`
+}
+
+type GroupRelation struct {
+	IdGroup      string `json:"id_group"`
+	IdGroupChild string `json:"id_group_child"`
+}
+
+type StaffGroupRelation struct {
+	IdStaff string `json:"id_staff"`
 }
