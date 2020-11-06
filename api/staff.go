@@ -341,7 +341,6 @@ func GetGroupChild(c echo.Context, group []m.GroupRelation) []m.GroupRelation {
 		log.Errorln(pkgName, err, "connect database error")
 		// return c.JSON(http.StatusInternalServerError, err)
 	}
-
 	var IdGroup string
 	var InsResult []m.GroupRelation
 	var Result []m.GroupRelation
@@ -354,7 +353,7 @@ func GetGroupChild(c echo.Context, group []m.GroupRelation) []m.GroupRelation {
 		if err := dbSale.Ctx().Raw(`SELECT id_group_child
 		FROM group_relation
 		WHERE id_group = ?`, IdGroup).Scan(&InsResult).Error; err != nil {
-			log.Errorln("GetStaffInfo error :-", err)
+			log.Errorln("GetInsResult error :-", err)
 		}
 		// if len(InsResult) == 0 {
 		// 	InsResult = []m.GroupRelation
@@ -387,7 +386,7 @@ func GetStaffByIdGroup(c echo.Context, group []m.GroupRelation) []m.StaffGroupRe
 		if err := dbSale.Ctx().Raw(`SELECT id_staff
 		FROM staff_group_relation
 		WHERE id_group = ?`, IdGroup).Scan(&InsResult).Error; err != nil {
-			log.Errorln("GetStaffInfo error :-", err)
+			log.Errorln("GetInsResult error :-", err)
 		}
 
 		for _, i := range InsResult {
@@ -397,12 +396,12 @@ func GetStaffByIdGroup(c echo.Context, group []m.GroupRelation) []m.StaffGroupRe
 	return IdStarfList
 }
 
-func GetDupStaffId(sgr []m.StaffGroupRelation) []m.StaffGroupRelation {
+func CheckDupStaffId(sgr []m.StaffGroupRelation) []m.StaffGroupRelation {
 	check := 0
 	var CheckedStaffIdList []m.StaffGroupRelation
 	for _, sgr := range sgr {
 		for _, c := range CheckedStaffIdList {
-			if sgr.IdStaff == c.IdStaff {
+			if sgr.IdGroup == c.IdGroup {
 				check++
 			}
 		}
@@ -412,4 +411,71 @@ func GetDupStaffId(sgr []m.StaffGroupRelation) []m.StaffGroupRelation {
 		check = 0
 	}
 	return CheckedStaffIdList
+}
+
+func GetStaffInfoById(c echo.Context, CheckedStaffIdList []m.StaffGroupRelation) ([]m.StaffInfo, error) {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		// return c.JSON(http.StatusInternalServerError, err)
+	}
+	defer dbSale.Close()
+
+	var StaffInfo []m.StaffInfo
+	var Result []m.StaffInfo
+	var StaffId string
+	for _, c := range CheckedStaffIdList {
+		StaffId = c.IdGroup
+		if err := dbSale.Ctx().Raw(`SELECT prefix, fname, lname
+		FROM staff_info
+		WHERE staff_id = ?`, StaffId).Scan(&Result).Error; err != nil {
+			log.Errorln("GetStaffInfo error :-", err)
+		}
+		for _, r := range Result {
+			StaffInfo = append(StaffInfo, r)
+		}
+	}
+	return StaffInfo, nil
+}
+
+func GetSubordinateStaff(c echo.Context) ([]m.StaffInfo, error) {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		// return c.JSON(http.StatusInternalServerError, err)
+	}
+	defer dbSale.Close()
+	StaffId := c.QueryParam(("staff_id"))
+	log.Infoln(StaffId)
+	var Result []m.StaffGroupRelation
+	var ResultData []m.GroupRelation
+	if err := dbSale.Ctx().Raw(`SELECT id_group
+	FROM staff_group_relation
+	WHERE id_staff = ?`, StaffId).Scan(&Result).Error; err != nil {
+		log.Errorln("GetResult error :-", err)
+	}
+	// log.Infoln(Result)
+	for _, r := range Result {
+		data := m.GroupRelation{
+			IdGroup:      r.IdGroup,
+			IdGroupChild: "",
+		}
+		ResultData = append(ResultData, data)
+	}
+	GroupChildList := GetGroupChild(c, ResultData)
+	StaffIdList := GetStaffByIdGroup(c, GroupChildList)
+	CheckedStaffIdList := CheckDupStaffId(StaffIdList)
+	StaffInfo, _ := GetStaffInfoById(c, CheckedStaffIdList)
+	return StaffInfo, nil
+}
+
+func GetSubordinateStaffEndPoint(c echo.Context) error {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+	}
+	defer dbSale.Close()
+	StaffInfo, err := GetSubordinateStaff(c)
+	if err != nil {
+		log.Errorln("cannot get subordinate staff", err)
+	}
+
+	return c.JSON(http.StatusOK, StaffInfo)
 }
