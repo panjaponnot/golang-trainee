@@ -163,5 +163,5 @@ type GroupRelation struct {
 }
 
 type StaffGroupRelation struct {
-	IdStaff string `json:"id_staff"`
+	IdGroup string `json:"id_group"`
 }
