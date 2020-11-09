@@ -518,7 +518,7 @@ func CreateStaffPictureEndPoint(c echo.Context) error {
 	// 	}
 	// }
 
-	return c.JSON(http.StatusOK, StaffInfo)
+	return c.JSON(http.StatusOK, nil)
 }
 
 func CheckPictureUrl(namepic string) bool {

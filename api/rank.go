@@ -24,12 +24,6 @@ func GetRankingBaseSale(c echo.Context) error {
 		dFilter = append(dFilter, t)
 	}
 	finalFilter := fmt.Sprintf(` %s `, strings.Join(dFilter, " OR "))
-	// if err := initDataStore(); err != nil {
-	// 	log.Errorln(pkgName, err, "connect database error")
-	// 	return c.JSON(http.StatusInternalServerError, err)
-	// }
-	// defer dbSale.Close()
-
 	if strings.TrimSpace(c.QueryParam(("staff_id"))) == "" || strings.TrimSpace(c.QueryParam("quarter")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Message: "invalid staff id or quarter"})
 	}
@@ -263,7 +257,6 @@ func GetRankingBaseSale(c echo.Context) error {
 		return echo.ErrInternalServerError
 	}
 	var dataResult []m.OrgChart
-	// var dataResult []m.OrgChart
 	for _, r := range report {
 		for _, i := range invBefore {
 			if i.StaffID == r.StaffId {
@@ -300,9 +293,6 @@ func GetRankingBaseSale(c echo.Context) error {
 				}
 			}
 		}
-		// else {
-		// dataResult = append(dataResult, r)
-		// }
 	}
 
 	if len(dataResult) > 1 {
@@ -325,11 +315,6 @@ func GetRankingBaseSale(c echo.Context) error {
 }
 
 func GetRankingKeyAccountEndPoint(c echo.Context) error {
-	// if err := initDataStore(); err != nil {
-	// 	log.Errorln(pkgName, err, "connect database error")
-	// 	return c.JSON(http.StatusInternalServerError, err)
-	// }
-	// defer dbSale.Close()
 	conKey := strings.Split(util.GetEnv("CONDITION_GOV_KEY_SALE", ""), ",")
 	var dFilter []string
 	for _, v := range conKey {
@@ -540,22 +525,18 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 	go func() {
 		if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
-				// return c.JSON(http.StatusNoContent, nil)
 				hasErr += 1
 				log.Errorln(pkgName, err, "select data error :-")
 			}
-			// return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
 		}
 		wg.Done()
 	}()
 	go func() {
 		if err := dbSale.Ctx().Raw(sqlBefore, yearBefore, quarterBefore, quarterBeforeNum, yearBefore, listStaffId).Scan(&invBefore).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
-				// return c.JSON(http.StatusNoContent, nil)
 				hasErr += 1
 				log.Errorln(pkgName, err, "select data error :-")
 			}
-			// return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
 		}
 		wg.Done()
 	}()
@@ -608,9 +589,6 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 				}
 			}
 		}
-		// else {
-		// dataResult = append(dataResult, r)
-		// }
 	}
 	if len(dataResult) > 1 {
 		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
@@ -631,11 +609,6 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 }
 
 func GetRankingRecoveryEndPoint(c echo.Context) error {
-	// if err := initDataStore(); err != nil {
-	// 	log.Errorln(pkgName, err, "connect database error")
-	// 	return c.JSON(http.StatusInternalServerError, err)
-	// }
-	// defer dbSale.Close()
 
 	conKey := strings.Split(util.GetEnv("CONDITION_GOV_RECOVER_SALE", ""), ",")
 	var dFilter []string
@@ -846,22 +819,18 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 	go func() {
 		if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
-				// return c.JSON(http.StatusNoContent, nil)
 				hasErr += 1
 				log.Errorln(pkgName, err, "select data error :-")
 			}
-			// return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
 		}
 		wg.Done()
 	}()
 	go func() {
 		if err := dbSale.Ctx().Raw(sqlBefore, yearBefore, quarterBefore, quarterBeforeNum, yearBefore, listStaffId).Scan(&invBefore).Error; err != nil {
-			if gorm.IsRecordNotFoundError(err) {
-				// return c.JSON(http.StatusNoContent, nil)
+			if !gorm.IsRecordNotFoundError(err) {
 				hasErr += 1
 				log.Errorln(pkgName, err, "select data error :-")
 			}
-			// return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
 		}
 		wg.Done()
 	}()
@@ -908,7 +877,6 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
-		// dataResult = append(dataResult, r)
 		if len(staffInfo) != 0 {
 			for _, st := range staffInfo {
 				if st.StaffId == r.StaffId {
@@ -916,9 +884,6 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 				}
 			}
 		}
-		// else {
-		// dataResult = append(dataResult, r)
-		// }
 	}
 	if len(dataResult) != 0 {
 		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
@@ -1226,22 +1191,18 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 	go func() {
 		if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
-				// return c.JSON(http.StatusNoContent, nil)
 				hasErr += 1
 				log.Errorln(pkgName, err, "select data error :-")
 			}
-			// return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
 		}
 		wg.Done()
 	}()
 	go func() {
 		if err := dbSale.Ctx().Raw(sqlBefore, yearBefore, quarterBefore, quarterBeforeNum, yearBefore, quarterBeforeNum, yearBefore, listStaffId).Scan(&invBefore).Error; err != nil {
-			if gorm.IsRecordNotFoundError(err) {
-				// return c.JSON(http.StatusNoContent, nil)
+			if !gorm.IsRecordNotFoundError(err) {
 				hasErr += 1
 				log.Errorln(pkgName, err, "select data error :-")
 			}
-			// return c.JSON(http.StatusInternalServerError, m.Result{Error: "select data error"})
 		}
 		wg.Done()
 	}()
