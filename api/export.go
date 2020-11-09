@@ -19,9 +19,9 @@ import (
 func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 
 	//////////////  getListStaffID  //////////////
-	if err := initDataStore(); err != nil {
-		log.Errorln(pkgName, err, "init db error")
-	}
+	// if err := initDataStore(); err != nil {
+	// 	log.Errorln(pkgName, err, "init db error")
+	// }
 	staff := []struct {
 		StaffId    string `json:"staff_id"`
 		Role       string `json:"role"`
@@ -260,9 +260,9 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 }
 
 func GetReportExcelSOEndPoint(c echo.Context) error {
-	if err := initDataStore(); err != nil {
-		log.Errorln(pkgName, err, "init db error")
-	}
+	// if err := initDataStore(); err != nil {
+	// 	log.Errorln(pkgName, err, "init db error")
+	// }
 	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	}

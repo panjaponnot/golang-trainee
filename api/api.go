@@ -41,6 +41,10 @@ func initDataStore() error {
 
 // InitApiRouter for Export API
 func InitApiRouter(g *echo.Group) error {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+	}
+	// defer dbSale.Close()
 	// g.Use(auth.AuthMiddlewareWithConfig(auth.Config{Skipper: func(c echo.Context) bool {
 	// 	skipper := server.NewSkipperPath("")
 	// 	skipper.Add("/api/v1/export", http.MethodGet)
@@ -57,12 +61,16 @@ func InitApiRouter(g *echo.Group) error {
 	report.GET("/ranking/base", GetRankingBaseSale)
 	report.GET("/ranking/key", GetRankingKeyAccountEndPoint)
 	report.GET("/ranking/recovery", GetRankingRecoveryEndPoint)
+	report.GET("/ranking/lead", GetRankingTeamLeadEndPoint)
 
 	quotation := g.Group("/quotation")
 	quotation.GET("/summary", GetSummaryQuotationEndPoint)
 
 	permission := g.Group("/permission")
 	permission.GET("/lead/:id", CheckTeamLeadEndPoint)
+
+	summary := g.Group("/summary")
+	summary.GET("/customer", GetSummaryCustomerEndPoint)
 	// staff := g.Group("/staff")
 	// report.GET("/org", GetDataOrgChartEndPoint)
 	staff := g.Group("/staff")

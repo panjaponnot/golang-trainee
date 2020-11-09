@@ -16,10 +16,10 @@ import (
 )
 
 func GetSummaryQuotationEndPoint(c echo.Context) error {
-	if err := initDataStore(); err != nil {
-		log.Errorln(pkgName, err, "connect database error")
-		return c.JSON(http.StatusInternalServerError, err)
-	}
+	// if err := initDataStore(); err != nil {
+	// 	log.Errorln(pkgName, err, "connect database error")
+	// 	return c.JSON(http.StatusInternalServerError, err)
+	// }
 	type QuotationJoin struct {
 		DocNumberEform  string    `json:"doc_number_eform"`
 		Service         string    `json:"service"`

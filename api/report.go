@@ -16,10 +16,10 @@ import (
 )
 
 func GetDataOrgChartEndPoint(c echo.Context) error {
-	if err := initDataStore(); err != nil {
-		log.Errorln(pkgName, err, "connect database error")
-		return c.JSON(http.StatusInternalServerError, err)
-	}
+	// if err := initDataStore(); err != nil {
+	// 	log.Errorln(pkgName, err, "connect database error")
+	// 	return c.JSON(http.StatusInternalServerError, err)
+	// }
 
 	if strings.TrimSpace(c.QueryParam(("staff_id"))) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Message: "invalid staff id"})
@@ -449,9 +449,9 @@ func CheckPermissionOrg(id string) (map[string][]string, error) {
 }
 
 func GetReportSOPendingEndPoint(c echo.Context) error {
-	if err := initDataStore(); err != nil {
-		log.Errorln(pkgName, err, "init db error")
-	}
+	// if err := initDataStore(); err != nil {
+	// 	log.Errorln(pkgName, err, "init db error")
+	// }
 
 	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
@@ -603,9 +603,9 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 }
 
 func GetReportSOEndPoint(c echo.Context) error {
-	if err := initDataStore(); err != nil {
-		log.Errorln(pkgName, err, "init db error")
-	}
+	// if err := initDataStore(); err != nil {
+	// 	log.Errorln(pkgName, err, "init db error")
+	// }
 	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	}
