@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"sale_ranking/model"
-	"sale_ranking/pkg/log"
 	"sale_ranking/pkg/server"
 	"sale_ranking/pkg/util"
 	"strconv"
@@ -16,10 +15,10 @@ import (
 )
 
 func GetSummaryCustomerEndPoint(c echo.Context) error {
-	if err := initDataStore(); err != nil {
-		log.Errorln(pkgName, err, "connect database error")
-		return c.JSON(http.StatusInternalServerError, err)
-	}
+	// if err := initDataStore(); err != nil {
+	// 	log.Errorln(pkgName, err, "connect database error")
+	// 	return c.JSON(http.StatusInternalServerError, err)
+	// }
 	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
 	}
