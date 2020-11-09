@@ -545,9 +545,9 @@ func GetStaffProfileV2EndPoint(c echo.Context) error {
 	var StaffMail m.StaffMail
 	var StaffTel m.StaffTel
 	var StaffOneMail m.StaffOneMail
-	var StaffGoalMonth m.StaffGoalMonth
-	var StaffGoalQuarter m.StaffGoalQuarter
-	var StaffInfo []m.StaffProfile
+	// var StaffGoalMonth m.StaffGoalMonth
+	// var StaffGoalQuarter m.StaffGoalQuarter
+	var StaffInfo []m.StaffProfileV2
 	if err := dbSale.Ctx().Raw(`SELECT staff_id, prefix, fname, lname, nname, position
 	from staff_info
 	WHERE staff_id = ?`, StaffId).Scan(&StaffInfo).Error; err != nil {
@@ -577,31 +577,34 @@ func GetStaffProfileV2EndPoint(c echo.Context) error {
 		}
 		wg.Done()
 	}()
-	// go func() {
-	// 	if err := dbSale.Ctx().Raw(`SELECT id, ref_staff, year, quarter, goal_total, real_total, create_date, create_by
-	// 	FROM goal_quarter
-	// 	WHERE ref_staff = ?`, StaffId).Scan(&StaffGoalQuarter).Error; err != nil {
-	// 		log.Errorln("GetStaffGoalQuarter error :-", err)
-	// 	}
-	// 	wg.Done()
-	// }()
+	go func() {
+		// 	if err := dbSale.Ctx().Raw(`SELECT id, ref_staff, year, quarter, goal_total, real_total, create_date, create_by
+		// 	FROM goal_quarter
+		// 	WHERE ref_staff = ?`, StaffId).Scan(&StaffGoalQuarter).Error; err != nil {
+		// 		log.Errorln("GetStaffGoalQuarter error :-", err)
+		// }
+
+		gq := GetGq(c, StaffId)
+		StaffInfo[0].Quarter = gq
+		wg.Done()
+	}()
 	wg.Wait()
 	StaffInfo[0].Mail = StaffMail
 	StaffInfo[0].OneMail = StaffOneMail
 	StaffInfo[0].Tel = StaffTel
-	StaffInfo[0].Month = StaffGoalMonth
-	StaffInfo[0].Quarter = StaffGoalQuarter
+	// StaffInfo[0].Month = StaffGoalMonth
+	// StaffInfo[0].Quarter = StaffGoalQuarter
+
 	return c.JSON(http.StatusOK, StaffInfo[0])
 }
 
-func GetGqEndPoint(c echo.Context) error {
+func GetGq(c echo.Context, StaffId string) []m.GqDict {
 	if err := initDataStore(); err != nil {
 		log.Errorln(pkgName, err, "connect database error")
 		// return c.JSON(http.StatusInternalServerError, err)
 	}
 
-	OwnStaffId := c.QueryParam(("staff_id"))
-	StaffId := c.QueryParam(("staff_id"))
+	OwnStaffId := StaffId
 	var StaffInfo m.StaffInfo
 	var DateResult []m.DateResult
 	var StaffIdGoalQuarter []m.GqDict
@@ -701,5 +704,5 @@ func GetGqEndPoint(c echo.Context) error {
 		}
 		GqList = append(GqList, GqDict[i])
 	}
-	return c.JSON(http.StatusOK, GqList)
+	return GqList
 }

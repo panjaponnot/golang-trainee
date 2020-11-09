@@ -72,6 +72,20 @@ type StaffProfile struct {
 	Quarter  StaffGoalQuarter `json:"goalquarter"`
 }
 
+type StaffProfileV2 struct {
+	StaffId  string         `json:"staff_id"`
+	Prefix   string         `json:"prefix"`
+	Fname    string         `json:"fname"`
+	Lname    string         `json:"lname"`
+	Nname    string         `json:"nname"`
+	Position string         `json:"position"`
+	Mail     StaffMail      `json:"mail"`
+	OneMail  StaffOneMail   `json:"onemail"`
+	Tel      StaffTel       `json:"tel"`
+	Month    StaffGoalMonth `json:"goalmonth"`
+	Quarter  []GqDict       `json:"goalquarter"`
+}
+
 type Staff struct {
 	StaffId string `json:"staff_id"`
 	Fname   string `json:"fname"`
