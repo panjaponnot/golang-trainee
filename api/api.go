@@ -74,6 +74,7 @@ func InitApiRouter(g *echo.Group) error {
 	staff.GET("staffpicture", GetStaffPictureEndPoint)
 	staff.GET("staffid", GetAllStaffIdEndPoint)
 	staff.GET("SubStaff", GetSubordinateStaffEndPoint)
+	staff.GET("gq", GetGqEndPoint)
 
 	// report.GET("/ranking/base", GetRankingBaseSale)
 

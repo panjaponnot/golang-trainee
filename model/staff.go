@@ -157,6 +157,13 @@ type StaffGoalQuarter struct {
 	CreateBy   string `json:"create_by"`
 }
 
+type StaffIdGoalQuarter struct {
+	Year      string `json:"year"`
+	Quarter   string `json:"quarter"`
+	GoalTotal string `json:"goal_total"`
+	Month     string `json:"month"`
+}
+
 type GroupRelation struct {
 	IdGroup      string `json:"id_group"`
 	IdGroupChild string `json:"id_group_child"`
@@ -164,4 +171,20 @@ type GroupRelation struct {
 
 type StaffGroupRelation struct {
 	IdGroup string `json:"id_group"`
+}
+
+type DateResult struct {
+	Cur0 string `json:"cur_0"`
+	Pv1  string `json:"pv_1"`
+	Pv2  string `json:"pv_2"`
+	Nt1  string `json:"nt_1"`
+	Nt2  string `json:"nt_2"`
+}
+
+type GqDict struct {
+	TotalAmount int    `json:"total_amount"`
+	GoalTotal   string `json:"goal_total"`
+	Year        string `json:"year"`
+	Quarter     string `json:"quarter"`
+	Month       string `json:"month"`
 }

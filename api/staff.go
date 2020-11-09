@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	m "sale_ranking/model"
 	"sale_ranking/pkg/log"
@@ -478,4 +479,227 @@ func GetSubordinateStaffEndPoint(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, StaffInfo)
+}
+
+func TruncateTable(c echo.Context) error {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		// return c.JSON(http.StatusInternalServerError, err)
+	}
+	defer dbSale.Close()
+	tx := dbSale.Ctx().Begin()
+	if err := dbSale.Ctx().Exec(" TRUNCATE TABLE so_mssql; ").Error; err != nil {
+		log.Errorln("Truncate table error :-", err)
+		tx.Rollback()
+		return err
+	}
+	return nil
+}
+
+func CreateStaffPictureEndPoint(c echo.Context) error {
+	// if err := initDataStore(); err != nil {
+	// 	log.Errorln(pkgName, err, "connect database error")
+	// }
+	// defer dbSale.Close()
+
+	// var StaffIdList []m.StaffId
+	// if err := dbSale.Ctx().Raw(`SELECT staff_id FROM staff_info;`).Scan(&StaffIdList).Error; err != nil {
+	// 	log.Errorln("GetStaffIdList error :-", err)
+	// }
+
+	// var Message string
+	// var Url string
+	// var SqlStr string
+
+	// for _, s := range StaffIdList {
+	// 	NamePic := strings.TrimSpace(s.StaffId)
+	// 	if CheckPictureUrl(NamePic) {
+
+	// 	}
+	// }
+
+	return c.JSON(http.StatusOK, StaffInfo)
+}
+
+func CheckPictureUrl(namepic string) bool {
+	Url := fmt.Sprintf("https://intranet.inet.co.th/assets/upload/staff/%s.jpg", namepic)
+	resp, err := http.Get(Url)
+	if err != nil {
+		return false
+	}
+	if resp.StatusCode == 200 {
+		return true
+	} else {
+		return false
+	}
+
+}
+
+func GetStaffProfileV2EndPoint(c echo.Context) error {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	StaffId := c.QueryParam(("staff_id"))
+	var StaffMail m.StaffMail
+	var StaffTel m.StaffTel
+	var StaffOneMail m.StaffOneMail
+	var StaffGoalMonth m.StaffGoalMonth
+	var StaffGoalQuarter m.StaffGoalQuarter
+	var StaffInfo []m.StaffProfile
+	if err := dbSale.Ctx().Raw(`SELECT staff_id, prefix, fname, lname, nname, position
+	from staff_info
+	WHERE staff_id = ?`, StaffId).Scan(&StaffInfo).Error; err != nil {
+		log.Errorln("GetStaffInfo error :-", err)
+	}
+	if len(StaffInfo) == 0 {
+		return c.JSON(http.StatusBadRequest, m.Result{Message: "cannot find staff id"})
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(4)
+	go func() {
+		if err := dbSale.Ctx().Raw(`SELECT id, ref_staff, mail FROM staff_mail WHERE ref_staff = ?;`, StaffId).Scan(&StaffMail).Error; err != nil {
+			log.Errorln("GetStaffMail error :-", err)
+		}
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(`SELECT id, ref_staff, onemail FROM staff_onemail WHERE ref_staff = ?`, StaffId).Scan(&StaffOneMail).Error; err != nil {
+			log.Errorln("GetStaffOneMail error :-", err)
+		}
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(`SELECT id, ref_staff, tel, tel_sub FROM staff_tel WHERE ref_staff = ?`, StaffId).Scan(&StaffTel).Error; err != nil {
+			log.Errorln("GetStaffTel error :-", err)
+		}
+		wg.Done()
+	}()
+	// go func() {
+	// 	if err := dbSale.Ctx().Raw(`SELECT id, ref_staff, year, quarter, goal_total, real_total, create_date, create_by
+	// 	FROM goal_quarter
+	// 	WHERE ref_staff = ?`, StaffId).Scan(&StaffGoalQuarter).Error; err != nil {
+	// 		log.Errorln("GetStaffGoalQuarter error :-", err)
+	// 	}
+	// 	wg.Done()
+	// }()
+	wg.Wait()
+	StaffInfo[0].Mail = StaffMail
+	StaffInfo[0].OneMail = StaffOneMail
+	StaffInfo[0].Tel = StaffTel
+	StaffInfo[0].Month = StaffGoalMonth
+	StaffInfo[0].Quarter = StaffGoalQuarter
+	return c.JSON(http.StatusOK, StaffInfo[0])
+}
+
+func GetGqEndPoint(c echo.Context) error {
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		// return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	OwnStaffId := c.QueryParam(("staff_id"))
+	StaffId := c.QueryParam(("staff_id"))
+	var StaffInfo m.StaffInfo
+	var DateResult []m.DateResult
+	var StaffIdGoalQuarter []m.GqDict
+	var GqDict []m.GqDict
+	var GqList []m.GqDict
+	if err := dbSale.Ctx().Raw(`SELECT
+	CURDATE() as cur_0,
+	SUBDATE(CURDATE(), INTERVAL 1 MONTH) as pv_1,
+	SUBDATE(CURDATE(), INTERVAL 2 MONTH) as pv_2,
+	DATE_ADD(CURDATE(), INTERVAL 1 MONTH) as nt_1,
+	DATE_ADD(CURDATE(), INTERVAL 2 MONTH) as nt_2
+	LIMIT 1
+;`).Scan(&DateResult).Error; err != nil {
+		log.Errorln("GetStaffTel error :-", err)
+	}
+
+	if err := dbSale.Ctx().Raw(`SELECT *
+	FROM staff_info
+	WHERE staff_id = ?`, StaffId).Scan(&StaffInfo).Error; err != nil {
+		log.Errorln("GetStaffInfo error :-", err)
+	}
+
+	CheckStaffChild := strings.Split(strings.TrimSpace(StaffInfo.StaffChild), ",")
+	StaffChild := StaffInfo.StaffChild
+
+	if len(CheckStaffChild) == 1 && len(CheckStaffChild[0]) == 0 {
+		StaffChild = strings.TrimSpace(StaffId)
+	}
+	var DateData []string
+	DateData = append(DateData, DateResult[0].Cur0)
+	DateData = append(DateData, DateResult[0].Pv1)
+	DateData = append(DateData, DateResult[0].Pv2)
+	DateData = append(DateData, DateResult[0].Nt1)
+	DateData = append(DateData, DateResult[0].Nt2)
+	for i, d := range DateData {
+		if err := dbSale.Ctx().Raw(`
+		SELECT total_amount, goal_total, year, quarter, MONTH(?) as month
+		FROM
+			(
+				WITH gq_data AS
+				(
+					SELECT goal_total, year, quarter, ref_staff
+					FROM goal_quarter
+					WHERE
+						goal_quarter.year = YEAR(?) AND
+						goal_quarter.quarter = CONCAT("Q", QUARTER(?))
+				)
+				SELECT so_amount.*, gq_data.*
+				FROM
+					(
+						SELECT sonumber, sale_code, SUM(PeriodAmount) as total_amount
+						FROM
+							(
+								SELECT sonumber, PeriodAmount, sale_code
+								FROM so_mssql
+								WHERE QUARTER(ContractStartDate) = QUARTER(?) AND
+									MONTH(DATE(ContractStartDate)) <= MONTH(?) AND
+									YEAR(DATE(ContractStartDate)) = YEAR(?) AND
+									so_mssql.sale_code IN ?
+								GROUP BY sonumber
+							) as so_data
+					) as so_amount
+				INNER JOIN gq_data ON gq_data.ref_staff = so_amount.sale_code
+			) as staff_so_data
+		;`, d, d, d, d, d, d, StaffChild).Scan(&StaffIdGoalQuarter).Error; err != nil {
+			log.Errorln("GetStaffIdGoalQuarter error :-", err)
+		}
+		if len(StaffIdGoalQuarter) == 0 {
+			if err := dbSale.Ctx().Raw(`
+			SELECT goal_total, year, quarter, MONTH(?) as month
+			FROM goal_quarter
+			WHERE ref_staff IN ?
+			LIMIT 1;`, d, StaffChild).Scan(&StaffIdGoalQuarter).Error; err != nil {
+				log.Errorln("GetStaffIdGoalQuarter error :-", err)
+			}
+			GqDictData := m.GqDict{
+				TotalAmount: 0,
+				GoalTotal:   StaffIdGoalQuarter[0].GoalTotal,
+				Year:        StaffIdGoalQuarter[0].Year,
+				Quarter:     StaffIdGoalQuarter[0].Quarter,
+				Month:       StaffIdGoalQuarter[0].Month,
+			}
+			GqDict = append(GqDict, GqDictData)
+		} else {
+			GqDict = append(GqDict, StaffIdGoalQuarter[0])
+			if len(CheckStaffChild) > 1 {
+				if err := dbSale.Ctx().Raw(`
+			SELECT goal_total, year, quarter, MONTH(?) as month
+			FROM goal_quarter
+			WHERE ref_staff IN ?
+			LIMIT 1;`, d, OwnStaffId).Scan(&StaffIdGoalQuarter).Error; err != nil {
+					log.Errorln("GetStaffIdGoalQuarter error :-", err)
+				}
+
+				GqDict[i].GoalTotal = StaffIdGoalQuarter[0].GoalTotal
+			}
+		}
+		GqList = append(GqList, GqDict[i])
+	}
+	return c.JSON(http.StatusOK, GqList)
 }
