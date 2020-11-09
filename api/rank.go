@@ -1180,7 +1180,7 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_lead
 			where staff_id is not null and staff_id <> ''
 		) all_ranking LEFT JOIN staff_images ON all_ranking.one_id = staff_images.one_id
-		WHERE staff_id in (?)
+		WHERE staff_id in (?) 
 		group by staff_id;`
 
 	sqlBefore := `select staff_id,count(staff_id) as checkdata,sum(inv_amount) as inv_amount
@@ -1217,7 +1217,7 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 	WHERE staff_id in (?)
 	group by staff_id;`
 
-	sqlFilter := `select * from staff_info where staff_child <> '' AND ( INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,one_id), ?) OR INSTR(CONCAT_WS('|',  department), 'Government') ) `
+	sqlFilter := `select * from staff_info where staff_child <> '' AND  INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,one_id), ?)  `
 
 	var staffInfo []m.StaffInfo
 	hasErr := 0
@@ -1297,7 +1297,6 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 				}
 			}
 		}
-
 	}
 	if len(dataResult) != 0 {
 		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
