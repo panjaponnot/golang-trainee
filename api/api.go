@@ -14,6 +14,7 @@ const pkgName = "API"
 var (
 	dbSale     database.Database
 	dbQuataion database.Database
+	dbMssql    database.Database
 	redis      cache.Redis
 )
 
@@ -29,7 +30,11 @@ func initDataStore() error {
 		log.Errorln(pkgName, err, "Connect to database quotation error")
 		return err
 	}
-
+	dbMssql = core.NewDatabaseMssql(pkgName, "mssql")
+	if err := dbMssql.Connect(); err != nil {
+		log.Errorln(pkgName, err, "Connect to database sql server error")
+		return err
+	}
 	// Redis cache
 	redis = core.NewRedis()
 	if err := redis.Ping(); err != nil {
@@ -58,6 +63,7 @@ func InitApiRouter(g *echo.Group) error {
 	report.GET("/org", GetDataOrgChartEndPoint)
 	report.GET("/pending", GetReportSOPendingEndPoint)
 	report.GET("/so", GetReportSOEndPoint)
+	report.PUT("/so", GetReportSOEndPoint)
 	report.GET("/ranking/base", GetRankingBaseSale)
 	report.GET("/ranking/key", GetRankingKeyAccountEndPoint)
 	report.GET("/ranking/recovery", GetRankingRecoveryEndPoint)

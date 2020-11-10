@@ -762,3 +762,34 @@ func GetReportSOEndPoint(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, rawData)
 }
+
+func EditSOEndPoint(c echo.Context) error {
+	if strings.TrimSpace(c.QueryParam("id")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid one id"})
+	}
+	id := strings.TrimSpace(c.QueryParam("id"))
+	var user []m.UserInfo
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE role = 'admin' AND one_id = ?`, id).Scan(&user).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+
+	if len(user) != 0 {
+		// sqlMssql := `UPDATE Check_SO
+		// SET  status_so = ?,
+		// Remark = ?,
+		// press_date = CURRENT_TIMESTAMP
+		// WHERE so_number = ?;`
+
+		// sqlSale := `Update check_so
+		// SET
+		// status_so = %s,
+		// update_by_so = %s,
+		// remark_so = %s
+		// WHERE sonumber = %s;`
+
+	} else {
+
+	}
+
+	return c.JSON(http.StatusNoContent, nil)
+}

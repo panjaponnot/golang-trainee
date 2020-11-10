@@ -59,11 +59,12 @@ func (db *Database) Connect() error {
 	case DriverMSSQL:
 		driver = DriverMSSQL
 		dsn = fmt.Sprintf(
-			"sqlserver://%s:%s@%s:%s?database=%s",
+			// "sqlserver://%s:%s@%s:%s?database=%s",
+			"server=%s;user id=%s;password=%s;database=%s",
+			db.config.Host,
 			db.config.Username,
 			db.config.Password,
-			db.config.Host,
-			db.config.Port,
+			// db.config.Port,
 			db.config.Name,
 		)
 	case DriverPostgres:
