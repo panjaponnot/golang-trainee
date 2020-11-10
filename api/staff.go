@@ -517,8 +517,15 @@ func CreateStaffPictureEndPoint(c echo.Context) error {
 
 	// 	}
 	// }
+	req, err := http.Get("https://intranet.inet.co.th/assets/upload/staff/41014.jpg")
+	if err != nil {
+		// log.Errorln(err)
+		return c.JSON(http.StatusInternalServerError, err)
+	}
 
-	return c.JSON(http.StatusOK, StaffInfo)
+	// fmt.Println(req)
+	return c.JSON(http.StatusOK, req)
+	// return c.JSON(http.StatusOK, StaffInfo)
 }
 
 func CheckPictureUrl(namepic string) bool {
