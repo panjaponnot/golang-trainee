@@ -44,6 +44,13 @@ const (
 	envDbQuotationPassword = "DB_QUOTATION_PASSWORD"
 	envDbQuotationName     = "DB_QUOTATION_NAME"
 
+	// db mssql
+	envDbMssqlHost     = "DB_MSSQL_HOST"
+	envDbMssqlPort     = "DB_MSSQL_PORT"
+	envDbMssqlUsername = "DB_MSSQL_USERNAME"
+	envDbMssqlPassword = "DB_MSSQL_PASSWORD"
+	envDbMssqlName     = "DB_MSSQL_NAME"
+
 	// attendant
 	envAttendantToken     = "ATTENDANT_TOKEN"
 	envAttendantTokenType = "ATTENDANT_TOKEN_TYPE"
@@ -93,6 +100,9 @@ var (
 
 func NewDatabase(packageName string, name string) database.Database {
 	return NewDatabaseWithConfig(getDatabaseConfig(packageName, name), database.DriverMySQL)
+}
+func NewDatabaseMssql(packageName string, name string) database.Database {
+	return NewDatabaseWithConfig(getDatabaseConfig(packageName, name), database.DriverMSSQL)
 }
 
 func NewDatabaseWithConfig(cfg database.Config, driver string) database.Database {
@@ -154,6 +164,16 @@ func getDatabaseConfig(packageName string, dbName string) database.Config {
 			Username:    util.GetEnv(envDbSaleUsername, ""),
 			Password:    util.GetEnv(envDbSalePassword, ""),
 			Name:        util.GetEnv(envDbSaleName, ""),
+			Prod:        util.IsProduction(),
+			PackageName: packageName,
+		}
+	case "mssql":
+		return database.Config{
+			Host:        util.GetEnv(envDbMssqlHost, "127.0.0.1"),
+			Port:        util.GetEnv(envDbMssqlPort, "1433"),
+			Username:    util.GetEnv(envDbMssqlUsername, ""),
+			Password:    util.GetEnv(envDbMssqlPassword, ""),
+			Name:        util.GetEnv(envDbMssqlName, ""),
 			Prod:        util.IsProduction(),
 			PackageName: packageName,
 		}

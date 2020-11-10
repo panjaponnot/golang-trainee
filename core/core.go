@@ -18,6 +18,7 @@ const pkgName = "CORE"
 var (
 	dbSale     database.Database
 	dbQuataion database.Database
+	dbMssql    database.Database
 	redis      cache.Redis
 
 	cronService crontab.Service
@@ -46,6 +47,12 @@ func InitCoreService() error {
 		return err
 	}
 	log.Infoln(pkgName, "Connected to database quotation server.")
+	dbMssql = NewDatabaseMssql(pkgName, "mssql")
+	if err := dbMssql.Connect(); err != nil {
+		log.Errorln(pkgName, err, "Connect to database sql server error")
+		return err
+	}
+	log.Infoln(pkgName, "Connected to database sql server.")
 	// Migrate database
 	// if err := db.MigrateDatabase(tables); err != nil {
 	// 	log.Errorln(pkgName, err, "Migrate database error")
