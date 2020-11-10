@@ -644,6 +644,8 @@ func GetReportSOEndPoint(c echo.Context) error {
 		Department        string  `json:"department"`
 		Status            string  `json:"status"`
 		Remark            string  `json:"remark"`
+		StatusSO          bool    `json:"status_so" gorm:"column:status_so"`
+		StatusSale        bool    `json:"status_sale" gorm:"column:status_sale"`
 	}{}
 	if len(user) != 0 {
 
@@ -764,32 +766,146 @@ func GetReportSOEndPoint(c echo.Context) error {
 }
 
 func EditSOEndPoint(c echo.Context) error {
-	if strings.TrimSpace(c.QueryParam("id")) == "" {
+	type SoData struct {
+		SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
+		CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
+		ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
+		SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
+		Day               string  `json:"day" gorm:"column:days"`
+		SoMonth           string  `json:"so_month" gorm:"column:so_month"`
+		SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
+		PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+		TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
+		StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
+		PayType           string  `json:"pay_type" gorm:"column:pay_type"`
+		SoType            string  `json:"so_type" gorm:"column:so_type"`
+		Prefix            string  `json:"prefix"`
+		Fname             string  `json:"fname"`
+		Lname             string  `json:"lname"`
+		Nname             string  `json:"nname"`
+		Position          string  `json:"position"`
+		Department        string  `json:"department"`
+		Status            string  `json:"status"`
+		Remark            string  `json:"remark"`
+		StatusSO          bool    `json:"status_so" gorm:"column:status_so"`
+		StatusSale        bool    `json:"status_sale" gorm:"column:status_sale"`
+	}
+	body := struct {
+		Data  []SoData `json:"data"`
+		OneId string   `json:"one_id"`
+	}{}
+
+	if err := c.Bind(&body); err != nil {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid Body data"})
+	}
+
+	if strings.TrimSpace(body.OneId) == "" {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid one id"})
 	}
-	id := strings.TrimSpace(c.QueryParam("id"))
+	id := strings.TrimSpace(body.OneId)
 	var user []m.UserInfo
 	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE role = 'admin' AND one_id = ?`, id).Scan(&user).Error; err != nil {
 		log.Errorln(pkgName, err, "Select data error")
 	}
 
 	if len(user) != 0 {
-		// sqlMssql := `UPDATE Check_SO
-		// SET  status_so = ?,
-		// Remark = ?,
-		// press_date = CURRENT_TIMESTAMP
-		// WHERE so_number = ?;`
+		for _, v := range body.Data {
+			remark := CheckRemark(v.Remark, "so")
+			statusMy := 0
+			sqlMssql := `	UPDATE Check_SO
+						SET  status_so = ?,
+						Remark = ?,
+						press_date = CURRENT_TIMESTAMP
+						WHERE so_number = ?;`
 
-		// sqlSale := `Update check_so
-		// SET
-		// status_so = %s,
-		// update_by_so = %s,
-		// remark_so = %s
-		// WHERE sonumber = %s;`
+			sqlSale := `Update check_so
+					SET
+					status_so = ?,
+					update_by_so = ?,
+					remark_so = ?
+					WHERE sonumber = ?;`
+			if v.StatusSO {
+				statusMy = 1
+				v.Status = "true"
+			} else if !v.StatusSO && strings.TrimSpace(remark) != "" {
+				statusMy = 0
+				v.Status = "fail"
+			} else {
+				statusMy = 0
+				v.Status = ""
+			}
+			if err := dbMssql.Ctx().Exec(sqlMssql, v.Status, strings.TrimSpace(remark), v.SOnumber).Error; err != nil {
+				return echo.ErrInternalServerError
+			}
+			if err := dbSale.Ctx().Exec(sqlSale, statusMy, id, strings.TrimSpace(remark), v.SOnumber).Error; err != nil {
+				return echo.ErrInternalServerError
+			}
+		}
 
 	} else {
+		sqlMssql := `	UPDATE Check_SO
+						SET  status_sale = ?,
+						Remark = ?,
+						soType = ?,
+						payType = ?,
+						press_date = CURRENT_TIMESTAMP
+						WHERE so_number = ?;`
 
+		sqlSale := `Update check_so
+					SET
+					status_sale = ?,
+					so_type = ?,
+					pay_type = ?,
+					update_by_sale  = ?,
+					remark_sale = ?
+					WHERE sonumber = ?;`
+
+		for _, v := range body.Data {
+			remark := CheckRemark(v.Remark, "sale")
+			statusMy := 0
+			if v.StatusSale {
+				statusMy = 1
+				v.Status = "true"
+			} else if !v.StatusSale && strings.TrimSpace(remark) != "" {
+				statusMy = 0
+				v.Status = "fail"
+			} else {
+				statusMy = 0
+				v.Status = ""
+			}
+			if err := dbMssql.Ctx().Exec(sqlMssql, v.Status, strings.TrimSpace(remark), v.SoType, v.PayType, v.SOnumber).Error; err != nil {
+				return echo.ErrInternalServerError
+			}
+			if err := dbSale.Ctx().Exec(sqlSale, statusMy, v.SoType, v.PayType, id, strings.TrimSpace(remark), v.SOnumber).Error; err != nil {
+				return echo.ErrInternalServerError
+			}
+		}
+	}
+	return c.JSON(http.StatusNoContent, nil)
+}
+func CheckRemark(remark string, types string) string {
+
+	if types == "so" {
+		check := strings.Split(remark, "SO comment: ")
+		if len(check) == 1 {
+			return check[0]
+		}
+		checkSa := strings.Split(check[1], "Sale comment: ")
+		return checkSa[0]
+	} else {
+		checkSa := strings.Split(remark, "Sale comment: ")
+		if len(checkSa) > 1 {
+			return checkSa[1]
+		}
+		check := strings.Split(checkSa[0], "SO comment: ")
+		return check[0]
 	}
 
-	return c.JSON(http.StatusNoContent, nil)
+	return ""
+
 }

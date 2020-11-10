@@ -39,14 +39,14 @@ func InitCoreService() error {
 		log.Errorln(pkgName, err, "Connect to database error")
 		return err
 	}
-	log.Infoln(pkgName, "Connected to database sale ranking server.")
+	log.Infoln(pkgName, "Connected to database sale ranking.")
 	// Database Quataion
 	dbQuataion = NewDatabase(pkgName, "quotation")
 	if err := dbQuataion.Connect(); err != nil {
 		log.Errorln(pkgName, err, "Connect to database error")
 		return err
 	}
-	log.Infoln(pkgName, "Connected to database quotation server.")
+	log.Infoln(pkgName, "Connected to database quotation.")
 	dbMssql = NewDatabaseMssql(pkgName, "mssql")
 	if err := dbMssql.Connect(); err != nil {
 		log.Errorln(pkgName, err, "Connect to database sql server error")
