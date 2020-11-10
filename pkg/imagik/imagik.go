@@ -6,7 +6,8 @@ import (
 	"image"
 	"net/http"
 
-	" golang_template/pkg/requests"
+	"sale_ranking/pkg/requests"
+
 	"github.com/disintegration/imaging"
 )
 

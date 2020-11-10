@@ -202,3 +202,7 @@ type GqDict struct {
 	Quarter     string `json:"quarter"`
 	Month       string `json:"month"`
 }
+
+type Message struct {
+	Message string `json:"message"`
+}

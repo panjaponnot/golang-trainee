@@ -1,14 +1,17 @@
 package api
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net/http"
 	m "sale_ranking/model"
+	"sale_ranking/pkg/imagik"
 	"sale_ranking/pkg/log"
 	"strings"
 	"sync"
 
+	"github.com/disintegration/imaging"
 	"github.com/labstack/echo/v4"
 )
 
@@ -497,34 +500,84 @@ func TruncateTable(c echo.Context) error {
 }
 
 func CreateStaffPictureEndPoint(c echo.Context) error {
-	// if err := initDataStore(); err != nil {
-	// 	log.Errorln(pkgName, err, "connect database error")
-	// }
-	// defer dbSale.Close()
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+	}
+	defer dbSale.Close()
 
-	// var StaffIdList []m.StaffId
-	// if err := dbSale.Ctx().Raw(`SELECT staff_id FROM staff_info;`).Scan(&StaffIdList).Error; err != nil {
-	// 	log.Errorln("GetStaffIdList error :-", err)
-	// }
-
-	// var Message string
-	// var Url string
-	// var SqlStr string
-
-	// for _, s := range StaffIdList {
-	// 	NamePic := strings.TrimSpace(s.StaffId)
-	// 	if CheckPictureUrl(NamePic) {
-
-	// 	}
-	// }
-	req, err := http.Get("https://intranet.inet.co.th/assets/upload/staff/41014.jpg")
-	if err != nil {
-		// log.Errorln(err)
-		return c.JSON(http.StatusInternalServerError, err)
+	var StaffIdList []m.StaffId
+	if err := dbSale.Ctx().Raw(`SELECT staff_id FROM staff_info;`).Scan(&StaffIdList).Error; err != nil {
+		log.Errorln("GetStaffIdList error :-", err)
 	}
 
-	// fmt.Println(req)
-	return c.JSON(http.StatusOK, req)
+	for _, s := range StaffIdList {
+		NamePic := strings.TrimSpace(s.StaffId)
+		StaffId := strings.TrimSpace(s.StaffId)
+		var StaffIds = fmt.Sprintf("%ss", StaffId)
+		if CheckPictureUrl(NamePic) {
+			var b []byte
+			var mimeType string
+			var avatarUrl = fmt.Sprintf("https://intranet.inet.co.th/assets/upload/staff/%s.jpg", NamePic)
+			if err := imagik.UrlGrabber(avatarUrl, nil, &b, &mimeType, 5); err != nil {
+				log.Warnln("Get staff avatar error -:", err)
+				return echo.ErrInternalServerError
+			}
+			src, err := imaging.Decode(bytes.NewReader(b))
+			if err != nil {
+				log.Warnln("Avatar decode error -:", err)
+				return echo.ErrInternalServerError
+			}
+			resized := imaging.Resize(src, 200, 250, imaging.Lanczos)
+			var buf bytes.Buffer
+			if err := imaging.Encode(&buf, resized, imaging.JPEG, imaging.JPEGQuality(90)); err != nil {
+				log.Warnln("Avatar encode error -:", err)
+				return echo.ErrInternalServerError
+			}
+			vars := m.StaffPicture{
+				StaffId: StaffId,
+				Img:     buf,
+			}
+			tx := dbSale.Ctx().Begin()
+			if err := dbSale.Ctx().Table("staff_picture").Create(&vars).Error; err != nil {
+				log.Errorln("Func Insert StaffPicture error :-", err)
+				tx.Rollback()
+				return err
+			}
+		} else if CheckPictureUrl(StaffIds) {
+			var b []byte
+			var mimeType string
+			var avatarUrl = fmt.Sprintf("https://intranet.inet.co.th/assets/upload/staff/%s.jpg", NamePic)
+			if err := imagik.UrlGrabber(avatarUrl, nil, &b, &mimeType, 5); err != nil {
+				log.Warnln("Get staff avatar error -:", err)
+				return echo.ErrInternalServerError
+			}
+			src, err := imaging.Decode(bytes.NewReader(b))
+			if err != nil {
+				log.Warnln("Avatar decode error -:", err)
+				return echo.ErrInternalServerError
+			}
+			resized := imaging.Resize(src, 200, 250, imaging.Lanczos)
+			var buf bytes.Buffer
+			if err := imaging.Encode(&buf, resized, imaging.JPEG, imaging.JPEGQuality(90)); err != nil {
+				log.Warnln("Avatar encode error -:", err)
+				return echo.ErrInternalServerError
+			}
+			vars := m.StaffPicture{
+				StaffId: StaffId,
+				Img:     buf,
+			}
+			tx := dbSale.Ctx().Begin()
+			if err := dbSale.Ctx().Table("staff_picture").Create(&vars).Error; err != nil {
+				log.Errorln("Func Insert StaffPicture error :-", err)
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+	Message := m.Message{
+		Message: "create success",
+	}
+	return c.JSON(http.StatusOK, Message)
 	// return c.JSON(http.StatusOK, StaffInfo)
 }
 
