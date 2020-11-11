@@ -79,6 +79,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		CountService interface{}
 		CountCompany interface{}
 		CountType    interface{}
+		CountTeam    interface{}
 	}{}
 
 	var user []m.UserInfo
@@ -117,7 +118,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(10)
+	wg.Add(11)
 	go func() {
 		// work
 		var dataRaw []QuotationJoin
@@ -289,6 +290,27 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		dataCount.CountType = dataRaw
 		wg.Done()
 	}()
+	go func() {
+		// count service
+		var dataRaw []struct {
+			TotalPrice float64 `json:"total_price"`
+			TotalTeam  int     `json:"total_team"`
+			Teams      string  `json:"teams"`
+		}
+		sql := fmt.Sprintf(`SELECT SUM(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price,COUNT(team) as total_team,team ,(CASE
+			WHEN team = '' THEN 'no name'
+			ELSE team END
+			) as teams FROM quatation_th 
+			LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
+			ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+			WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL) 
+			AND YEAR(start_date) = ? %s %s %s %s  GROUP BY team`, textStaffId, quarter, month, search)
+		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
+			hasErr += 1
+		}
+		dataCount.CountTeam = dataRaw
+		wg.Done()
+	}()
 	wg.Wait()
 
 	if hasErr != 0 {
@@ -296,18 +318,19 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 	}
 
 	dataResult.Total = map[string]interface{}{
-		"total_all":      dataCount.Total,
-		"total_not_work": dataCount.NotWork,
+		"total_all": dataCount.Total,
 		"total_work": map[string]int{
-			"all":  dataCount.Work,
-			"win":  dataCount.Win,
-			"lost": dataCount.Lost,
+			"all":       dataCount.Work,
+			"win":       dataCount.Win,
+			"lost":      dataCount.Lost,
+			"not_check": dataCount.NotWork,
 		},
 		"reason_win":  dataCount.ReasonWin,
 		"reason_lost": dataCount.ReasonLost,
 		"service":     dataCount.CountService,
 		"company":     dataCount.CountCompany,
 		"type":        dataCount.CountType,
+		"team":        dataCount.CountTeam,
 	}
 	return c.JSON(http.StatusOK, dataResult)
 }
