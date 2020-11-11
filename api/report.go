@@ -587,7 +587,6 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
                   ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
                   group by tb_ch_so.sonumber
 		  `, listStaffId, year).Scan(&rawData).Error; err != nil {
-
 		log.Errorln(pkgName, err, "Select data error")
 	}
 
@@ -603,9 +602,6 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 }
 
 func GetReportSOEndPoint(c echo.Context) error {
-	// if err := initDataStore(); err != nil {
-	// 	log.Errorln(pkgName, err, "init db error")
-	// }
 	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	}
