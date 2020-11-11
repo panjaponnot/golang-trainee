@@ -36,7 +36,7 @@ func InitCoreService() error {
 	// Database Sale
 	dbSale = NewDatabase(pkgName, "salerank")
 	if err := dbSale.Connect(); err != nil {
-		log.Errorln(pkgName, err, "Connect to database error")
+		log.Errorln(pkgName, err, "Connect to database sale ranking error")
 		return err
 	}
 	log.Infoln(pkgName, "Connected to database sale ranking.")

@@ -51,9 +51,9 @@ func New(config Config) Server {
 		Addr:    listenAddr,
 		Handler: s.ctx,
 	}
-	if !s.config.Prod {
-		s.ctx.Use(s.logger())
+	if !s.config.Prod || s.config.Prod {
 		_ = s.EnableCORS([]string{}, []string{})
+		s.ctx.Use(s.logger())
 	}
 	return s
 }

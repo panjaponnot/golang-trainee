@@ -15,10 +15,7 @@ import (
 )
 
 func GetSummaryCustomerEndPoint(c echo.Context) error {
-	// if err := initDataStore(); err != nil {
-	// 	log.Errorln(pkgName, err, "connect database error")
-	// 	return c.JSON(http.StatusInternalServerError, err)
-	// }
+
 	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
 	}
@@ -28,6 +25,9 @@ func GetSummaryCustomerEndPoint(c echo.Context) error {
 	}
 
 	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
+	search := strings.TrimSpace(c.QueryParam("search"))
+	status := strings.TrimSpace(c.QueryParam("status"))
+	// fmt.Println("====> filter", search)
 	ds := time.Now()
 	de := time.Now()
 	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
@@ -43,8 +43,6 @@ func GetSummaryCustomerEndPoint(c echo.Context) error {
 	dateFrom := startRange.Format("2006-01-02")
 	dateTo := endRange.Format("2006-01-02")
 	m := endRange.Sub(startRange)
-	fmt.Println("st ====>", startRange, "ed ====>", endRange, "duration ====>", m, b)
-	fmt.Println("bool ====>", dateTo, "saleId ====>", dateFrom)
 	if m < 0 {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid date"})
 	}
@@ -56,9 +54,7 @@ func GetSummaryCustomerEndPoint(c echo.Context) error {
 			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
 		}
 	}
-
 	var listId []string
-
 	if len(user) != 0 {
 		var staffAll []model.StaffInfo
 		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
@@ -83,9 +79,8 @@ func GetSummaryCustomerEndPoint(c echo.Context) error {
 		}
 		listId = append(listId, staffAll.StaffId)
 	}
-	fmt.Println("list slae id =====>", listId)
 
-	sql := `SELECT DISTINCT Customer_ID as Customer_ID, Customer_Name, sum(sonumber) as total_so, sum(csnumber) as total_cs,sum(invnumber) as total_inv, sum(rcnumber) as total_rc, sum(cnnumber) as total_cn,
+	sql := `Select * From  ( SELECT DISTINCT Customer_ID as Customer_ID, Customer_Name, sum(sonumber) as total_so, sum(csnumber) as total_cs,sum(invnumber) as total_inv, sum(rcnumber) as total_rc, sum(cnnumber) as total_cn,
 	sum(so_amount) as so_amount, sum(inv_amount) as inv_amount, sum(cs_amount) as cs_amount, sum(rc_amount) as rc_amount, sum(cn_amount) as cn_amount, sum(amount) as amount, AVG(in_factor) as in_factor,
 	sum(in_factor) as sum_if, sum(inv_amount) - sum(rc_amount) as outstainding_amount,sale_code,sale_name,AVG(ex_factor) as ex_factor,sum(ex_factor) as sum_ef, department, nname,
 	(CASE
@@ -154,9 +149,10 @@ func GetSummaryCustomerEndPoint(c echo.Context) error {
 			WHERE so_amount <> 0 group by sonumber
 		) cust_group
 		LEFT JOIN staff_info ON cust_group.sale_code = staff_info.staff_id
-		group by Customer_ID;`
+		group by Customer_ID ) as a
+		where INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code, nname, department), ?) AND INSTR(CONCAT_WS('|', status), ?);`
 	var sum []model.SummaryCustomer
-	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId).Scan(&sum).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, status).Scan(&sum).Error; err != nil {
 		if gorm.IsRecordNotFoundError(err) {
 			return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
 		}
@@ -190,6 +186,7 @@ func GetSummaryCustomerEndPoint(c echo.Context) error {
 		sum(CASE WHEN status_incoome = 'ชำระแล้ว' THEN 1 ELSE 0 END) as total_status_haverc,
 		sum(CASE WHEN status_incoome = 'ค้างชำระ' THEN so_amount ELSE 0 END) as amount_status_norc,
 		sum(CASE WHEN status_incoome = 'ชำระแล้ว' THEN so_amount ELSE 0 END) as amount_status_haverc
+		,nname, department
 		FROM (
 			SELECT
 				SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
@@ -198,6 +195,7 @@ func GetSummaryCustomerEndPoint(c echo.Context) error {
 					when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
 					else 0 end
 				) as eng_cost,
+				staff_info.nname, staff_info.department,
 				(CASE
 					WHEN sonumber <> '' AND BLSCDocNo = '' THEN 'ยังไม่ออกใบแจ้งหนี้'
 					WHEN sonumber <> '' AND BLSCDocNo <> '' AND GetCN = '' THEN 'ออกใบแจ้งหนี้'
@@ -230,11 +228,11 @@ func GetSummaryCustomerEndPoint(c echo.Context) error {
 				and PeriodStartDate <= ? and PeriodEndDate >= ?
 				and PeriodStartDate <= PeriodEndDate
 				and sale_code in (?)
-			) sub_data
+			) sub_data LEFT JOIN staff_info ON sub_data.sale_code = staff_info.staff_id
 		) so_group
-		WHERE so_amount <> 0`
+		WHERE so_amount <> 0 AND INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code, nname, department), ?) `
 		var sumAmount model.SummaryCustomer
-		if err := dbSale.Ctx().Raw(sqlAmount, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId).Scan(&sumAmount).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sqlAmount, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search).Scan(&sumAmount).Error; err != nil {
 			if gorm.IsRecordNotFoundError(err) {
 				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
 			}
