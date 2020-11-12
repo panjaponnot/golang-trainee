@@ -5,6 +5,7 @@ import (
 	"net/http"
 	m "sale_ranking/model"
 	"sale_ranking/pkg/log"
+	"sale_ranking/pkg/server"
 	"sale_ranking/pkg/util"
 	"strconv"
 	"strings"
@@ -333,4 +334,33 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		"team":        dataCount.CountTeam,
 	}
 	return c.JSON(http.StatusOK, dataResult)
+}
+
+func CreateLogQuotation(c echo.Context) error {
+	body := struct {
+		OneId    string `json:"one_id"`
+		StaffId  string `json:"staff_id"`
+		Status   string `json:"status"`
+		SoNumber string `json:"so_number"`
+		Remark   string `json:"remark"`
+		UserName string `json:"user_name"`
+	}{}
+	if err := c.Bind(&body); err != nil {
+		return echo.ErrBadRequest
+	}
+	d := time.Now()
+	var quoLog m.QuotationLog
+	quoLog.Date = d.Format("2006-Jan-02")
+	quoLog.SoNumber = body.SoNumber
+	quoLog.UserName = body.UserName
+	quoLog.OneId = body.OneId
+	quoLog.StaffId = body.StaffId
+	quoLog.Status = body.Status
+	quoLog.Remark = body.Remark
+
+	if err := dbSale.Ctx().Create(&quoLog).Error; err != nil {
+		log.Errorln(pkgName, err, "create quotation log error :-")
+		return c.JSON(http.StatusInternalServerError, server.Result{Message: "create quotation log error"})
+	}
+	return c.JSON(http.StatusNoContent, nil)
 }

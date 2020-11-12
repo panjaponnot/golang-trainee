@@ -27,8 +27,8 @@ var (
 func init() {
 	// Preparing database schema
 	tables = []interface{}{
-		// client
-		&m.ApiClient{},
+		//log qoutation
+		&m.QuotationLog{},
 	}
 }
 
@@ -53,12 +53,13 @@ func InitCoreService() error {
 		return err
 	}
 	log.Infoln(pkgName, "Connected to database sql server.")
+
 	// Migrate database
-	// if err := db.MigrateDatabase(tables); err != nil {
-	// 	log.Errorln(pkgName, err, "Migrate database error")
-	// 	return err
-	// }
-	// log.Infoln(pkgName, "Migrated database schema.")
+	if err := dbSale.MigrateDatabase(tables); err != nil {
+		log.Errorln(pkgName, err, "Migrate database sale ranking error")
+		return err
+	}
+	log.Infoln(pkgName, "Migrated database sale ranking schema.")
 
 	// Redis cache
 	redis = NewRedis()
@@ -91,6 +92,10 @@ func InitCoreService() error {
 	// 	return err
 	// }
 	// log.Infoln(pkgName, "New Attendant client success.")
+
+	// Billing
+	billingClient = initBillingConfig()
+	log.Infoln(pkgName, "Initialized Billing client.")
 
 	// Prepare one platform config
 	// Identity
