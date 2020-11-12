@@ -56,7 +56,7 @@ func InitCoreService() error {
 	log.Infoln(pkgName, "Connected to database sql server.")
 
 	// Migrate database
-	if err := dbSale.MigrateDatabase(tables); err != nil {
+	if err := dbQuataion.MigrateDatabase(tables); err != nil {
 		log.Errorln(pkgName, err, "Migrate database sale ranking error")
 		return err
 	}

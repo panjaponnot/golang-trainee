@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sale_ranking/core"
+	"sale_ranking/pkg/attendant"
 	"sale_ranking/pkg/log"
 	"sale_ranking/pkg/requests"
 	"sale_ranking/pkg/util"
@@ -53,14 +54,23 @@ func GetUserOneThEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "Json unmarshall chat error")
 		return echo.ErrInternalServerError
 	}
-
+	var emp []attendant.EmployeeDetail
 	if data.Status == "success" {
 		a := core.AttendantClient()
-		d, _ := a.GetAccountByID(data.Data.OneId)
-		// log.Infoln(d)
-		fmt.Println(d)
+		acc, err := a.GetAccountByID(data.Data.OneId)
+		if err != nil {
+			log.Errorln(pkgName, err, "service attendant unavailable")
+			return echo.ErrServiceUnavailable
+		}
+		if len(acc.EmployeeDetail) != 0 {
+			emp = append(emp, acc.EmployeeDetail[0])
+		} else {
+			return echo.ErrNotFound
+		}
 	}
-	// a := core.AttendantClient()
-	// d, _ := a.GetAccountByID("aaa")
+	return c.JSON(http.StatusOK, emp[0])
+}
+
+func CheckAlertExpireEndPoint(c echo.Context) error {
 	return c.JSON(http.StatusOK, nil)
 }

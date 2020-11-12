@@ -56,6 +56,10 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 	var quarter string
 	var month string
 	var search string
+	page, _ := strconv.Atoi(strings.TrimSpace(c.QueryParam("page")))
+	if strings.TrimSpace(c.QueryParam("page")) == "" {
+		page = 1
+	}
 	if strings.TrimSpace(c.QueryParam("quarter")) != "" {
 		quarter = fmt.Sprintf("AND quarter(start_date) = %s", strings.TrimSpace(c.QueryParam("quarter")))
 	}
@@ -148,8 +152,19 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
-		dataCount.Total = len(dataRaw)
-		dataResult.Detail = dataRaw
+		if len(dataRaw) > (page * 20) {
+			start := (page - 1) * 20
+			end := (page * 20)
+			dataResult.Detail = dataRaw[start:end]
+			dataCount.Total = len(dataRaw[start:end])
+		} else {
+			start := (page * 20) - (20)
+			dataResult.Detail = dataRaw[start:]
+			dataCount.Total = len(dataRaw[start:])
+		}
+
+		// dataCount.Total = len(dataRaw)
+		// dataResult.Detail = dataRaw
 		wg.Done()
 	}()
 	go func() {
