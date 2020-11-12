@@ -75,6 +75,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		Detail interface{} `json:"detail"`
 	}{}
 	dataCount := struct {
+		Count        int
 		Total        int
 		Work         int
 		NotWork      int
@@ -155,16 +156,18 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		if len(dataRaw) > (page * 20) {
 			start := (page - 1) * 20
 			end := (page * 20)
-			dataResult.Detail = dataRaw[start:end]
-			dataCount.Total = len(dataRaw[start:end])
+			dataResult.Detail = map[string]interface{}{
+				"data":  dataRaw[start:end],
+				"count": len(dataRaw[start:end]),
+			}
 		} else {
 			start := (page * 20) - (20)
-			dataResult.Detail = dataRaw[start:]
-			dataCount.Total = len(dataRaw[start:])
+			dataResult.Detail = map[string]interface{}{
+				"data":  dataRaw[start:],
+				"count": len(dataRaw[start:]),
+			}
 		}
-
-		// dataCount.Total = len(dataRaw)
-		// dataResult.Detail = dataRaw
+		dataCount.Total = len(dataRaw)
 		wg.Done()
 	}()
 	go func() {
