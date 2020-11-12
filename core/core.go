@@ -4,6 +4,7 @@ import (
 	// " golang_template/pkg/attendant"
 
 	m "sale_ranking/model"
+	"sale_ranking/pkg/attendant"
 	"sale_ranking/pkg/cache"
 	"sale_ranking/pkg/crontab"
 	"sale_ranking/pkg/database"
@@ -86,16 +87,16 @@ func InitCoreService() error {
 	log.Infoln(pkgName, "New reCaptCha success.")
 
 	// Prepare AttendantClient
-	// attendantClient, err = attendant.NewClient(attendantToken, attendantTokenType)
-	// if err != nil {
-	// 	log.Errorln(pkgName, err, "New Attendant client error")
-	// 	return err
-	// }
-	// log.Infoln(pkgName, "New Attendant client success.")
+	attendantClient, err = attendant.NewClient(attendantToken, attendantTokenType)
+	if err != nil {
+		log.Errorln(pkgName, err, "New Attendant client error")
+		return err
+	}
+	log.Infoln(pkgName, "New Attendant client success.")
 
 	// Billing
-	billingClient = initBillingConfig()
-	log.Infoln(pkgName, "Initialized Billing client.")
+	// billingClient = initBillingConfig()
+	// log.Infoln(pkgName, "Initialized Billing client.")
 
 	// Prepare one platform config
 	// Identity

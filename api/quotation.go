@@ -32,6 +32,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		EndDate         time.Time `json:"end_date"`
 		RefQuotation    string    `json:"ref_quotation"`
 		RefSO           string    `json:"ref_so" gorm:"column:refSO"`
+		DateTime        string    `json:"datetime" gorm:"column:datetime"`
 		ServicePlatform string    `json:"service_platform"`
 		Reason          string    `json:"reason"`
 		Status          string    `json:"status" gorm:"column:status_sale"`
