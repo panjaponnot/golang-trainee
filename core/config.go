@@ -3,6 +3,7 @@ package core
 import (
 	"crypto/rsa"
 	"sale_ranking/pkg/attendant"
+	"sale_ranking/pkg/billing"
 	"sale_ranking/pkg/cache"
 	"sale_ranking/pkg/crontab"
 	"sale_ranking/pkg/database"
@@ -88,6 +89,7 @@ var (
 
 	identityClient identity.Identity
 	chatBotClient  chat.Chat
+	billingClient  billing.Billing
 
 	attendantToken     = util.GetEnv(envAttendantToken, "")
 	attendantTokenType = util.GetEnv(envAttendantTokenType, "Bearer")
@@ -201,6 +203,13 @@ func getRedisConfig() cache.Config {
 		Port: util.GetEnv(envRedisPort, "6379"),
 		Db:   util.AtoI(util.GetEnv(envRedisDb, "0"), 0),
 	}
+}
+
+func initBillingConfig() billing.Billing {
+	return billing.NewBilling(
+		"",
+		"",
+	)
 }
 
 func initIdentityConfig() identity.Identity {

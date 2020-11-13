@@ -5,6 +5,7 @@ import (
 	"net/http"
 	m "sale_ranking/model"
 	"sale_ranking/pkg/log"
+	"sale_ranking/pkg/server"
 	"sale_ranking/pkg/util"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		EndDate         time.Time `json:"end_date"`
 		RefQuotation    string    `json:"ref_quotation"`
 		RefSO           string    `json:"ref_so" gorm:"column:refSO"`
+		DateTime        string    `json:"datetime" gorm:"column:datetime"`
 		ServicePlatform string    `json:"service_platform"`
 		Reason          string    `json:"reason"`
 		Status          string    `json:"status" gorm:"column:status_sale"`
@@ -54,6 +56,10 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 	var quarter string
 	var month string
 	var search string
+	page, _ := strconv.Atoi(strings.TrimSpace(c.QueryParam("page")))
+	if strings.TrimSpace(c.QueryParam("page")) == "" {
+		page = 1
+	}
 	if strings.TrimSpace(c.QueryParam("quarter")) != "" {
 		quarter = fmt.Sprintf("AND quarter(start_date) = %s", strings.TrimSpace(c.QueryParam("quarter")))
 	}
@@ -69,6 +75,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		Detail interface{} `json:"detail"`
 	}{}
 	dataCount := struct {
+		Count        int
 		Total        int
 		Work         int
 		NotWork      int
@@ -79,6 +86,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		CountService interface{}
 		CountCompany interface{}
 		CountType    interface{}
+		CountTeam    interface{}
 	}{}
 
 	var user []m.UserInfo
@@ -117,7 +125,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(10)
+	wg.Add(11)
 	go func() {
 		// work
 		var dataRaw []QuotationJoin
@@ -145,8 +153,21 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
+		if len(dataRaw) > (page * 20) {
+			start := (page - 1) * 20
+			end := (page * 20)
+			dataResult.Detail = map[string]interface{}{
+				"data":  dataRaw[start:end],
+				"count": len(dataRaw[start:end]),
+			}
+		} else {
+			start := (page * 20) - (20)
+			dataResult.Detail = map[string]interface{}{
+				"data":  dataRaw[start:],
+				"count": len(dataRaw[start:]),
+			}
+		}
 		dataCount.Total = len(dataRaw)
-		dataResult.Detail = dataRaw
 		wg.Done()
 	}()
 	go func() {
@@ -289,6 +310,27 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		dataCount.CountType = dataRaw
 		wg.Done()
 	}()
+	go func() {
+		// count service
+		var dataRaw []struct {
+			TotalPrice float64 `json:"total_price"`
+			TotalTeam  int     `json:"total_team"`
+			Teams      string  `json:"teams"`
+		}
+		sql := fmt.Sprintf(`SELECT SUM(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price,COUNT(team) as total_team,team ,(CASE
+			WHEN team = '' THEN 'no name'
+			ELSE team END
+			) as teams FROM quatation_th 
+			LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
+			ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+			WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL) 
+			AND YEAR(start_date) = ? %s %s %s %s  GROUP BY team`, textStaffId, quarter, month, search)
+		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
+			hasErr += 1
+		}
+		dataCount.CountTeam = dataRaw
+		wg.Done()
+	}()
 	wg.Wait()
 
 	if hasErr != 0 {
@@ -296,18 +338,48 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 	}
 
 	dataResult.Total = map[string]interface{}{
-		"total_all":      dataCount.Total,
-		"total_not_work": dataCount.NotWork,
+		"total_all": dataCount.Total,
 		"total_work": map[string]int{
-			"all":  dataCount.Work,
-			"win":  dataCount.Win,
-			"lost": dataCount.Lost,
+			"all":       dataCount.Work,
+			"win":       dataCount.Win,
+			"lost":      dataCount.Lost,
+			"not_check": dataCount.NotWork,
 		},
 		"reason_win":  dataCount.ReasonWin,
 		"reason_lost": dataCount.ReasonLost,
 		"service":     dataCount.CountService,
 		"company":     dataCount.CountCompany,
 		"type":        dataCount.CountType,
+		"team":        dataCount.CountTeam,
 	}
 	return c.JSON(http.StatusOK, dataResult)
+}
+
+func CreateLogQuotation(c echo.Context) error {
+	body := struct {
+		OneId    string `json:"one_id"`
+		StaffId  string `json:"staff_id"`
+		Status   string `json:"status"`
+		SoNumber string `json:"so_number"`
+		Remark   string `json:"remark"`
+		UserName string `json:"user_name"`
+	}{}
+	if err := c.Bind(&body); err != nil {
+		return echo.ErrBadRequest
+	}
+	d := time.Now()
+	var quoLog m.QuotationLog
+	quoLog.Date = d.Format("2006-Jan-02")
+	quoLog.SoNumber = body.SoNumber
+	quoLog.UserName = body.UserName
+	quoLog.OneId = body.OneId
+	quoLog.StaffId = body.StaffId
+	quoLog.Status = body.Status
+	quoLog.Remark = body.Remark
+
+	if err := dbSale.Ctx().Create(&quoLog).Error; err != nil {
+		log.Errorln(pkgName, err, "create quotation log error :-")
+		return c.JSON(http.StatusInternalServerError, server.Result{Message: "create quotation log error"})
+	}
+	return c.JSON(http.StatusNoContent, nil)
 }

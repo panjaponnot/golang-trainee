@@ -18,8 +18,8 @@
 # export DB_PASSWORD=mis@Pass01
 export DB_SALE_HOST=203.151.56.242
 export DB_SALE_USERNAME=root
-# export DB_SALE_NAME=ratingscoring_test1
-export DB_SALE_NAME=ratingscoring
+export DB_SALE_NAME=ratingscoring_test1
+# export DB_SALE_NAME=ratingscoring
 export DB_SALE_PASSWORD=mis@Pass01 
 
 export DB_QUOTATION_HOST=203.154.135.51
@@ -44,6 +44,9 @@ export CONDITION_GOV_KEY_SALE='key','account'
 export CONDITION_GOV_RECOVER_SALE='recovery'
 export ACCOUNT_NOT_SALE='61073','62125','62273','57030','60265','61025','62186','19007','62268'
 
+export USERNAME_BILLING=sdi-inet
+export WEB_HOOK_CHAT_TOKEN=A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef
+export WEB_HOOK_CHAT_BOT_ID=B4f7385bc7ee356c89f3560795eeb8067
 
 
 export ATTENDANT_TOKEN=DVIdkD7Bg/Gc8z1+O9tcAup44PMHbX1JxQYOLDiyRD4xd9m+IsEW8QoafTzPXWw5Dw==

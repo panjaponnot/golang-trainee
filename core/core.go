@@ -4,6 +4,7 @@ import (
 	// " golang_template/pkg/attendant"
 
 	m "sale_ranking/model"
+	"sale_ranking/pkg/attendant"
 	"sale_ranking/pkg/cache"
 	"sale_ranking/pkg/crontab"
 	"sale_ranking/pkg/database"
@@ -27,8 +28,8 @@ var (
 func init() {
 	// Preparing database schema
 	tables = []interface{}{
-		// client
-		&m.ApiClient{},
+		//log qoutation
+		&m.QuotationLog{},
 	}
 }
 
@@ -36,7 +37,7 @@ func InitCoreService() error {
 	// Database Sale
 	dbSale = NewDatabase(pkgName, "salerank")
 	if err := dbSale.Connect(); err != nil {
-		log.Errorln(pkgName, err, "Connect to database error")
+		log.Errorln(pkgName, err, "Connect to database sale ranking error")
 		return err
 	}
 	log.Infoln(pkgName, "Connected to database sale ranking.")
@@ -53,12 +54,13 @@ func InitCoreService() error {
 		return err
 	}
 	log.Infoln(pkgName, "Connected to database sql server.")
+
 	// Migrate database
-	// if err := db.MigrateDatabase(tables); err != nil {
-	// 	log.Errorln(pkgName, err, "Migrate database error")
-	// 	return err
-	// }
-	// log.Infoln(pkgName, "Migrated database schema.")
+	if err := dbQuataion.MigrateDatabase(tables); err != nil {
+		log.Errorln(pkgName, err, "Migrate database sale ranking error")
+		return err
+	}
+	log.Infoln(pkgName, "Migrated database sale ranking schema.")
 
 	// Redis cache
 	redis = NewRedis()
@@ -85,12 +87,16 @@ func InitCoreService() error {
 	log.Infoln(pkgName, "New reCaptCha success.")
 
 	// Prepare AttendantClient
-	// attendantClient, err = attendant.NewClient(attendantToken, attendantTokenType)
-	// if err != nil {
-	// 	log.Errorln(pkgName, err, "New Attendant client error")
-	// 	return err
-	// }
-	// log.Infoln(pkgName, "New Attendant client success.")
+	attendantClient, err = attendant.NewClient(attendantToken, attendantTokenType)
+	if err != nil {
+		log.Errorln(pkgName, err, "New Attendant client error")
+		return err
+	}
+	log.Infoln(pkgName, "New Attendant client success.")
+
+	// Billing
+	// billingClient = initBillingConfig()
+	// log.Infoln(pkgName, "Initialized Billing client.")
 
 	// Prepare one platform config
 	// Identity

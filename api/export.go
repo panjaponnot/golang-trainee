@@ -68,9 +68,15 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 					}
 				}
 			} else {
-				listStaffId = strings.Split(v.StaffChild, ",")
+				if strings.TrimSpace(v.StaffChild) != "" {
+					listStaffId = strings.Split(v.StaffChild, ",")
+				}
+				listStaffId = append(listStaffId, staff[0].StaffId)
 			}
 		}
+		// if strings.TrimSpace(staff[0].Role) != "admin" {
+		// 	listStaffId = append(listStaffId, staff[0].StaffId)
+		// }
 	}
 	//////////////  getListStaffID  //////////////
 	rawData := []struct {
@@ -115,13 +121,13 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		SELECT 	Active_Inactive,has_refer,sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,
 				DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
 								PeriodAmount, SUM(PeriodAmount) as TotalAmount,
-								staff_id,prefix,fname,lname,nname,position,department
-								FROM so_mssql
+								staff_id,prefix,fname,lname,nname,position,department,SOType
+								FROM ( SELECT * FROM so_mssql WHERE SOType NOT IN ('onetime' , 'project base') ) as s
 							left join
 							(
 								select staff_id, prefix, fname, lname, nname, position, department from staff_info
 							
-							) tb_sale on so_mssql.sale_code = tb_sale.staff_id
+							) tb_sale on s.sale_code = tb_sale.staff_id
 							WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ? 
 							group by sonumber
 			) as tb_so_number
