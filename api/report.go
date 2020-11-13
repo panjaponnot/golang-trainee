@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	m "sale_ranking/model"
 	"sale_ranking/pkg/log"
@@ -499,10 +500,14 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 					}
 				}
 			} else {
-				listStaffId = strings.Split(v.StaffChild, ",")
+				if strings.TrimSpace(v.StaffChild) != "" {
+					listStaffId = strings.Split(v.StaffChild, ",")
+				}
 			}
 		}
 	}
+
+	listStaffId = append(listStaffId, staff[0].StaffId)
 	//////////////  getListStaffID  //////////////
 	type PendingData struct {
 		SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
@@ -590,6 +595,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "Select data error")
 	}
 
+	fmt.Println("   ==== ", len(rawData))
 	mapData := map[string][]PendingData{}
 
 	for _, v := range rawData {
