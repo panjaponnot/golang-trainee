@@ -503,11 +503,13 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 				if strings.TrimSpace(v.StaffChild) != "" {
 					listStaffId = strings.Split(v.StaffChild, ",")
 				}
+				listStaffId = append(listStaffId, staff[0].StaffId)
 			}
 		}
+		// if strings.TrimSpace(staff[0].Role) != "admin" {
+		// 	listStaffId = append(listStaffId, staff[0].StaffId)
+		// }
 	}
-
-	listStaffId = append(listStaffId, staff[0].StaffId)
 	//////////////  getListStaffID  //////////////
 	type PendingData struct {
 		SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
