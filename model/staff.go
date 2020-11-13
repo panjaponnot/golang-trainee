@@ -24,8 +24,8 @@ type StaffImg struct {
 	Lname   string `json:"lname"`
 	Nname   string `json:"nname"`
 	// StaffImage string `json:"staff_image"`
-	StaffImage []byte `json:"staff_image"`
-	Img        string `json:"img"`
+	StaffImage []byte `json:"image" gorm:"column:image"`
+	Img        string
 }
 
 type StaffId struct {
@@ -59,6 +59,20 @@ type StaffAll struct {
 }
 
 type StaffProfile struct {
+	StaffId  string             `json:"staff_id"`
+	Prefix   string             `json:"prefix"`
+	Fname    string             `json:"fname"`
+	Lname    string             `json:"lname"`
+	Nname    string             `json:"nname"`
+	Position string             `json:"position"`
+	Mail     StaffMail          `json:"mail"`
+	OneMail  StaffOneMail       `json:"onemail"`
+	Tel      []StaffTel         `json:"tel"`
+	Month    []StaffGoalMonth   `json:"goalmonth"`
+	Quarter  []StaffGoalQuarter `json:"goalquarter"`
+}
+
+type StaffProfileV2 struct {
 	StaffId  string           `json:"staff_id"`
 	Prefix   string           `json:"prefix"`
 	Fname    string           `json:"fname"`
@@ -67,23 +81,9 @@ type StaffProfile struct {
 	Position string           `json:"position"`
 	Mail     StaffMail        `json:"mail"`
 	OneMail  StaffOneMail     `json:"onemail"`
-	Tel      StaffTel         `json:"tel"`
-	Month    StaffGoalMonth   `json:"goalmonth"`
-	Quarter  StaffGoalQuarter `json:"goalquarter"`
-}
-
-type StaffProfileV2 struct {
-	StaffId  string         `json:"staff_id"`
-	Prefix   string         `json:"prefix"`
-	Fname    string         `json:"fname"`
-	Lname    string         `json:"lname"`
-	Nname    string         `json:"nname"`
-	Position string         `json:"position"`
-	Mail     StaffMail      `json:"mail"`
-	OneMail  StaffOneMail   `json:"onemail"`
-	Tel      StaffTel       `json:"tel"`
-	Month    StaffGoalMonth `json:"goalmonth"`
-	Quarter  []GqDict       `json:"goalquarter"`
+	Tel      []StaffTel       `json:"tel"`
+	Month    []StaffGoalMonth `json:"goalmonth"`
+	Quarter  []GqDict         `json:"goalquarter"`
 }
 
 type Staff struct {
@@ -123,7 +123,7 @@ type StaffTel struct {
 	Id       string `json:"id"`
 	RefStaff string `json:"ref_staff"`
 	Tel      string `json:"tel"`
-	TelSup   string `json:"tel_sup"`
+	TelSub   string `json:"tel_sub"`
 }
 
 type StaffPosition struct {
@@ -183,24 +183,28 @@ type GroupRelation struct {
 	IdGroupChild string `json:"id_group_child"`
 }
 
+type StaffGroupRelationId struct {
+	IdGroup string `json:"id_staff" gorm:"column:id_staff"`
+}
+
 type StaffGroupRelation struct {
 	IdGroup string `json:"id_group"`
 }
 
 type DateResult struct {
-	Cur0 string `json:"cur_0"`
-	Pv1  string `json:"pv_1"`
-	Pv2  string `json:"pv_2"`
-	Nt1  string `json:"nt_1"`
-	Nt2  string `json:"nt_2"`
+	Cur0 string `json:"cur_0" gorm:"column:cur_0"`
+	Pv1  string `json:"pv_1" gorm:"column:pv_1"`
+	Pv2  string `json:"pv_2" gorm:"column:pv_2"`
+	Nt1  string `json:"nt_1" gorm:"column:nt_1"`
+	Nt2  string `json:"nt_2" gorm:"column:nt_2"`
 }
 
 type GqDict struct {
-	TotalAmount int    `json:"total_amount"`
-	GoalTotal   string `json:"goal_total"`
-	Year        string `json:"year"`
-	Quarter     string `json:"quarter"`
-	Month       string `json:"month"`
+	TotalAmount int    `json:"total_amount" gorm:"column:total_amount"`
+	GoalTotal   string `json:"goal_total" gorm:"column:goal_total"`
+	Year        string `json:"year" gorm:"column:year"`
+	Quarter     string `json:"quarter" gorm:"column:quarter"`
+	Month       string `json:"month" gorm:"column:month"`
 }
 
 type Message struct {
