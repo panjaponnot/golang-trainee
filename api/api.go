@@ -85,16 +85,17 @@ func InitApiRouter(g *echo.Group) error {
 	// staff := g.Group("/staff")
 	// report.GET("/org", GetDataOrgChartEndPoint)
 	staff := g.Group("/staff")
-	staff.GET("", GetStaffEndPoint)
-	staff.GET("/profile", GetStaffProfileEndPoint)
-	staff.POST("", CreateStaffEndPoint)
-	staff.PUT("", EditStaffEndPoint)
-	staff.DELETE("", DeleteStaffEndPoint)
-	staff.GET("/staffpicture", GetStaffPictureEndPoint)
-	staff.GET("/staffid", GetAllStaffIdEndPoint)
-	staff.GET("/SubStaff", GetSubordinateStaffEndPoint)
-	staff.GET("/profilev2", GetStaffProfileV2EndPoint)
-	staff.GET("/cratestaffpicture", CreateStaffPictureEndPoint)
+	staff.GET("/all", GetAllStaffEndPoint)                  //success
+	staff.GET("", GetStaffEndPoint)                         //success แต่ไม่ได้เทสpython
+	staff.GET("/profile", GetStaffProfileEndPoint)          //success
+	staff.POST("", CreateStaffEndPoint)                     //success
+	staff.PUT("", EditStaffEndPoint)                        //success
+	staff.DELETE("", DeleteStaffEndPoint)                   //success
+	staff.GET("/staffpicture", GetStaffPictureEndPoint)     //success
+	staff.GET("/staffid", GetAllStaffIdEndPoint)            //success
+	staff.GET("/substaff", GetSubordinateStaffEndPoint)     //success
+	staff.GET("/profile/v2", GetStaffProfileV2EndPoint)     //success
+	staff.POST("/staffpicture", CreateStaffPictureEndPoint) //success
 
 	// report.GET("/ranking/base", GetRankingBaseSale)
 

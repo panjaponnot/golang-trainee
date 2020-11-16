@@ -1,6 +1,6 @@
 export DB_SALE_HOST=203.151.56.242
 export DB_SALE_USERNAME=root
-export DB_SALE_NAME=ratingscoring
+export DB_SALE_NAME=ratingscoring_dev
 export DB_SALE_PASSWORD=mis@Pass01
 export DB_QUOTATION_HOST=203.154.135.51
 export DB_QUOTATION_USERNAME=root
@@ -12,3 +12,8 @@ export REDIS_PORT=80
 export ATTENDANT_TOKEN=DVIdkD7Bg/Gc8z1+O9tcAup44PMHbX1JxQYOLDiyRD4xd9m+IsEW8QoafTzPXWw5Dw==
 export ATTENDANT_TOKEN_TYPE=Bearer
 export RECAPTCHA_SECRET=6Ldu3uIUAAAAAOeTaPJBXjgfPqVaK74pKxOdZcGy
+# db sql server
+export DB_MSSQL_HOST=203.150.11.51
+export DB_MSSQL_USERNAME=sa
+export DB_MSSQL_NAME=BI2
+export DB_MSSQL_PASSWORD='vC#n<H7S'
