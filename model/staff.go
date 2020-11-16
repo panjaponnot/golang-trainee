@@ -206,3 +206,19 @@ type GqDict struct {
 type Message struct {
 	Message string `json:"message"`
 }
+
+type SaleOrder struct {
+	Id           string `json:"id"`
+	SoNumber     string `json:"sonumber"`
+	CustomerID   string `json:"Customer_ID"`
+	CustomerName string `json:"Customer_Name"`
+	SaleCode     string `json:"sale_code"`
+	SaleLead     string `json:"sale_lead"`
+	SoRefer      string `json:"so_refer"`
+	SoTeam       string `json:"so_team"`
+	FirstName    string `json:"fname"`
+	LastName     string `json:"lname"`
+	NickName     string `json:"nname"`
+	Department   string `json:"department"`
+	Days         string `json:"days"`
+}

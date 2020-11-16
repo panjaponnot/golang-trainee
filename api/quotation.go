@@ -377,7 +377,7 @@ func CreateLogQuotation(c echo.Context) error {
 	quoLog.Status = body.Status
 	quoLog.Remark = body.Remark
 
-	if err := dbSale.Ctx().Create(&quoLog).Error; err != nil {
+	if err := dbSale.Ctx().Model(&m.QuotationLog{}).Create(&quoLog).Error; err != nil {
 		log.Errorln(pkgName, err, "create quotation log error :-")
 		return c.JSON(http.StatusInternalServerError, server.Result{Message: "create quotation log error"})
 	}
