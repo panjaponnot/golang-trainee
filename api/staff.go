@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -11,7 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/disintegration/imaging"
 	"github.com/labstack/echo/v4"
 )
 
@@ -439,7 +437,6 @@ func GetStaffInfoById(c echo.Context, CheckedStaffIdList []m.StaffGroupRelationI
 	// 	// return c.JSON(http.StatusInternalServerError, err)
 	// }
 	// defer dbSale.Close()
-
 	// log.Infoln("333333333333333333333")
 	// log.Infoln("==>", CheckedStaffIdList)
 	var StaffInfo []m.StaffInfo
@@ -527,15 +524,17 @@ func CreateStaffPictureEndPoint(c echo.Context) error {
 	}
 	defer dbSale.Close()
 
-	var StaffIdList []m.StaffId
-	if err := dbSale.Ctx().Raw(`SELECT staff_id FROM staff_info;`).Scan(&StaffIdList).Error; err != nil {
-		log.Errorln("GetStaffIdList error :-", err)
+	var StaffIdList []m.StaffOneId
+	if err := dbSale.Ctx().Raw(`SELECT one_id,staff_id FROM staff_info;`).Scan(&StaffIdList).Error; err != nil {
+		log.Errorln("GetOneIdList error :-", err)
 	}
 
 	for _, s := range StaffIdList {
 		NamePic := strings.TrimSpace(s.StaffId)
 		StaffId := strings.TrimSpace(s.StaffId)
 		var StaffIds = fmt.Sprintf("%ss", StaffId)
+		OneId := strings.TrimSpace(s.OneId)
+		var FileName = fmt.Sprintf("%s.jpg", StaffId)
 		if CheckPictureUrl(NamePic) {
 			log.Infoln("======>", NamePic)
 			var b []byte
@@ -545,53 +544,37 @@ func CreateStaffPictureEndPoint(c echo.Context) error {
 				log.Warnln("Get staff avatar error -:", err)
 				return echo.ErrInternalServerError
 			}
-			src, err := imaging.Decode(bytes.NewReader(b))
-			if err != nil {
-				log.Warnln("Avatar decode error 1 -:", err)
-				return echo.ErrInternalServerError
-			}
-			resized := imaging.Resize(src, 200, 250, imaging.Lanczos)
-			var buf bytes.Buffer
-			if err := imaging.Encode(&buf, resized, imaging.JPEG, imaging.JPEGQuality(90)); err != nil {
-				log.Warnln("Avatar encode error 2 -:", err)
-				return echo.ErrInternalServerError
-			}
+			str := base64.StdEncoding.EncodeToString(b)
 			vars := m.StaffPicture{
-				StaffId: StaffId,
-				Img:     buf,
+				OneId:    OneId,
+				Image:    str,
+				FileName: FileName,
 			}
 			tx := dbSale.Ctx().Begin()
-			if err := dbSale.Ctx().Table("staff_picture").Create(&vars).Error; err != nil {
+			if err := dbSale.Ctx().Table("staff_images").Create(&vars).Error; err != nil {
 				log.Errorln("Func Insert StaffPicture error :-", err)
 				tx.Rollback()
 				return err
 			}
-		} else if CheckPictureUrl(StaffIds) {
+		} else if CheckPictureUrl(StaffIds) == true {
 			log.Infoln("====2==>", StaffIds)
+			log.Infoln("====222==>", CheckPictureUrl(StaffIds))
 			var b []byte
 			var mimeType string
-			var avatarUrl = fmt.Sprintf("https://intranet.inet.co.th/assets/upload/staff/%s.jpg", NamePic)
+			var avatarUrl = fmt.Sprintf("https://intranet.inet.co.th/assets/upload/staff/%s.jpg", StaffIds)
 			if err := imagik.UrlGrabber(avatarUrl, nil, &b, &mimeType, 5); err != nil {
-				log.Warnln("Get staff avatar error -:", err)
+				log.Warnln("Get staff avatar error --:", err)
 				return echo.ErrInternalServerError
 			}
-			src, err := imaging.Decode(bytes.NewReader(b))
-			if err != nil {
-				log.Warnln("Avatar decode error -:", err)
-				return echo.ErrInternalServerError
-			}
-			resized := imaging.Resize(src, 200, 250, imaging.Lanczos)
-			var buf bytes.Buffer
-			if err := imaging.Encode(&buf, resized, imaging.JPEG, imaging.JPEGQuality(90)); err != nil {
-				log.Warnln("Avatar encode error -:", err)
-				return echo.ErrInternalServerError
-			}
+			str := base64.StdEncoding.EncodeToString(b)
 			vars := m.StaffPicture{
-				StaffId: StaffId,
-				Img:     buf,
+				OneId:    OneId,
+				Image:    str,
+				FileName: FileName,
 			}
+			log.Infoln("===val==>", vars)
 			tx := dbSale.Ctx().Begin()
-			if err := dbSale.Ctx().Table("staff_picture").Create(&vars).Error; err != nil {
+			if err := dbSale.Ctx().Table("staff_images").Create(&vars).Error; err != nil {
 				log.Errorln("Func Insert StaffPicture error :-", err)
 				tx.Rollback()
 				return err
@@ -606,43 +589,17 @@ func CreateStaffPictureEndPoint(c echo.Context) error {
 }
 
 func CheckPictureUrl(namepic string) bool {
-	// Url := fmt.Sprintf("https://intranet.inet.co.th/assets/upload/staff/%s.jpg", namepic)
-	// resp, err := http.Get(Url)
-	// if err != nil {
-	// 	return false
-	// }
-	// if resp.StatusCode == 200 {
-	// 	return true
-	// } else {
-	// 	return false
-	// }
-
-	// var b []byte
-	// var mimeType string
 	var avatarUrl = fmt.Sprintf("https://intranet.inet.co.th/assets/upload/staff/%s.jpg", namepic)
-	// if err := imagik.UrlGrabber(avatarUrl, nil, &b, &mimeType, 5); err != nil {
-	// 	log.Warnln("Get staff avatar error -:", err)
-	// 	return false
-	// }
-	// return true
-
-	// client := &http.Client{
-	// 	CheckRedirect: redirectPolicyFunc,
-	// }
 	response, err := http.Get(avatarUrl)
 	if err != nil {
 		fmt.Println("HTTP call failed:", err)
 		return false
 	}
-	// Don't forget, you're expected to close response body even if you don't want to read it.
-	defer response.Body.Close()
-
 	if response.StatusCode != http.StatusOK {
 		fmt.Println("Non-OK HTTP status:", response.StatusCode)
-		// You may read / inspect response body
 		return false
 	}
-
+	defer response.Body.Close()
 	return true
 
 }
@@ -690,12 +647,6 @@ func GetStaffProfileV2EndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		// 	if err := dbSale.Ctx().Raw(`SELECT id, ref_staff, year, quarter, goal_total, real_total, create_date, create_by
-		// 	FROM goal_quarter
-		// 	WHERE ref_staff = ?`, StaffId).Scan(&StaffGoalQuarter).Error; err != nil {
-		// 		log.Errorln("GetStaffGoalQuarter error :-", err)
-		// }
-
 		gq := GetGq(c, StaffId)
 		StaffInfo[0].Quarter = gq
 		wg.Done()
@@ -712,11 +663,6 @@ func GetStaffProfileV2EndPoint(c echo.Context) error {
 }
 
 func GetGq(c echo.Context, StaffId string) []m.GqDict {
-	// if err := initDataStore(); err != nil {
-	// 	log.Errorln(pkgName, err, "connect database error")
-	// 	// return c.JSON(http.StatusInternalServerError, err)
-	// }
-
 	OwnStaffId := StaffId
 	var StaffInfo m.StaffInfo
 	var DateResult []m.DateResult

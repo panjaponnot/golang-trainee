@@ -1,7 +1,6 @@
 package model
 
 import (
-	"bytes"
 	"time"
 )
 
@@ -145,8 +144,16 @@ type StaffAbility struct {
 }
 
 type StaffPicture struct {
-	StaffId string       `json:"staff_id"`
-	Img     bytes.Buffer `json:"staff_img" gorm:"column:staff_img"`
+	// StaffId int    `json:"staff_id"`
+	// Img     []byte `json:"staff_image" gorm:"column:staff_image"`
+	OneId    string `json:"one_id" gorm:"column:one_id"`
+	Image    string `json:"image" gorm:"column:image"`
+	FileName string `json:"filename" gorm:"column:filename"`
+}
+
+type StaffOneId struct {
+	OneId   string `json:"one_id" gorm:"column:one_id"`
+	StaffId string `json:"staff_id" gorm:"column:staff_id"`
 }
 
 type StaffGoalMonth struct {
