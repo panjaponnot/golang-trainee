@@ -81,6 +81,10 @@ func InitApiRouter(g *echo.Group) error {
 
 	webhook := g.Group("/webhook")
 	webhook.GET("/user", GetUserOneThEndPoint)
+	webhook.GET("/expire", CheckAlertExpireEndPoint)
+	webhook.GET("/approve/all", AlertApproveAllEndPoint)
+	webhook.GET("/approve", AlertApproveEndPoint)
+	webhook.GET("/quotation", CheckQuotationEndPoint)
 
 	// staff := g.Group("/staff")
 	// report.GET("/org", GetDataOrgChartEndPoint)
@@ -98,6 +102,9 @@ func InitApiRouter(g *echo.Group) error {
 	staff.POST("/staffpicture", CreateStaffPictureEndPoint) //success
 
 	// report.GET("/ranking/base", GetRankingBaseSale)
+
+	bot := g.Group("/bot")
+	bot.GET("/userone", GetUserOneThEndPoint)
 
 	return nil
 }
