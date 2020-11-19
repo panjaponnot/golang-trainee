@@ -375,7 +375,7 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 }
 
 func CreateLogQuotation(c echo.Context) error {
-	body := struct {
+	bodyData := []struct {
 		OneId          string `json:"one_id"`
 		StaffId        string `json:"staff_id"`
 		Status         string `json:"status"`
@@ -383,38 +383,40 @@ func CreateLogQuotation(c echo.Context) error {
 		Remark         string `json:"remark"`
 		UserName       string `json:"user_name"`
 	}{}
-	if err := c.Bind(&body); err != nil {
+	if err := c.Bind(&bodyData); err != nil {
 		return echo.ErrBadRequest
 	}
+	for _, body := range bodyData {
 
-	var sale m.SaleApprove
-	if err := dbSale.Ctx().Model(&m.SaleApprove{}).Where(m.SaleApprove{DocNumberEfrom: body.DocNumberEfrom}).Attrs(m.SaleApprove{
-		Reason:         strings.TrimSpace(body.Remark),
-		DocNumberEfrom: strings.TrimSpace(body.DocNumberEfrom),
-		Status:         strings.TrimSpace(body.Status),
-	}).FirstOrCreate(&sale).Error; err != nil {
-		log.Errorln(pkgName, err, "Create sale approve error :-")
-	}
-	sale.Status = strings.TrimSpace(body.Status)
-	sale.Reason = strings.TrimSpace(body.Remark)
-	if err := dbSale.Ctx().Model(&m.SaleApprove{}).Save(&sale).Error; err != nil {
-		log.Errorln(pkgName, err, "save sale approve error :-")
-		return echo.ErrInternalServerError
-	}
+		var sale m.SaleApprove
+		if err := dbSale.Ctx().Model(&m.SaleApprove{}).Where(m.SaleApprove{DocNumberEfrom: body.DocNumberEfrom}).Attrs(m.SaleApprove{
+			Reason:         strings.TrimSpace(body.Remark),
+			DocNumberEfrom: strings.TrimSpace(body.DocNumberEfrom),
+			Status:         strings.TrimSpace(body.Status),
+		}).FirstOrCreate(&sale).Error; err != nil {
+			log.Errorln(pkgName, err, "Create sale approve error :-")
+		}
+		sale.Status = strings.TrimSpace(body.Status)
+		sale.Reason = strings.TrimSpace(body.Remark)
+		if err := dbSale.Ctx().Model(&m.SaleApprove{}).Save(&sale).Error; err != nil {
+			log.Errorln(pkgName, err, "save sale approve error :-")
+			return echo.ErrInternalServerError
+		}
 
-	d := time.Now()
-	var quoLog m.QuotationLog
-	quoLog.Date = d.Format("2006-Jan-02")
-	quoLog.DocNumberEfrom = body.DocNumberEfrom
-	quoLog.UserName = body.UserName
-	quoLog.OneId = body.OneId
-	quoLog.StaffId = body.StaffId
-	quoLog.Status = body.Status
-	quoLog.Remark = body.Remark
+		d := time.Now()
+		var quoLog m.QuotationLog
+		quoLog.Date = d.Format("2006-Jan-02")
+		quoLog.DocNumberEfrom = body.DocNumberEfrom
+		quoLog.UserName = body.UserName
+		quoLog.OneId = body.OneId
+		quoLog.StaffId = body.StaffId
+		quoLog.Status = body.Status
+		quoLog.Remark = body.Remark
 
-	if err := dbSale.Ctx().Model(&m.QuotationLog{}).Create(&quoLog).Error; err != nil {
-		log.Errorln(pkgName, err, "create quotation log error :-")
-		return c.JSON(http.StatusInternalServerError, server.Result{Message: "create quotation log error"})
+		if err := dbSale.Ctx().Model(&m.QuotationLog{}).Create(&quoLog).Error; err != nil {
+			log.Errorln(pkgName, err, "create quotation log error :-")
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "create quotation log error"})
+		}
 	}
 	return c.JSON(http.StatusNoContent, nil)
 }
