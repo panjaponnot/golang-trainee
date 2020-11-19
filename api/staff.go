@@ -691,7 +691,20 @@ func GetGq(c echo.Context, StaffId string) []m.GqDict {
 
 	if len(CheckStaffChild) == 1 && len(CheckStaffChild[0]) == 0 {
 		StaffChild = strings.TrimSpace(StaffId)
+	} else {
+		StaffChild = ""
+		for n, s := range CheckStaffChild {
+			if n == 0 {
+				StaffChild += fmt.Sprintf("%s',", s)
+			} else if n+1 == len(CheckStaffChild) {
+				StaffChild += fmt.Sprintf("'%s", s)
+			} else {
+				StaffChild += fmt.Sprintf("'%s',", s)
+			}
+
+		}
 	}
+
 	var DateData []string
 	DateData = append(DateData, DateResult[0].Cur0)
 	DateData = append(DateData, DateResult[0].Pv1)
@@ -701,8 +714,9 @@ func GetGq(c echo.Context, StaffId string) []m.GqDict {
 	// log.Infoln("1311313133131133131")
 	// log.Infoln("---", DateResult)
 	for i, d := range DateData {
-		if err := dbSale.Ctx().Raw(`
-		SELECT total_amount, goal_total, year, quarter, MONTH(?) as month
+
+		str := fmt.Sprintf(`
+		SELECT total_amount, goal_total, year, quarter, MONTH(%s) as month
 		FROM
 			(
 				WITH gq_data AS
@@ -710,8 +724,8 @@ func GetGq(c echo.Context, StaffId string) []m.GqDict {
 					SELECT goal_total, year, quarter, ref_staff
 					FROM goal_quarter
 					WHERE
-						goal_quarter.year = YEAR(?) AND
-						goal_quarter.quarter = CONCAT("Q", QUARTER(?))
+						goal_quarter.year = YEAR(%s) AND
+						goal_quarter.quarter = CONCAT("Q", QUARTER(%s))
 				)
 				SELECT so_amount.*, gq_data.*
 				FROM
@@ -721,24 +735,26 @@ func GetGq(c echo.Context, StaffId string) []m.GqDict {
 							(
 								SELECT sonumber, PeriodAmount, sale_code
 								FROM so_mssql
-								WHERE QUARTER(ContractStartDate) = QUARTER(?) AND
-									MONTH(DATE(ContractStartDate)) <= MONTH(?) AND
-									YEAR(DATE(ContractStartDate)) = YEAR(?) AND
-									so_mssql.sale_code IN (?)
+								WHERE QUARTER(ContractStartDate) = QUARTER(%s) AND
+									MONTH(DATE(ContractStartDate)) <= MONTH(%s) AND
+									YEAR(DATE(ContractStartDate)) = YEAR(%s) AND
+									so_mssql.sale_code IN (%s)
 								GROUP BY sonumber
 							) as so_data
 					) as so_amount
 				INNER JOIN gq_data ON gq_data.ref_staff = so_amount.sale_code
 			) as staff_so_data
-		;`, d, d, d, d, d, d, StaffChild).Scan(&StaffIdGoalQuarter).Error; err != nil {
+		;`, d, d, d, d, d, d, StaffChild)
+		if err := dbSale.Ctx().Raw(str).Scan(&StaffIdGoalQuarter).Error; err != nil {
 			log.Errorln("GetStaffIdGoalQuarter error 1:-", err)
 		}
 		if len(StaffIdGoalQuarter) == 0 {
-			if err := dbSale.Ctx().Raw(`
-			SELECT goal_total, year, quarter, MONTH(?) as month
+			str := fmt.Sprintf(`
+			SELECT goal_total, year, quarter, MONTH(%s) as month
 			FROM goal_quarter
-			WHERE ref_staff IN (?)
-			LIMIT 1;`, d, StaffChild).Scan(&StaffIdGoalQuarter).Error; err != nil {
+			WHERE ref_staff IN (%s)
+			LIMIT 1;`, d, StaffChild)
+			if err := dbSale.Ctx().Raw(str).Scan(&StaffIdGoalQuarter).Error; err != nil {
 				log.Errorln("GetStaffIdGoalQuarter error 2:-", err)
 			}
 			GqDictData := m.GqDict{
