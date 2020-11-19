@@ -81,6 +81,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		NotWork      int
 		Win          int
 		Lost         int
+		Resend       int
 		ReasonWin    interface{}
 		ReasonLost   interface{}
 		CountService interface{}
@@ -125,7 +126,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(11)
+	wg.Add(12)
 	go func() {
 		// work
 		var dataRaw []QuotationJoin
@@ -146,7 +147,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		// total all
 		var dataRaw []QuotationJoin
 		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve WHERE status IN ('Win','Lost','Resend/Revised')) as sales_approve 
 		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
 		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
@@ -194,7 +195,7 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'win'
 		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL 
 		AND (total IS NOT NULL OR total_discount IS NOT NULL)
-AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
+		AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
@@ -331,6 +332,23 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		dataCount.CountTeam = dataRaw
 		wg.Done()
 	}()
+	go func() {
+		// re send
+		var dataRaw []QuotationJoin
+		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th 
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'Resend/Revised'
+		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL 
+		AND (total IS NOT NULL OR total_discount IS NOT NULL)
+		AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
+		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
+			hasErr += 1
+		}
+
+		dataCount.Resend = len(dataRaw)
+		wg.Done()
+	}()
 	wg.Wait()
 
 	if hasErr != 0 {
@@ -344,6 +362,7 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 			"win":       dataCount.Win,
 			"lost":      dataCount.Lost,
 			"not_check": dataCount.NotWork,
+			"resend":    dataCount.Resend,
 		},
 		"reason_win":  dataCount.ReasonWin,
 		"reason_lost": dataCount.ReasonLost,
@@ -356,30 +375,48 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 }
 
 func CreateLogQuotation(c echo.Context) error {
-	body := struct {
-		OneId    string `json:"one_id"`
-		StaffId  string `json:"staff_id"`
-		Status   string `json:"status"`
-		SoNumber string `json:"so_number"`
-		Remark   string `json:"remark"`
-		UserName string `json:"user_name"`
+	bodyData := []struct {
+		OneId          string `json:"one_id"`
+		StaffId        string `json:"staff_id"`
+		Status         string `json:"status"`
+		DocNumberEfrom string `json:"doc_number_eform"`
+		Remark         string `json:"remark"`
+		UserName       string `json:"user_name"`
 	}{}
-	if err := c.Bind(&body); err != nil {
+	if err := c.Bind(&bodyData); err != nil {
 		return echo.ErrBadRequest
 	}
-	d := time.Now()
-	var quoLog m.QuotationLog
-	quoLog.Date = d.Format("2006-Jan-02")
-	quoLog.SoNumber = body.SoNumber
-	quoLog.UserName = body.UserName
-	quoLog.OneId = body.OneId
-	quoLog.StaffId = body.StaffId
-	quoLog.Status = body.Status
-	quoLog.Remark = body.Remark
+	for _, body := range bodyData {
 
-	if err := dbSale.Ctx().Model(&m.QuotationLog{}).Create(&quoLog).Error; err != nil {
-		log.Errorln(pkgName, err, "create quotation log error :-")
-		return c.JSON(http.StatusInternalServerError, server.Result{Message: "create quotation log error"})
+		var sale m.SaleApprove
+		if err := dbSale.Ctx().Model(&m.SaleApprove{}).Where(m.SaleApprove{DocNumberEfrom: body.DocNumberEfrom}).Attrs(m.SaleApprove{
+			Reason:         strings.TrimSpace(body.Remark),
+			DocNumberEfrom: strings.TrimSpace(body.DocNumberEfrom),
+			Status:         strings.TrimSpace(body.Status),
+		}).FirstOrCreate(&sale).Error; err != nil {
+			log.Errorln(pkgName, err, "Create sale approve error :-")
+		}
+		sale.Status = strings.TrimSpace(body.Status)
+		sale.Reason = strings.TrimSpace(body.Remark)
+		if err := dbSale.Ctx().Model(&m.SaleApprove{}).Save(&sale).Error; err != nil {
+			log.Errorln(pkgName, err, "save sale approve error :-")
+			return echo.ErrInternalServerError
+		}
+
+		d := time.Now()
+		var quoLog m.QuotationLog
+		quoLog.Date = d.Format("2006-Jan-02")
+		quoLog.DocNumberEfrom = body.DocNumberEfrom
+		quoLog.UserName = body.UserName
+		quoLog.OneId = body.OneId
+		quoLog.StaffId = body.StaffId
+		quoLog.Status = body.Status
+		quoLog.Remark = body.Remark
+
+		if err := dbSale.Ctx().Model(&m.QuotationLog{}).Create(&quoLog).Error; err != nil {
+			log.Errorln(pkgName, err, "create quotation log error :-")
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "create quotation log error"})
+		}
 	}
 	return c.JSON(http.StatusNoContent, nil)
 }

@@ -458,6 +458,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	}
 
+	search := strings.TrimSpace(c.QueryParam("search"))
 	oneId := strings.TrimSpace(c.QueryParam("one_id"))
 	year := strings.TrimSpace(c.QueryParam("year"))
 	if strings.TrimSpace(c.QueryParam("year")) == "" {
@@ -591,9 +592,10 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
                                 else remark end
                         ) as remark 
                         from check_expire
-                  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
+				  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
+				  WHERE INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,Customer_ID,Customer_Name), ?)
                   group by tb_ch_so.sonumber
-		  `, listStaffId, year).Scan(&rawData).Error; err != nil {
+		  `, listStaffId, year, search).Scan(&rawData).Error; err != nil {
 		log.Errorln(pkgName, err, "Select data error")
 	}
 
