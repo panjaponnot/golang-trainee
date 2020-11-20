@@ -89,7 +89,6 @@ var (
 
 	identityClient identity.Identity
 	chatBotClient  chat.Chat
-	billingClient  billing.Billing
 
 	attendantToken     = util.GetEnv(envAttendantToken, "")
 	attendantTokenType = util.GetEnv(envAttendantTokenType, "Bearer")
@@ -185,18 +184,6 @@ func getDatabaseConfig(packageName string, dbName string) database.Config {
 	}
 }
 
-// func getDatabaseMssqlConfig(packageName string) database.Config {
-// 	return database.Config{
-// 		Host:        util.GetEnv(envDbSaleHost, "127.0.0.1"),
-// 		Port:        util.GetEnv(envDbSalePort, "3306"),
-// 		Username:    util.GetEnv(envDbSaleUsername, ""),
-// 		Password:    util.GetEnv(envDbSalePassword, ""),
-// 		Name:        util.GetEnv(envDbSaleName, ""),
-// 		Prod:        util.IsProduction(),
-// 		PackageName: packageName,
-// 	}
-// }
-
 func getRedisConfig() cache.Config {
 	return cache.Config{
 		Host: util.GetEnv(envRedisHost, "127.0.0.1"),
@@ -205,10 +192,9 @@ func getRedisConfig() cache.Config {
 	}
 }
 
-func initBillingConfig() billing.Billing {
+func initBillingConfig(token string) billing.Billing {
 	return billing.NewBilling(
-		"",
-		"",
+		token,
 	)
 }
 

@@ -106,5 +106,8 @@ func InitApiRouter(g *echo.Group) error {
 	bot := g.Group("/bot")
 	bot.GET("/userone", GetUserOneThEndPoint)
 
+	bill := g.Group("/bill")
+	bill.GET("", GetBillingEndPoint)
+
 	return nil
 }
