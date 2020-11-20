@@ -81,7 +81,7 @@ func InitApiRouter(g *echo.Group) error {
 
 	webhook := g.Group("/webhook")
 	webhook.GET("/user", GetUserOneThEndPoint)
-	webhook.GET("/expire", CheckAlertExpireEndPoint)
+	webhook.GET("/expire", AlertExpireEndPoint)
 	webhook.GET("/approve/all", AlertApproveAllEndPoint)
 	webhook.GET("/approve", AlertApproveEndPoint)
 	webhook.GET("/quotation", CheckQuotationEndPoint)
@@ -90,7 +90,7 @@ func InitApiRouter(g *echo.Group) error {
 	// report.GET("/org", GetDataOrgChartEndPoint)
 	staff := g.Group("/staff")
 	staff.GET("/all", GetAllStaffEndPoint)                  //success
-	staff.GET("", GetStaffEndPoint)                         //success แต่ไม่ได้เทสpython
+	staff.GET("", GetStaffEndPoint)                         //success
 	staff.GET("/profile", GetStaffProfileEndPoint)          //success
 	staff.POST("", CreateStaffEndPoint)                     //success
 	staff.PUT("", EditStaffEndPoint)                        //success

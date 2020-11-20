@@ -20,6 +20,7 @@ import (
 )
 
 func GetUserOneThEndPoint(c echo.Context) error {
+
 	token := c.QueryParam("token")
 
 	if strings.TrimSpace(c.QueryParam("token")) == "" {
@@ -40,11 +41,14 @@ func GetUserOneThEndPoint(c echo.Context) error {
 		Source: token,
 		Phone:  "true",
 	})
+
 	r, err := requests.Request(http.MethodPost, url, headers, bytes.NewBuffer(body), 0)
+	// r, err := requests.Post(url, headers, bytes.NewBuffer(body), 5)
 	if err != nil {
 		log.Errorln(pkgName, err, "service chat unavailable")
 		return echo.ErrServiceUnavailable
 	}
+
 	type Raw struct {
 		OneId           string `json:"one_id"`
 		EmployeeeDetail string `josn:"employee_detail"`
@@ -58,8 +62,10 @@ func GetUserOneThEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "Json unmarshall chat error")
 		return echo.ErrInternalServerError
 	}
+	// return c.JSON(http.StatusOK, data)
 	var emp []attendant.EmployeeDetail
 	if data.Status == "success" {
+		// return c.JSON(http.StatusOK, "emp33333")
 		a := core.AttendantClient()
 		acc, err := a.GetAccountByID(data.Data.OneId)
 		if err != nil {
@@ -71,11 +77,14 @@ func GetUserOneThEndPoint(c echo.Context) error {
 		} else {
 			return echo.ErrNotFound
 		}
+	} else {
+		return c.JSON(http.StatusBadRequest, m.Result{Message: "invalid token"})
 	}
+	// return c.JSON(http.StatusOK, emp)
 	return c.JSON(http.StatusOK, emp[0])
 }
 
-func CheckAlertExpireEndPoint(c echo.Context) error {
+func AlertExpireEndPoint(c echo.Context) error {
 	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
 		return c.JSON(http.StatusBadRequest, server.Result{Mess: "not have param one_id"})
 	}
@@ -90,6 +99,7 @@ func CheckAlertExpireEndPoint(c echo.Context) error {
 	}
 	StrOneId := strings.TrimSpace(c.QueryParam("one_id"))
 	log.Infoln("-->", staff)
+	// return c.JSON(http.StatusOK, staff)
 	if len(staff) == 0 {
 		return c.JSON(http.StatusBadRequest, m.Result{Message: "sending fail"})
 	}
@@ -97,9 +107,11 @@ func CheckAlertExpireEndPoint(c echo.Context) error {
 
 		if s.OneId == StrOneId {
 			if s.StaffChild == "" {
+				// return c.JSON(http.StatusOK, "staff")
 				// log.Infoln("-----------normal------------")
 				GetSoExpire(c, s)
 			} else {
+				// return c.JSON(http.StatusOK, "staff")
 				res := ApiGetTeammember(s, staff)
 				if res.Type == "teamlead" {
 					// log.Infoln(res.Type)
@@ -162,19 +174,19 @@ type StaffInfo struct {
 }
 
 type SaleOrder struct {
-	Id           string `json:"id"`
-	SoNumber     string `json:"sonumber"`
-	CustomerID   string `json:"Customer_ID"`
-	CustomerName string `json:"Customer_Name"`
-	SaleCode     string `json:"sale_code"`
-	SaleLead     string `json:"sale_lead"`
-	SoRefer      string `json:"so_refer"`
-	SoTeam       string `json:"so_team"`
-	FirstName    string `json:"fname"`
-	LastName     string `json:"lname"`
-	NickName     string `json:"nname"`
-	Department   string `json:"department"`
-	Days         string `json:"days"`
+	Id           string `json:"id" gorm:"column:id"`
+	SoNumber     string `json:"sonumber" gorm:"column:sonumber"`
+	CustomerID   string `json:"Customer_ID" gorm:"column:Customer_ID"`
+	CustomerName string `json:"Customer_Name" gorm:"column:Customer_Name"`
+	SaleCode     string `json:"sale_code" gorm:"column:sale_code"`
+	SaleLead     string `json:"sale_lead" gorm:"column:sale_lead"`
+	SoRefer      string `json:"so_refer" gorm:"column:so_refer"`
+	SoTeam       string `json:"so_team" gorm:"column:so_team"`
+	FirstName    string `json:"fname" gorm:"column:fname"`
+	LastName     string `json:"lname" gorm:"column:lname"`
+	NickName     string `json:"nname" gorm:"column:nname"`
+	Department   string `json:"department" gorm:"column:department"`
+	Days         string `json:"days" gorm:"column:days"`
 }
 
 type SoExpireApprove struct {
@@ -264,14 +276,17 @@ func GetSoExpire(c echo.Context, s StaffInfo) error {
 		log.Errorln("GetSoExpire Select Staff error :-", err)
 		SetFormat(staff, s)
 	}
+
 	return nil
 }
 
 func SetFormat(ListSo []SaleOrder, s StaffInfo) error {
+
 	var CheckDays = 0
 	var NDays string
 	var TextMessage = ""
 	DictDays := make(map[string][]SaleOrder)
+
 	for _, so := range ListSo {
 		for key, _ := range DictDays { //เช็คarray
 			if so.Days == key { //ถ้ามีอยู่ในArray
@@ -324,11 +339,12 @@ func SetFormat(ListSo []SaleOrder, s StaffInfo) error {
 			}
 		}
 	}
+
 	AlertOnechat(TextMessage, s, len(ListSo))
 	return nil
 }
 
-func ApiTeammember(s StaffInfo, staff []StaffInfo) Respons {
+func ApiGetTeammember(s StaffInfo, staff []StaffInfo) Respons {
 	// url := fmt.Sprintf("https://attendants.sdi.inet.co.th/3rd/accounts/%s/teammember", s.OneId)
 
 	// payload, _ := json.Marshal(&struct {
@@ -422,15 +438,28 @@ func ApiTeammember(s StaffInfo, staff []StaffInfo) Respons {
 
 func GetSoExpireLead(c echo.Context, s StaffInfo) error {
 	var ListSo []m.SaleOrder
-	if err := dbSale.Ctx().Raw(`select sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,so_refer,sale_code,sale_lead,
-        DATEDIFF(ContractEndDate, NOW()) as days, fname, lname, nname, department
-        from so_mssql
-        left join staff_info on so_mssql.sale_code = staff_info.staff_id
-        WHERE
-        DATEDIFF(ContractEndDate, NOW()) <= 90 and has_refer = 0 and Active_Inactive = 'Active' and
-        sale_code in (?)
-        group by sonumber
-        order by days;`, s.StaffChild).Scan(&ListSo).Error; err != nil {
+	StaffChild := strings.Split(s.StaffChild, ",")
+	var StaffChildStr string
+	for n, s := range StaffChild {
+		if n == 0 {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		} else if n+1 == len(StaffChild) {
+			StaffChildStr += fmt.Sprintf("'%s'", s)
+		} else {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		}
+
+	}
+	str := fmt.Sprintf(`select sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,so_refer,sale_code,sale_lead,
+	DATEDIFF(ContractEndDate, NOW()) as days, fname, lname, nname, department
+	from so_mssql
+	left join staff_info on so_mssql.sale_code = staff_info.staff_id
+	WHERE
+	DATEDIFF(ContractEndDate, NOW()) <= 90 and has_refer = 0 and Active_Inactive = 'Active' and
+	sale_code in (%s)
+	group by sonumber
+	order by days;`, StaffChildStr)
+	if err := dbSale.Ctx().Raw(str).Scan(&ListSo).Error; err != nil {
 		log.Errorln("GetSoExpireLead Select Staff error :-", err)
 	}
 	SetFormatLead(ListSo, s)
@@ -537,18 +566,33 @@ func GetsoExpireGroupLead(c echo.Context, s StaffInfo) error {
 	// 	defer Close()
 	// }
 	// defer Close()
+	StaffChild := strings.Split(s.StaffChild, ",")
+	var StaffChildStr string
+	for n, s := range StaffChild {
+		if n == 0 {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		} else if n+1 == len(StaffChild) {
+			StaffChildStr += fmt.Sprintf("'%s'", s)
+		} else {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		}
+
+	}
 	var ListSo []SaleOrder
-	if err := dbSale.Ctx().Raw(`select sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,so_refer,sale_code,sale_lead,
+	// var ListSo []interface{}
+	str := fmt.Sprintf(`select sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,so_refer,sale_code,sale_lead,
 	DATEDIFF(ContractEndDate, NOW()) as days, fname, lname, nname, department
 	from so_mssql
 	left join staff_info on so_mssql.sale_code = staff_info.staff_id
 	WHERE
 	DATEDIFF(ContractEndDate, NOW()) <= 90 and has_refer = 0  and Active_Inactive = 'Active' and
-	sale_code in (?)
+	sale_code in (%s)
 	group by sonumber
-	order by days;`, s.StaffChild).Scan(&ListSo).Error; err != nil {
+	order by days;`, StaffChildStr)
+	if err := dbSale.Ctx().Raw(str).Scan(&ListSo).Error; err != nil {
 		log.Errorln("GetsoExpireGroupLead Select Staff error :-", err)
 	}
+	// return c.JSON(http.StatusOK, StaffChildStr)
 	SetFormatGroup(ListSo, s)
 	return nil
 }
@@ -650,6 +694,7 @@ func SetFormatGroup(ListSo []SaleOrder, s StaffInfo) error {
 			CheckText = 0
 		}
 	}
+
 	AlertOnechat(TextMessage, s, len(ListSo))
 	return nil
 }
@@ -672,8 +717,10 @@ func AlertOnechat(TextMessage string, staff StaffInfo, l int) (interface{}, erro
 		CustomNotification string `json:"custom_notification"`
 	}{
 		// To: "198008320896",
-		To:                 staff.OneId,
-		BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
+		To: "25078584384",
+		// To:                 staff.OneId,
+		// BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
+		BotId:              "Becf3d73c867f508ab7a8f5d62ceceb64",
 		Type:               "text",
 		Message:            TextMessage,
 		CustomNotification: "เปิดอ่านข้อความใหม่จากทางเรา",
@@ -693,7 +740,8 @@ func AlertOnechat(TextMessage string, staff StaffInfo, l int) (interface{}, erro
 		log.Errorln("error -:", err)
 	}
 	// test
-	ApiPushQuickReply("198008320896")
+	// ApiPushQuickReply("198008320896")
+	ApiPushQuickReply("25078584384")
 	// ApiPushQuickReply(staff.OneId)
 	return dataResult, nil
 }
@@ -715,8 +763,10 @@ func ApiPushQuickReply(OneId string) (interface{}, error) {
 		QuickReply []Quick `json:"quick_reply"`
 	}{
 		// To: "198008320896",
-		To:      OneId,
-		BotId:   "B4f7385bc7ee356c89f3560795eeb8067",
+		// To:      OneId,
+		To: "25078584384",
+		// BotId:   "B4f7385bc7ee356c89f3560795eeb8067",
+		BotId:   "Becf3d73c867f508ab7a8f5d62ceceb64",
 		Message: "",
 		QuickReply: []Quick{{
 			Label:   "รับทราบ",
@@ -774,17 +824,29 @@ func AlertApproveAllEndPoint(c echo.Context) error {
 	if err := dbSale.Ctx().Raw(`select * from staff_info where one_id = ? and staff_child <> '';`, OneId).Scan(&staff).Error; err != nil {
 		log.Errorln("GetStaff Select Staff error :-", err)
 	}
+	// return c.JSON(http.StatusOK, staff)
 	if len(staff) == 0 {
 		PushMessageApprove(SoExpireApproveOneId, OneId, "normal")
 		return c.JSON(http.StatusBadRequest, m.Result{Message: "sending fail"})
 	}
-
-	if err := dbSale.Ctx().Raw(`SELECT approve,so_expire_approve.id,fname,lname, nname,staff_id,so_expire_approve.one_id
+	StaffChild := strings.Split(staff[0].StaffChild, ",")
+	var StaffChildStr string
+	for n, s := range StaffChild {
+		if n == 0 {
+			StaffChildStr += fmt.Sprintf("%s',", s)
+		} else if n+1 == len(StaffChild) {
+			StaffChildStr += fmt.Sprintf("'%s", s)
+		} else {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		}
+	}
+	str := fmt.Sprintf(`SELECT approve,so_expire_approve.id,fname,lname, nname,staff_id,so_expire_approve.one_id
 	FROM so_expire_approve
 	LEFT JOIN (
-		select * from staff_info where staff_id in (?)
+		select * from staff_info where staff_id in (%s)
 	) staff_info ON so_expire_approve.one_id = staff_info.one_id
-	WHERE so_expire_approve.id in (select max(id) as id from so_expire_approve group by one_id) and staff_id is not null`, staff[0].StaffChild).Scan(&SoExpireApproveOneId).Error; err != nil {
+	WHERE so_expire_approve.id in (select max(id) as id from so_expire_approve group by one_id) and staff_id is not null`, StaffChildStr)
+	if err := dbSale.Ctx().Raw(str).Scan(&SoExpireApproveOneId).Error; err != nil {
 		log.Errorln("GetStaff Select Staff error :-", err)
 	}
 	PushMessageApprove(SoExpireApproveOneId, OneId, "normal")
@@ -822,8 +884,10 @@ func PushMessageApprove(so []SoExpireApproveOneId, OneId string, role string) er
 			CustomNotification string `json:"custom_notification"`
 		}{
 			// To: "198008320896",
-			To:                 OneId,
-			BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
+			To: "25078584384",
+			// To:                 OneId,
+			// BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
+			BotId:              "Becf3d73c867f508ab7a8f5d62ceceb64",
 			Type:               "text",
 			Message:            NewStrData,
 			CustomNotification: "เปิดอ่านข้อความใหม่จากทางเรา",
@@ -852,9 +916,11 @@ func PushMessageApprove(so []SoExpireApproveOneId, OneId string, role string) er
 			Message            string `json:"message"`
 			CustomNotification string `json:"custom_notification"`
 		}{
-			// To: "198008320896",
-			To:                 OneId,
-			BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
+			// To: "198008320896",25078584384
+			To: "25078584384",
+			// To:                 OneId,
+			// BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
+			BotId:              "Becf3d73c867f508ab7a8f5d62ceceb64",
 			Type:               "text",
 			Message:            "ไม่มีสิทธิ์ในการเข้าถึง",
 			CustomNotification: "เปิดอ่านข้อความใหม่จากทางเรา",
@@ -889,9 +955,9 @@ func AlertApproveEndPoint(c echo.Context) error {
 	OneId := strings.TrimSpace(c.QueryParam("one_id"))
 	if err := dbSale.Ctx().Exec(`
 		UPDATE so_expire_approve
-			SET approve = True
+			SET approve = 1
 		WHERE approve_time = ? AND one_id = ?
-		;`, time.Now(), OneId).Error; err != nil {
+		;`, time.Now().Format("2006-01-02"), OneId).Error; err != nil {
 		// log.Errorln("UPDATE so_expire_approve error :-", err)
 		tx.Rollback()
 		return c.JSON(http.StatusInternalServerError, m.Result{Message: err})
@@ -1002,7 +1068,6 @@ func AlertOnechatQuo(QtNumber string, Message string, AccountId string) error {
 	}{
 		To: To,
 		// BotId:   "B4f7385bc7ee356c89f3560795eeb8067",
-
 		BotId:   "Becf3d73c867f508ab7a8f5d62ceceb64",
 		Type:    "template",
 		CusNoti: "เปิดอ่านข้อความใหม่จากทางเรา",
