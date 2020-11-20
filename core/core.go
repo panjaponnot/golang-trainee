@@ -94,17 +94,12 @@ func InitCoreService() error {
 	}
 	log.Infoln(pkgName, "New Attendant client success.")
 
-	// Billing
-	// billingClient = initBillingConfig()
-	// log.Infoln(pkgName, "Initialized Billing client.")
-
 	// Prepare one platform config
 	// Identity
 	identityClient = initIdentityConfig()
 	// Chat
 	chatBotClient = initChatBotConfig()
 	log.Infoln(pkgName, "Initialized one platform client.")
-
 	// Init crontab service
 	// cronService = crontab.NewService()
 	// cronService.Start()

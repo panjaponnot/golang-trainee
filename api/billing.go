@@ -2,15 +2,33 @@ package api
 
 import (
 	"net/http"
+	"sale_ranking/pkg/billing"
+	"sale_ranking/pkg/log"
 
 	"github.com/labstack/echo/v4"
 )
 
+var billClient billing.Billing
+
+func InitBill() error {
+	bill := billing.NewBilling("")
+	token, err := bill.GetToken()
+	// fmt.Println("=========token====", token.Token)
+	if err != nil {
+		return err
+	}
+	billClient = billing.NewBilling(token.Token)
+	return nil
+}
+
 func GetBillingEndPoint(c echo.Context) error {
+	if err := InitBill(); err != nil {
+		log.Errorln(pkgName, err, "New bill err")
+		return echo.ErrInternalServerError
+	}
 
-	// if err := billing.NewBilling("", ""); err != nil {
+	d, _ := billClient.GetInvoiceSO()
 
-	// }
-
-	return c.JSON(http.StatusOK, nil)
+	// fmt.Println("get data invoice >>", d)
+	return c.JSON(http.StatusOK, d)
 }

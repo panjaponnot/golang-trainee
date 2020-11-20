@@ -16,8 +16,23 @@ type APIResult struct {
 }
 
 type AuthenticationResult struct {
-	Code     string `json:"code"`
-	Expire   int    `json:"expire"`
+	Code     int    `json:"code"`
+	Expire   string `json:"expire"`
 	Token    string `json:"token"`
 	Username string `json:"username"`
+}
+
+type InvoiceSO struct {
+	Total string          `json:"total"`
+	Data  []DataInvoiceSO `json:"data"`
+}
+
+type InvoiceStatus struct {
+	InvStatusname string `json:"inv_status_name"`
+}
+
+type DataInvoiceSO struct {
+	SoRef         string           `json:"SoRef"`
+	InvoiceNo     string           `json:"invoice_no"`
+	InvoiceStatus *[]InvoiceStatus `json:"invoice_status"`
 }
