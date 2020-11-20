@@ -706,7 +706,7 @@ func AlertOnechat(TextMessage string, staff StaffInfo, l int) (interface{}, erro
 	} else {
 		TextMessage = fmt.Sprintf("แจ้งเตือนต่อสัญญา (ทั้งหมด %d  ลูกค้า) \n %s", l, TextMessage)
 	}
-
+	// log.Infoln(TextMessage)
 	url := "https://chat-api.one.th/message/api/v1/push_message"
 
 	payload, _ := json.Marshal(&struct {
@@ -727,7 +727,8 @@ func AlertOnechat(TextMessage string, staff StaffInfo, l int) (interface{}, erro
 	})
 
 	headers := map[string]string{
-		"Authorization": "Bearer A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef",
+		// "Authorization": "Bearer A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef",
+		"Authorization": "Bearer A548a4dd47e3c5108affe99b48b5c0218db9bcaaca6b34470b389bd04a19c3e30e1b99dad38844be387e939f755d194be",
 		"Content-Type":  "application/json",
 	}
 
@@ -777,7 +778,8 @@ func ApiPushQuickReply(OneId string) (interface{}, error) {
 	})
 
 	headers := map[string]string{
-		"Authorization": "Bearer A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef",
+		// "Authorization": "Bearer A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef",
+		"Authorization": "Bearer A548a4dd47e3c5108affe99b48b5c0218db9bcaaca6b34470b389bd04a19c3e30e1b99dad38844be387e939f755d194be",
 		"Content-Type":  "application/json",
 	}
 	rawResponse, err := requests.Post(url, headers, bytes.NewBuffer(body), 5)
@@ -833,9 +835,9 @@ func AlertApproveAllEndPoint(c echo.Context) error {
 	var StaffChildStr string
 	for n, s := range StaffChild {
 		if n == 0 {
-			StaffChildStr += fmt.Sprintf("%s',", s)
+			StaffChildStr += fmt.Sprintf("'%s',", s)
 		} else if n+1 == len(StaffChild) {
-			StaffChildStr += fmt.Sprintf("'%s", s)
+			StaffChildStr += fmt.Sprintf("'%s'", s)
 		} else {
 			StaffChildStr += fmt.Sprintf("'%s',", s)
 		}
@@ -872,7 +874,7 @@ func PushMessageApprove(so []SoExpireApproveOneId, OneId string, role string) er
 	}
 	NewStrData = fmt.Sprintf("แจ้งเตือนการ Approve \nApprove แล้ว(%d คน)\n\n", Count)
 	NewStrData += StrData
-
+	log.Infoln(NewStrData)
 	if role == "lead" {
 		url := "https://chat-api.one.th/message/api/v1/push_message"
 
@@ -894,11 +896,12 @@ func PushMessageApprove(so []SoExpireApproveOneId, OneId string, role string) er
 		})
 
 		headers := map[string]string{
-			"Authorization": "Bearer A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef",
-			"Content-Type":  "application/json",
+			"Authorization": "Bearer A548a4dd47e3c5108affe99b48b5c0218db9bcaaca6b34470b389bd04a19c3e30e1b99dad38844be387e939f755d194be",
+			// "Authorization": "Bearer A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef",
+			"Content-Type": "application/json",
 		}
 
-		rawResponse, err := requests.Post(url, headers, bytes.NewBuffer(payload), 5)
+		rawResponse, err := requests.Post(url, headers, bytes.NewBuffer(payload), 50)
 		if err != nil {
 			log.Errorln("Error AlertOnechat", err)
 		}
@@ -927,11 +930,12 @@ func PushMessageApprove(so []SoExpireApproveOneId, OneId string, role string) er
 		})
 
 		headers := map[string]string{
-			"Authorization": "Bearer A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef",
-			"Content-Type":  "application/json",
+			"Authorization": "Bearer A548a4dd47e3c5108affe99b48b5c0218db9bcaaca6b34470b389bd04a19c3e30e1b99dad38844be387e939f755d194be",
+			// "Authorization": "Bearer A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef",
+			"Content-Type": "application/json",
 		}
 
-		rawResponse, err := requests.Post(url, headers, bytes.NewBuffer(payload), 5)
+		rawResponse, err := requests.Post(url, headers, bytes.NewBuffer(payload), 50)
 		if err != nil {
 			log.Errorln("Error AlertOnechat", err)
 		}
@@ -1001,15 +1005,15 @@ func CheckQuotationEndPoint(c echo.Context) error {
 	Status := data.Status
 	Reason := data.Reason
 	var Text string
-	tx := dbSale.Ctx().Begin()
+	tx := dbQuataion.Ctx().Begin()
 	var SalesApprove []SalesApprove
-	if err := dbSale.Ctx().Raw(`select * from sales_approve where doc_number_eform = ?`, DocNumberEform).Scan(&SalesApprove).Error; err != nil {
+	if err := dbQuataion.Ctx().Raw(`select * from sales_approve where doc_number_eform = ?`, DocNumberEform).Scan(&SalesApprove).Error; err != nil {
 		log.Errorln("GetStaff Select Staff error :-", err)
 	}
 	if len(SalesApprove) == 0 {
-		if err := dbSale.Ctx().Exec(`
+		if err := dbQuataion.Ctx().Exec(`
 		insert into sales_approve (doc_number_eform, reason, status)
-            values ('?', '?', '?')
+            values (?, ?, ?)
 		;`, DocNumberEform, Reason, Status).Error; err != nil {
 			// log.Errorln("UPDATE so_expire_approve error :-", err)
 			tx.Rollback()
@@ -1017,9 +1021,10 @@ func CheckQuotationEndPoint(c echo.Context) error {
 		}
 	}
 	var DatabaseData []QuatationTh
-	if err := dbSale.Ctx().Raw(`select * from quatation_th as qt left outer join sales_approve as sa on
+	// EmployeeId = "62080"
+	if err := dbQuataion.Ctx().Raw(`select * from quatation_th as qt left outer join sales_approve as sa on
 	qt.doc_number_eform = sa.doc_number_eform
-	where qt.employee_code = '?' and sa.doc_number_eform is null and qt.status_qt = 'Actual';`, EmployeeId).Scan(&DatabaseData).Error; err != nil {
+	where qt.employee_code = ? and sa.doc_number_eform is null and qt.status_qt = 'Actual';`, EmployeeId).Scan(&DatabaseData).Error; err != nil {
 		log.Errorln("GetStaff Select Staff error :-", err)
 	}
 
@@ -1028,7 +1033,8 @@ func CheckQuotationEndPoint(c echo.Context) error {
 		if TotalCost == "" {
 			TotalCost = "-"
 		}
-		Text += fmt.Sprintf("แจ้งเตือน Quotation จากทาง ? ราคาทั้งสิ้น ? บาท", DatabaseData[0].CompanyName, TotalCost)
+		Text += fmt.Sprintf("แจ้งเตือน Quotation จากทาง %s ราคาทั้งสิ้น %s บาท", DatabaseData[0].CompanyName, TotalCost)
+
 		AlertOnechatQuo(DocNumberEform, Text, OneId)
 	}
 	return c.JSON(http.StatusOK, m.Result{Message: "sending success"})
@@ -1044,6 +1050,9 @@ func CheckTotalCost(quot QuatationTh) string {
 
 func AlertOnechatQuo(QtNumber string, Message string, AccountId string) error {
 	// To := "3148848982"
+	// log.Infoln(AccountId)
+	// log.Infoln(QtNumber)
+	// log.Infoln(Message)
 	To := AccountId
 	url := "https://chat-api.one.th/message/api/v1/push_message"
 	type Choices struct {
@@ -1098,7 +1107,7 @@ func AlertOnechatQuo(QtNumber string, Message string, AccountId string) error {
 		"Content-Type": "application/json",
 	}
 	// log.Infoln("scsc1")
-	_, err := requests.Post(url, headers, bytes.NewBuffer(payload), 5)
+	_, err := requests.Post(url, headers, bytes.NewBuffer(payload), 50)
 	if err != nil {
 		log.Errorln("Error QuickReply", err)
 		return err
