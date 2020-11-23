@@ -1,7 +1,9 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
+	m "sale_ranking/model"
 	"sale_ranking/pkg/billing"
 	"sale_ranking/pkg/log"
 
@@ -13,7 +15,7 @@ var billClient billing.Billing
 func InitBill() error {
 	bill := billing.NewBilling("")
 	token, err := bill.GetToken()
-	// fmt.Println("=========token====", token.Token)
+	fmt.Println("=========token====", token.Token)
 	if err != nil {
 		return err
 	}
@@ -27,8 +29,36 @@ func GetBillingEndPoint(c echo.Context) error {
 		return echo.ErrInternalServerError
 	}
 
-	d, _ := billClient.GetInvoiceSO()
+	// d, _ := billClient.GetInvoiceSO()
+	// b := 0
+	// for _, v := range d.Data {
+	// 	b += hasDupes(d.Data, v)
+	// }
+	// b := hasDupes(d.Data)
+	// fmt.Println("get data invoice >>", b)
+	var i []m.Invoice
+	if err := dbSale.Ctx().Model(&m.Invoice{}).Find(&i).Error; err != nil {
 
-	// fmt.Println("get data invoice >>", d)
-	return c.JSON(http.StatusOK, d)
+	}
+	// var s []string
+
+	// for _, var := range var {
+
+	// }
+
+	return c.JSON(http.StatusOK, i)
+}
+
+func hasDupes(m []billing.DataInvoiceSO, bill billing.DataInvoiceSO) int {
+	// x := make(map[string]struct{})
+	a := 0
+	for _, val := range m {
+		if bill.InvoiceNo == val.InvoiceNo {
+			a += 1
+		}
+	}
+	if a > 1 {
+		return 1
+	}
+	return 0
 }
