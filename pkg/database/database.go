@@ -130,7 +130,7 @@ func (db *Database) MigrateDatabase(tables []interface{}) error {
 
 func (db *Database) startKeepAlive() error {
 	var err error
-	db.job, err = scheduler.Every(10).Seconds().Run(func() {
+	db.job, err = scheduler.Every(30).Seconds().Run(func() {
 		if err := db.ctx.DB().Ping(); err != nil {
 			log.Errorln(db.config.PackageName, err, "Database keepalive error")
 			if err := db.Reconnect(); err != nil {

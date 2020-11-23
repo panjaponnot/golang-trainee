@@ -146,19 +146,20 @@ func SyncBillingToDB() int {
 	hasErr := 0
 	MaxConcurrentPool := 20
 	workingJob := 0
+	// var idTimeOut []billing.DataInvoiceSO
 	for _, val := range b.Data {
 		wg.Add(1)
 		workingJob += 1
 		go func(v billing.DataInvoiceSO) {
 			defer wg.Done()
-
+			e := 0
 			t, err := time.Parse("2006-01-02", v.DocDate)
 			if err != nil {
 				fmt.Println(err)
 			}
 
 			var i m.Invoice
-			if err := dbSale.Ctx().Model(&m.Invoice{}).Where(m.Invoice{InvoiceNo: v.InvoiceNo}).Attrs(m.Invoice{
+			if err := dbSale.Ctx().Model(&m.Invoice{}).Where(m.Invoice{InvoiceNo: strings.TrimSpace(v.InvoiceNo)}).Attrs(m.Invoice{
 				SoRef:     strings.TrimSpace(v.SoRef),
 				InvoiceNo: strings.TrimSpace(v.InvoiceNo),
 				DocDate:   t,
@@ -167,10 +168,12 @@ func SyncBillingToDB() int {
 				msg := fmt.Sprint("[SYNC] First or create", v.InvoiceNo, " and ", v.SoRef, "  error :-", err, "\n HasError :- ", hasErr)
 				_ = AlertErrorSyncToBot(msg)
 				hasErr += 1
+				// idTimeOut = append(idTimeOut, v)
 				// break
 				// return 0
+				e += 1
 			}
-			if len(v.InvoiceStatus) != 0 {
+			if len(v.InvoiceStatus) != 0 && e == 0 {
 				for _, s := range v.InvoiceStatus {
 					iSta := m.InvoiceStatus{
 						InvoiceUid:        i.Uid,
@@ -193,11 +196,44 @@ func SyncBillingToDB() int {
 		}
 	}
 	wg.Wait()
-	fmt.Println("len =>", len(b.Data))
-	if hasErr != 0 {
-		// log.Errorln("SYNC", e, "sync has error :-")
-		return 0
-	}
+	// if len(idTimeOut) != 0 {
+	// 	for _, v := range idTimeOut {
+	// 		t, err := time.Parse("2006-01-02", v.DocDate)
+	// 		if err != nil {
+	// 			fmt.Println(err)
+	// 		}
+	// 		var i m.Invoice
+	// 		if err := dbSale.Ctx().Model(&m.Invoice{}).Where(m.Invoice{InvoiceNo: strings.TrimSpace(v.InvoiceNo)}).Attrs(m.Invoice{
+	// 			SoRef:     strings.TrimSpace(v.SoRef),
+	// 			InvoiceNo: strings.TrimSpace(v.InvoiceNo),
+	// 			DocDate:   t,
+	// 		}).FirstOrCreate(&i).Error; err != nil {
+	// 			log.Errorln("SYNC", err, "First or create  ", v.InvoiceNo, " and ", v.SoRef, "  error :-")
+	// 			msg := fmt.Sprint("[SYNC] First or create", v.InvoiceNo, " and ", v.SoRef, "  error :-", err, "\n HasError :- ", hasErr)
+	// 			_ = AlertErrorSyncToBot(msg)
+	// 			hasErr += 1
+	// 			// break
+	// 			// return 0
+	// 		}
+	// 		if len(v.InvoiceStatus) != 0 {
+	// 			for _, s := range v.InvoiceStatus {
+	// 				iSta := m.InvoiceStatus{
+	// 					InvoiceUid:        i.Uid,
+	// 					SoRef:             strings.TrimSpace(v.SoRef),
+	// 					InvoiceStatusName: strings.TrimSpace(s.InvStatusname),
+	// 				}
+	// 				if err := dbSale.Ctx().Model(&m.InvoiceStatus{}).Create(&iSta).Error; err != nil {
+	// 					log.Errorln("SYNC", err, "create invoice status", v.InvoiceNo, "  error :-")
+	// 					msg := fmt.Sprint("[SYNC] create invoice status", v.InvoiceNo, "  error :-", err, "\n HasError :- ", hasErr)
+	// 					_ = AlertErrorSyncToBot(msg)
+	// 					hasErr += 1
+	// 					// return 0
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
+	fmt.Println("len =>", len(b.Data), "   === has error ;-", hasErr)
 	return 1
 }
 

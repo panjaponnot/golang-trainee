@@ -40,11 +40,6 @@ func GetBillingEndPoint(c echo.Context) error {
 	if err := dbSale.Ctx().Model(&m.Invoice{}).Find(&i).Error; err != nil {
 
 	}
-	// var s []string
-
-	// for _, var := range var {
-
-	// }
 
 	return c.JSON(http.StatusOK, i)
 }
