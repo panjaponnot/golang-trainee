@@ -60,6 +60,9 @@ func main() {
 	delClientCmd := clientCmd.Command("del", "Delete api client.")
 	clientArgs.delName = delClientCmd.Arg("name", "Client name.").Required().String()
 
+	// sync billing
+	billingCmd := a.Command("sync", "Sync billing management.")
+
 	startTime := time.Now()
 	// Init core service
 	if err := core.InitCoreService(); err != nil {
@@ -97,6 +100,9 @@ func main() {
 	case delClientCmd.FullCommand():
 		// - client del <name>
 		exitWithCode(startTime, core.DeleteApiClient(*clientArgs.delName))
+	case billingCmd.FullCommand():
+		log.Infoln(pkgName, "===========  Synchronize Billing ===========")
+		exitWithCode(startTime, core.SyncBillingToDB())
 	}
 }
 

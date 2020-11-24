@@ -31,6 +31,11 @@ func init() {
 		//log qoutation
 		&m.QuotationLog{},
 	}
+	tablesSale = []interface{}{
+		//log qoutation
+		&m.Invoice{},
+		&m.InvoiceStatus{},
+	}
 }
 
 func InitCoreService() error {
@@ -57,6 +62,10 @@ func InitCoreService() error {
 
 	// Migrate database
 	if err := dbQuataion.MigrateDatabase(tables); err != nil {
+		log.Errorln(pkgName, err, "Migrate database quatation error")
+		return err
+	}
+	if err := dbSale.MigrateDatabase(tablesSale); err != nil {
 		log.Errorln(pkgName, err, "Migrate database sale ranking error")
 		return err
 	}

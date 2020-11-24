@@ -83,9 +83,10 @@ const (
 )
 
 var (
-	tables    []interface{}
-	serverKey = util.GetEnv(envServerKey, "")
-	signKey   RSA
+	tables     []interface{}
+	tablesSale []interface{}
+	serverKey  = util.GetEnv(envServerKey, "")
+	signKey    RSA
 
 	identityClient identity.Identity
 	chatBotClient  chat.Chat

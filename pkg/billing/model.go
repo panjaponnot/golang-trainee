@@ -32,7 +32,8 @@ type InvoiceStatus struct {
 }
 
 type DataInvoiceSO struct {
-	SoRef         string           `json:"SoRef"`
-	InvoiceNo     string           `json:"invoice_no"`
-	InvoiceStatus *[]InvoiceStatus `json:"invoice_status"`
+	SoRef         string          `json:"SoRef"`
+	InvoiceNo     string          `json:"invoice_no"`
+	DocDate       string          `json:"doc_date"`
+	InvoiceStatus []InvoiceStatus `json:"invoice_status"`
 }
