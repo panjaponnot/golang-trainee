@@ -85,6 +85,21 @@ type StaffProfileV2 struct {
 	Quarter  []GqDict         `json:"goalquarter"`
 }
 
+type StaffProfileV3 struct {
+	OneId      string `json:"one_id"`
+	StaffId    string `json:"staff_id"`
+	Fname      string `json:"fname"`
+	Lname      string `json:"lname"`
+	Nname      string `json:"nname"`
+	Position   string `json:"position"`
+	Department string `json:"department"`
+	StaffChild string `json:"staff_child"`
+	Image      string `json:"image"`
+	StartJob   string `json:"start_job"`
+	Mail       string `json:"mail"`
+	OneMail    string `json:"onemail"`
+}
+
 type Staff struct {
 	StaffId string `json:"staff_id"`
 	Fname   string `json:"fname"`

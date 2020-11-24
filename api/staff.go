@@ -7,6 +7,7 @@ import (
 	m "sale_ranking/model"
 	"sale_ranking/pkg/imagik"
 	"sale_ranking/pkg/log"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -782,4 +783,792 @@ func GetGq(c echo.Context, StaffId string) []m.GqDict {
 		GqList = append(GqList, GqDict[i])
 	}
 	return GqList
+}
+
+func HeaderSummaryEndPoint(c echo.Context) error {
+	data := struct {
+		StaffId string `json:"staff_id"`
+		Type    string `json:"type"`
+		Year    string `json:"year"`
+		Month   string `json:"month"`
+		Quarter string `json:"quarter"`
+	}{}
+	if err := c.Bind(&data); err != nil {
+		return echo.ErrBadRequest
+	}
+
+	// if data.OneId == "" {
+	// 	return c.JSON(http.StatusBadRequest, server.Result{Mess: "not have param one_id"})
+	// }
+	if err := initDataStore(); err != nil {
+		log.Errorln(pkgName, err, "connect database error")
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	// tx := dbSale.Ctx().Begin()
+
+	StaffId := data.StaffId
+	Type := data.Type
+	Year := data.Year
+	Month := data.Month
+	Quarter := data.Quarter
+
+	StaffId = CheckPermission(StaffId)
+	StaffProfile := PersonalInformation(StaffId)
+	if StaffProfile.StaffId == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Message: "cannot get staff information"})
+	}
+	var StaffChild []string
+	StaffChildList := strings.Split(StaffProfile.StaffChild, ",")
+	for _, s := range StaffChildList {
+		if s != "" {
+			StaffChild = append(StaffChild, s)
+		}
+	}
+
+	StaffProfile.SummarySostatus = SOstatus(StaffChild, Type, Year, Quarter, Month)
+	StaffProfile.SummaryHeader = HeaderSummary(StaffChild, Type, Year, Quarter, Month)
+	StaffProfile.CustomerNewso = NewSOSummary(StaffChild, Type, Year, Quarter, Month)
+	StaffProfile.ChartNewso = SOChart(StaffChild, Type, Year, Quarter, Month)
+	StaffProfile.ChartSaleFactor = SFChart(StaffChild, Type, Year, Quarter, Month)
+
+	return c.JSON(http.StatusOK, StaffProfile)
+}
+
+func CheckPermission(id string) string {
+	var user []m.UserInfo
+	// notSale := util.GetEnv("ACCOUNT_NOT_SALE", "")
+	sqlUsr := `SELECT * from user_info WHERE role = 'admin' and staff_id = ?`
+	if err := dbSale.Ctx().Raw(sqlUsr, id).Scan(&user).Error; err != nil {
+		return "error"
+	}
+	if len(user) == 0 {
+
+		return id
+	}
+	sqlStaff := `select * from staff_info where CHAR_LENGTH(staff_child) in (select Max(CHAR_LENGTH(staff_child)) as aaa from staff_info);`
+	if err := dbSale.Ctx().Raw(sqlStaff).Scan(&user).Error; err != nil {
+		return "error"
+	}
+	return user[0].StaffId
+}
+
+type StaffProfileV3 struct {
+	OneId           string          `json:"one_id"`
+	StaffId         string          `json:"staff_id"`
+	Fname           string          `json:"fname"`
+	Lname           string          `json:"lname"`
+	Nname           string          `json:"nname"`
+	Position        string          `json:"position"`
+	Department      string          `json:"department"`
+	StaffChild      string          `json:"staff_child"`
+	Image           string          `json:"image"`
+	StartJob        string          `json:"start_job"`
+	Mail            string          `json:"mail"`
+	OneMail         string          `json:"onemail"`
+	SummarySostatus []Somssql       `json:"SummarySostatus"`
+	SummaryHeader   []SomssqlHeader `json:"SummaryHeader"`
+	CustomerNewso   []SomssqlNew    `json:"CustomerNewso"`
+	ChartNewso      []SoSummary     `json:"ChartNewso"`
+	ChartSaleFactor []SoSFChart     `json:"ChartSaleFactor"`
+}
+
+func PersonalInformation(StaffId string) StaffProfileV3 {
+
+	var user []StaffProfileV3
+	var userEmp []StaffProfileV3
+	sqlUsr := `SELECT staff_info.one_id,staff_id,fname,lname,nname,position,department,staff_child,image,start_job,
+		GROUP_CONCAT(staff_mail.mail SEPARATOR ', ') as mail,
+		GROUP_CONCAT(staff_onemail.onemail SEPARATOR ', ') as onemail
+	FROM staff_info
+	left join staff_mail on staff_info.staff_id = staff_mail.ref_staff
+	left join staff_onemail on staff_info.staff_id = staff_onemail.ref_staff
+	left join staff_start on staff_info.one_id = staff_start.one_id
+	left join staff_images on staff_info.one_id = staff_images.one_id
+	where staff_id = ?
+	group by staff_info.one_id;`
+	if err := dbSale.Ctx().Raw(sqlUsr, StaffId).Scan(&user).Error; err != nil {
+
+		log.Errorln("Error Get User", err)
+		return userEmp[0]
+	}
+	if len(user) == 0 {
+		return userEmp[0]
+	}
+	return user[0]
+}
+
+type Somssql struct {
+	SOWebStatus string `json:"SOWebStatus"`
+	Total       string `json:"total"`
+}
+
+func SOstatus(StaffChild []string, Type string, Year string, Quarter string, Month string) []Somssql {
+
+	var StaffChildStr string
+	for n, s := range StaffChild {
+		if n == 0 {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		} else if n+1 == len(StaffChild) {
+			StaffChildStr += fmt.Sprintf("'%s'", s)
+		} else {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		}
+	}
+	var Result []Somssql
+	var SqlStr string
+	SqlStr = fmt.Sprintf(`select
+	SOWebStatus, count(SOWebStatus) as total
+	from (
+	select sonumber,SOWebStatus from so_mssql
+	where
+	sale_code in (%s) and `, StaffChildStr)
+
+	if Type == "Quarter" {
+		SqlStr += fmt.Sprintf(` quarter(ContractStartDate) = '%s' and year(ContractStartDate) = '%s' `, Quarter, Year)
+	} else {
+		SqlStr += fmt.Sprintf(` month(ContractStartDate) = '%s' and year(ContractStartDate) = '%s' `, Month, Year)
+	}
+
+	SqlStr += ` GROUP BY sonumber
+	) tb_so
+	group by SOWebStatus;`
+
+	if err := dbSale.Ctx().Raw(SqlStr).Scan(&Result).Error; err != nil {
+		log.Errorln("Error Get User", err)
+		return nil
+	}
+	return Result
+}
+
+type SomssqlHeader struct {
+	TotalCustomer       string `json:"total_customer"`
+	TotalSo             string `json:"total_so"`
+	AmountSo            string `json:"amount_so"`
+	AmountRecuring      string `json:"amount_recuring"`
+	AmountRecuringNewso string `json:"amount_recuring_newso"`
+}
+
+func HeaderSummary(StaffChild []string, Type string, Year string, Quarter string, Month string) []SomssqlHeader {
+
+	var StaffChildStr string
+	for n, s := range StaffChild {
+		if n == 0 {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		} else if n+1 == len(StaffChild) {
+			StaffChildStr += fmt.Sprintf("'%s'", s)
+		} else {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		}
+	}
+	var Result []SomssqlHeader
+	var SqlStr string
+	SqlStr = ` select
+		count( distinct Customer_ID) as total_customer,
+		count(sonumber) as total_so,
+		sum(sum_period_amount) as amount_so,
+		sum(PeriodAmount) as amount_recuring,
+		sum(CASE
+			when has_refer = 0 then PeriodAmount
+			else 0 end
+		) as amount_recuring_newso
+	from (
+		SELECT sonumber, Customer_ID,Customer_Name, ContractStartDate, ContractEndDate, sale_code,
+			sum(PeriodAmount) as sum_period_amount ,
+			PeriodAmount,has_refer
+		FROM so_mssql
+		WHERE
+		sale_code in (?) and `
+
+	if Type == "Quarter" {
+		SqlStr += fmt.Sprintf(` quarter(ContractStartDate) = %s and year(ContractStartDate) = %s `, Quarter, Year)
+	} else {
+		SqlStr += fmt.Sprintf(` month(ContractStartDate) = %s and year(ContractStartDate) = %s `, Month, Year)
+	}
+
+	SqlStr += ` group by sonumber
+	) tb_so;`
+
+	if err := dbSale.Ctx().Raw(SqlStr, StaffChildStr).Scan(&Result).Error; err != nil {
+		log.Errorln("Error Get User", err)
+		return nil
+	}
+	return Result
+}
+
+type SomssqlNew struct {
+	CustomerId   string `json:"Customer_ID"`
+	CustomerName string `json:"Customer_Name"`
+	AmountSo     string `json:"amount_so"`
+	TotalSo      string `json:"total_so"`
+}
+
+func NewSOSummary(StaffChild []string, Type string, Year string, Quarter string, Month string) []SomssqlNew {
+
+	var StaffChildStr string
+	for n, s := range StaffChild {
+		if n == 0 {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		} else if n+1 == len(StaffChild) {
+			StaffChildStr += fmt.Sprintf("'%s'", s)
+		} else {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		}
+	}
+	var Result []SomssqlNew
+	var SqlStr string
+	SqlStr = fmt.Sprintf(` select
+		Customer_ID,Customer_Name, sum(PeriodAmount) as amount_so, count(sonumber) as total_so
+	from (
+		SELECT sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,TotalContractAmount,PeriodAmount
+		FROM so_mssql
+		where sale_code in (%s) and has_refer = 0 and `, StaffChildStr)
+
+	if Type == "Quarter" {
+		SqlStr += fmt.Sprintf(` quarter(ContractStartDate) = %s and year(ContractStartDate) = %s `, Quarter, Year)
+	} else {
+		SqlStr += fmt.Sprintf(` month(ContractStartDate) = %s and year(ContractStartDate) = %s `, Month, Year)
+	}
+
+	SqlStr += ` group by sonumber
+	) tb_so
+	group by Customer_ID;`
+
+	if err := dbSale.Ctx().Raw(SqlStr).Scan(&Result).Error; err != nil {
+		log.Errorln("Error Get User", err)
+		return nil
+	}
+	return Result
+}
+
+type ListQuarterData struct {
+	Year    int `json:"year"`
+	Quarter int `json:"quarter"`
+}
+
+type ListMonthData struct {
+	Year  int `json:"year"`
+	Month int `json:"month"`
+}
+
+func ListQuarter(Year int, Quarter int) []ListQuarterData {
+	var ListQuarterList []ListQuarterData
+	if Quarter == 1 {
+		data := []ListQuarterData{{
+			Year:    Year - 1,
+			Quarter: 3,
+		}, {
+			Year:    Year - 1,
+			Quarter: 4,
+		}, {
+			Year:    Year,
+			Quarter: 1,
+		}, {
+			Year:    Year,
+			Quarter: 2,
+		}, {
+			Year:    Year,
+			Quarter: 3,
+		}}
+		for _, d := range data {
+			ListQuarterList = append(ListQuarterList, d)
+		}
+	} else if Quarter == 2 {
+		data := []ListQuarterData{{
+			Year:    Year - 1,
+			Quarter: 4,
+		}, {
+			Year:    Year,
+			Quarter: 1,
+		}, {
+			Year:    Year,
+			Quarter: 2,
+		}, {
+			Year:    Year,
+			Quarter: 3,
+		}, {
+			Year:    Year,
+			Quarter: 4,
+		}}
+		for _, d := range data {
+			ListQuarterList = append(ListQuarterList, d)
+		}
+	} else if Quarter == 3 {
+		data := []ListQuarterData{{
+			Year:    Year,
+			Quarter: 1,
+		}, {
+			Year:    Year,
+			Quarter: 2,
+		}, {
+			Year:    Year,
+			Quarter: 3,
+		}, {
+			Year:    Year,
+			Quarter: 4,
+		}, {
+			Year:    Year + 1,
+			Quarter: 1,
+		}}
+		for _, d := range data {
+			ListQuarterList = append(ListQuarterList, d)
+		}
+	} else {
+		data := []ListQuarterData{{
+			Year:    Year,
+			Quarter: 2,
+		}, {
+			Year:    Year,
+			Quarter: 3,
+		}, {
+			Year:    Year,
+			Quarter: 4,
+		}, {
+			Year:    Year + 1,
+			Quarter: 1,
+		}, {
+			Year:    Year + 1,
+			Quarter: 2,
+		}}
+		for _, d := range data {
+			ListQuarterList = append(ListQuarterList, d)
+		}
+	}
+	return ListQuarterList
+}
+
+func ListMonth(Year int, Month int) []ListMonthData {
+	var ListMonthList []ListMonthData
+	if Month == 1 {
+		data := []ListMonthData{{
+			Year:  Year - 1,
+			Month: 11,
+		}, {
+			Year:  Year - 1,
+			Month: 12,
+		}, {
+			Year:  Year,
+			Month: 1,
+		}, {
+			Year:  Year,
+			Month: 2,
+		}, {
+			Year:  Year,
+			Month: 3,
+		}}
+		for _, d := range data {
+			ListMonthList = append(ListMonthList, d)
+		}
+	} else if Month == 2 {
+		data := []ListMonthData{{
+			Year:  Year - 1,
+			Month: 11,
+		}, {
+			Year:  Year - 1,
+			Month: 12,
+		}, {
+			Year:  Year,
+			Month: 1,
+		}, {
+			Year:  Year,
+			Month: 2,
+		}, {
+			Year:  Year,
+			Month: 3,
+		}}
+		for _, d := range data {
+			ListMonthList = append(ListMonthList, d)
+		}
+	} else if Month == 3 {
+		data := []ListMonthData{{
+			Year:  Year,
+			Month: 1,
+		}, {
+			Year:  Year,
+			Month: 2,
+		}, {
+			Year:  Year,
+			Month: 3,
+		}, {
+			Year:  Year,
+			Month: 4,
+		}, {
+			Year:  Year,
+			Month: 5,
+		}}
+		for _, d := range data {
+			ListMonthList = append(ListMonthList, d)
+		}
+	} else if Month == 4 {
+		data := []ListMonthData{{
+			Year:  Year,
+			Month: 2,
+		}, {
+			Year:  Year,
+			Month: 3,
+		}, {
+			Year:  Year,
+			Month: 4,
+		}, {
+			Year:  Year,
+			Month: 5,
+		}, {
+			Year:  Year,
+			Month: 6,
+		}}
+		for _, d := range data {
+			ListMonthList = append(ListMonthList, d)
+		}
+	} else if Month == 5 {
+		data := []ListMonthData{{
+			Year:  Year,
+			Month: 3,
+		}, {
+			Year:  Year,
+			Month: 4,
+		}, {
+			Year:  Year,
+			Month: 5,
+		}, {
+			Year:  Year,
+			Month: 6,
+		}, {
+			Year:  Year,
+			Month: 7,
+		}}
+		for _, d := range data {
+			ListMonthList = append(ListMonthList, d)
+		}
+	} else if Month == 6 {
+		data := []ListMonthData{{
+			Year:  Year,
+			Month: 4,
+		}, {
+			Year:  Year,
+			Month: 5,
+		}, {
+			Year:  Year,
+			Month: 6,
+		}, {
+			Year:  Year,
+			Month: 7,
+		}, {
+			Year:  Year,
+			Month: 8,
+		}}
+		for _, d := range data {
+			ListMonthList = append(ListMonthList, d)
+		}
+	} else if Month == 7 {
+		data := []ListMonthData{{
+			Year:  Year,
+			Month: 5,
+		}, {
+			Year:  Year,
+			Month: 6,
+		}, {
+			Year:  Year,
+			Month: 7,
+		}, {
+			Year:  Year,
+			Month: 8,
+		}, {
+			Year:  Year,
+			Month: 9,
+		}}
+		for _, d := range data {
+			ListMonthList = append(ListMonthList, d)
+		}
+	} else if Month == 8 {
+		data := []ListMonthData{{
+			Year:  Year,
+			Month: 6,
+		}, {
+			Year:  Year,
+			Month: 7,
+		}, {
+			Year:  Year,
+			Month: 8,
+		}, {
+			Year:  Year,
+			Month: 9,
+		}, {
+			Year:  Year,
+			Month: 10,
+		}}
+		for _, d := range data {
+			ListMonthList = append(ListMonthList, d)
+		}
+	} else if Month == 9 {
+		data := []ListMonthData{{
+			Year:  Year,
+			Month: 7,
+		}, {
+			Year:  Year,
+			Month: 8,
+		}, {
+			Year:  Year,
+			Month: 9,
+		}, {
+			Year:  Year,
+			Month: 10,
+		}, {
+			Year:  Year,
+			Month: 11,
+		}}
+		for _, d := range data {
+			ListMonthList = append(ListMonthList, d)
+		}
+	} else if Month == 10 {
+		data := []ListMonthData{{
+			Year:  Year,
+			Month: 8,
+		}, {
+			Year:  Year,
+			Month: 9,
+		}, {
+			Year:  Year,
+			Month: 10,
+		}, {
+			Year:  Year,
+			Month: 11,
+		}, {
+			Year:  Year,
+			Month: 12,
+		}}
+		for _, d := range data {
+			ListMonthList = append(ListMonthList, d)
+		}
+	} else if Month == 11 {
+		data := []ListMonthData{{
+			Year:  Year,
+			Month: 9,
+		}, {
+			Year:  Year,
+			Month: 10,
+		}, {
+			Year:  Year,
+			Month: 11,
+		}, {
+			Year:  Year,
+			Month: 12,
+		}, {
+			Year:  Year + 1,
+			Month: 1,
+		}}
+		for _, d := range data {
+			ListMonthList = append(ListMonthList, d)
+		}
+	} else {
+		data := []ListMonthData{{
+			Year:  Year,
+			Month: 2,
+		}, {
+			Year:  Year,
+			Month: 3,
+		}, {
+			Year:  Year,
+			Month: 4,
+		}, {
+			Year:  Year + 1,
+			Month: 1,
+		}, {
+			Year:  Year + 1,
+			Month: 2,
+		}}
+		for _, d := range data {
+			ListMonthList = append(ListMonthList, d)
+		}
+	}
+	return ListMonthList
+}
+
+type SoSummary struct {
+	YearChart    string `json:"year_chart"`
+	QuarterChart string `json:"quarter_chart"`
+	Amount       string `json:"amount"`
+}
+
+func SOChart(StaffChild []string, Type string, Year string, Quarter string, Month string) []SoSummary {
+	var StaffChildStr string
+	for n, s := range StaffChild {
+		if n == 0 {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		} else if n+1 == len(StaffChild) {
+			StaffChildStr += fmt.Sprintf("'%s'", s)
+		} else {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		}
+	}
+	YearInt, err := strconv.Atoi(Year)
+	if err != nil {
+		log.Errorln(pkgName, err)
+	}
+	QuarterInt, err := strconv.Atoi(Quarter)
+	if err != nil {
+		log.Errorln(pkgName, err)
+	}
+	MonthInt, err := strconv.Atoi(Month)
+	if err != nil {
+		log.Errorln(pkgName, err)
+	}
+	var SqlStr string
+	if Type == "Quarter" {
+		ListQuarter := ListQuarter(YearInt, QuarterInt)
+		for n, l := range ListQuarter {
+			SqlStr += fmt.Sprintf(`
+				select
+					year(ContractStartDate) as year_chart,
+					quarter(ContractStartDate) as quarter_chart,
+					sum(PeriodAmount) as amount
+				from (
+					SELECT sonumber,PeriodAmount,ContractStartDate
+					FROM so_mssql
+					where has_refer = 0 and sale_code in (%s)
+					and year(ContractStartDate) = %d
+					and quarter(ContractStartDate) = %d
+					group by sonumber
+				) tb_so`, StaffChildStr, l.Year, l.Quarter)
+			if n != 4 {
+				SqlStr += ` union `
+			}
+		}
+		var Result []SoSummary
+		if err := dbSale.Ctx().Raw(SqlStr).Scan(&Result).Error; err != nil {
+			log.Errorln("Error Get SoSummary", err)
+			return nil
+		}
+
+		return Result
+	} else {
+		ListMonth := ListMonth(YearInt, MonthInt)
+		for n, l := range ListMonth {
+			SqlStr += fmt.Sprintf(`
+			select
+			year(ContractStartDate) as year_chart,
+			month(ContractStartDate) as month_chart,
+			sum(PeriodAmount) as amount
+		from (
+			SELECT sonumber,PeriodAmount,ContractStartDate
+			FROM so_mssql
+			where has_refer = 0 and sale_code in (%s)
+			and year(ContractStartDate) = %d
+			and month(ContractStartDate) = %d
+			group by sonumber
+		) tb_so`, StaffChildStr, l.Year, l.Month)
+			if n != 4 {
+				SqlStr += ` union `
+			}
+		}
+		var Result []SoSummary
+		if err := dbSale.Ctx().Raw(SqlStr).Scan(&Result).Error; err != nil {
+			log.Errorln("Error Get SoSummary", err)
+			return nil
+		}
+
+		return Result
+	}
+}
+
+type SoSFChart struct {
+	YearChart    string `json:"year_chart"`
+	QuarterChart string `json:"quarter_chart"`
+	SaleFactor   string `json:"sale_factor"`
+}
+
+func SFChart(StaffChild []string, Type string, Year string, Quarter string, Month string) []SoSFChart {
+	var StaffChildStr string
+	for n, s := range StaffChild {
+		if n == 0 {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		} else if n+1 == len(StaffChild) {
+			StaffChildStr += fmt.Sprintf("'%s'", s)
+		} else {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		}
+	}
+	YearInt, err := strconv.Atoi(Year)
+	if err != nil {
+		log.Errorln(pkgName, err)
+	}
+	QuarterInt, err := strconv.Atoi(Quarter)
+	if err != nil {
+		log.Errorln(pkgName, err)
+	}
+	MonthInt, err := strconv.Atoi(Month)
+	if err != nil {
+		log.Errorln(pkgName, err)
+	}
+	var SqlStr string
+	if Type == "Quarter" {
+
+		ListQuarter := ListQuarter(YearInt, QuarterInt)
+		for n, l := range ListQuarter {
+			// YearInt, err := strconv.Atoi(l.Year)
+			// if err != nil {
+			// 	log.Errorln(pkgName, err)
+			// }
+			// QuarterInt, err := strconv.Atoi(l.Quarter)
+			// if err != nil {
+			// 	log.Errorln(pkgName, err)
+			// }
+			SqlStr += fmt.Sprintf(`
+			select
+			year(ContractStartDate) as year_chart,
+			quarter(ContractStartDate) as quarter_chart,
+			sum(revenue)/sum(eng_cost) as sale_factor
+		from (
+			SELECT sonumber,sum(PeriodAmount) as revenue, ContractStartDate,
+				sum(case
+				   when sale_factor != 0 and sale_factor is not null then PeriodAmount/sale_factor
+				   else 0 end
+				) as eng_cost
+			FROM so_mssql
+			where sale_code in (%s) 
+				and year(ContractStartDate) = %d
+				and quarter(ContractStartDate) = %d
+				group by sonumber
+		) tb_so`, StaffChildStr, l.Year, l.Quarter)
+			if n != 4 {
+				SqlStr += ` union `
+			}
+		}
+		var Result []SoSFChart
+		if err := dbSale.Ctx().Raw(SqlStr).Scan(&Result).Error; err != nil {
+			log.Errorln("Error Get SoSFChart", err)
+			return nil
+		}
+
+		return Result
+	} else {
+		ListMonth := ListMonth(YearInt, MonthInt)
+		for n, l := range ListMonth {
+			SqlStr += fmt.Sprintf(`
+			select
+                	year(ContractStartDate) as year_chart,
+                    month(ContractStartDate) as month_chart,
+                    sum(revenue)/sum(eng_cost) as sale_factor
+                from (
+                    SELECT sonumber,sum(PeriodAmount) as revenue, ContractStartDate,
+                    	sum(case
+                           when sale_factor != 0 and sale_factor is not null then PeriodAmount/sale_factor
+                           else 0 end
+                        ) as eng_cost
+                    FROM so_mssql
+                    where sale_code in (%s)
+                    	and year(ContractStartDate) = %d
+                    	and month(ContractStartDate) = %d
+                    	group by sonumber
+                ) tb_so`, StaffChildStr, l.Year, l.Month)
+			if n != 4 {
+				SqlStr += ` union `
+			}
+		}
+		var Result []SoSFChart
+		if err := dbSale.Ctx().Raw(SqlStr).Scan(&Result).Error; err != nil {
+			log.Errorln("Error Get SoSFChart", err)
+			return nil
+		}
+
+		return Result
+	}
 }

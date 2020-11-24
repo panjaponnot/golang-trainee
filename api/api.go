@@ -100,6 +100,7 @@ func InitApiRouter(g *echo.Group) error {
 	staff.GET("/substaff", GetSubordinateStaffEndPoint)     //success
 	staff.GET("/profile/v2", GetStaffProfileV2EndPoint)     //success
 	staff.POST("/staffpicture", CreateStaffPictureEndPoint) //success
+	staff.GET("/summary", HeaderSummaryEndPoint)
 
 	// report.GET("/ranking/base", GetRankingBaseSale)
 
