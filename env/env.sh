@@ -18,8 +18,8 @@
 # export DB_PASSWORD=mis@Pass01
 export DB_SALE_HOST=203.151.56.242
 export DB_SALE_USERNAME=root
-export DB_SALE_NAME=ratingscoring_test1
-# export DB_SALE_NAME=ratingscoring
+# export DB_SALE_NAME=ratingscoring_test1
+export DB_SALE_NAME=ratingscoring
 export DB_SALE_PASSWORD=mis@Pass01
 
 export DB_QUOTATION_HOST=203.154.135.51
@@ -58,3 +58,5 @@ export RECAPTCHA_SECRET=6Ldu3uIUAAAAAOeTaPJBXjgfPqVaK74pKxOdZcGy
 export CHATBOT_ID=Becf3d73c867f508ab7a8f5d62ceceb64
 export CHATBOT_TOKEN=A548a4dd47e3c5108affe99b48b5c0218db9bcaaca6b34470b389bd04a19c3e30e1b99dad38844be387e939f755d194be
 
+export ONEID_CLIENT_ID=151
+export ONEID_CLIENT_SECRET=lJO7R2FwahEp5fppIDvh7M1OLARBjHXmfOrHr1z1
