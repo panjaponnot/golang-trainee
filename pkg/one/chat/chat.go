@@ -73,6 +73,7 @@ func (c *Chat) PushTextMessage(to string, msg string, customNotify *string) erro
 		Type:    "text",
 		Message: msg,
 	}
+	fmt.Println("==", c.BotId)
 	if customNotify != nil {
 		pushMessage.CustomNotify = *customNotify
 	}

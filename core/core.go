@@ -4,6 +4,7 @@ import (
 	// " golang_template/pkg/attendant"
 
 	m "sale_ranking/model"
+	"sale_ranking/pkg/attendant"
 	"sale_ranking/pkg/cache"
 	"sale_ranking/pkg/crontab"
 	"sale_ranking/pkg/database"
@@ -16,8 +17,10 @@ import (
 const pkgName = "CORE"
 
 var (
-	db    database.Database
-	redis cache.Redis
+	dbSale     database.Database
+	dbQuataion database.Database
+	dbMssql    database.Database
+	redis      cache.Redis
 
 	cronService crontab.Service
 )
@@ -25,33 +28,48 @@ var (
 func init() {
 	// Preparing database schema
 	tables = []interface{}{
-		// client
-		&m.ApiClient{},
-
-		// User managements
-		// &m.User{},
-		// &m.Role{},
-		// &m.Permission{},
-		// &m.UserActivityLog{},
-		// &m.Company{},
+		//log qoutation
+		&m.QuotationLog{},
+	}
+	tablesSale = []interface{}{
+		//log qoutation
+		&m.Invoice{},
+		&m.InvoiceStatus{},
 	}
 }
 
 func InitCoreService() error {
-	// Database
-	db = NewDatabase(pkgName)
-	if err := db.Connect(); err != nil {
+	// Database Sale
+	dbSale = NewDatabase(pkgName, "salerank")
+	if err := dbSale.Connect(); err != nil {
+		log.Errorln(pkgName, err, "Connect to database sale ranking error")
+		return err
+	}
+	log.Infoln(pkgName, "Connected to database sale ranking.")
+	// Database Quataion
+	dbQuataion = NewDatabase(pkgName, "quotation")
+	if err := dbQuataion.Connect(); err != nil {
 		log.Errorln(pkgName, err, "Connect to database error")
 		return err
 	}
-	log.Infoln(pkgName, "Connected to database server.")
-
-	// Migrate database
-	if err := db.MigrateDatabase(tables); err != nil {
-		log.Errorln(pkgName, err, "Migrate database error")
+	log.Infoln(pkgName, "Connected to database quotation.")
+	dbMssql = NewDatabaseMssql(pkgName, "mssql")
+	if err := dbMssql.Connect(); err != nil {
+		log.Errorln(pkgName, err, "Connect to database sql server error")
 		return err
 	}
-	log.Infoln(pkgName, "Migrated database schema.")
+	log.Infoln(pkgName, "Connected to database sql server.")
+
+	// Migrate database
+	if err := dbQuataion.MigrateDatabase(tables); err != nil {
+		log.Errorln(pkgName, err, "Migrate database quatation error")
+		return err
+	}
+	if err := dbSale.MigrateDatabase(tablesSale); err != nil {
+		log.Errorln(pkgName, err, "Migrate database sale ranking error")
+		return err
+	}
+	log.Infoln(pkgName, "Migrated database sale ranking schema.")
 
 	// Redis cache
 	redis = NewRedis()
@@ -78,12 +96,12 @@ func InitCoreService() error {
 	log.Infoln(pkgName, "New reCaptCha success.")
 
 	// Prepare AttendantClient
-	// attendantClient, err = attendant.NewClient(attendantToken, attendantTokenType)
-	// if err != nil {
-	// 	log.Errorln(pkgName, err, "New Attendant client error")
-	// 	return err
-	// }
-	// log.Infoln(pkgName, "New Attendant client success.")
+	attendantClient, err = attendant.NewClient(attendantToken, attendantTokenType)
+	if err != nil {
+		log.Errorln(pkgName, err, "New Attendant client error")
+		return err
+	}
+	log.Infoln(pkgName, "New Attendant client success.")
 
 	// Prepare one platform config
 	// Identity
@@ -91,7 +109,6 @@ func InitCoreService() error {
 	// Chat
 	chatBotClient = initChatBotConfig()
 	log.Infoln(pkgName, "Initialized one platform client.")
-
 	// Init crontab service
 	// cronService = crontab.NewService()
 	// cronService.Start()

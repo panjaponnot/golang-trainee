@@ -5,7 +5,6 @@ go 1.15
 require (
 	github.com/360EntSecGroup-Skylar/excelize v1.4.1
 	github.com/Luzifer/go-openssl v2.0.0+incompatible
-	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
 	github.com/carlescere/scheduler v0.0.0-20170109141437-ee74d2f83d82
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -25,6 +24,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.7.0
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
+	golang.org/x/image v0.0.0-20200927104501-e162460cd6b5 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/ezzarghili/recaptcha-go.v4 v4.3.0
 )

@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"sale_ranking/api"
+	"sale_ranking/auth"
 	"sale_ranking/core"
-	"sale_ranking/export"
 	"sale_ranking/pkg/database"
 	"sale_ranking/pkg/log"
 	"sale_ranking/pkg/server"
@@ -59,6 +60,9 @@ func main() {
 	delClientCmd := clientCmd.Command("del", "Delete api client.")
 	clientArgs.delName = delClientCmd.Arg("name", "Client name.").Required().String()
 
+	// sync billing
+	billingCmd := a.Command("sync", "Sync billing management.")
+
 	startTime := time.Now()
 	// Init core service
 	if err := core.InitCoreService(); err != nil {
@@ -96,6 +100,9 @@ func main() {
 	case delClientCmd.FullCommand():
 		// - client del <name>
 		exitWithCode(startTime, core.DeleteApiClient(*clientArgs.delName))
+	case billingCmd.FullCommand():
+		log.Infoln(pkgName, "===========  Synchronize Billing ===========")
+		exitWithCode(startTime, core.SyncBillingToDB())
 	}
 }
 
@@ -134,12 +141,12 @@ func clearUpCronService() {
 func initApiRouter(ctx *echo.Echo) error {
 	apiV2 := ctx.Group("/api/v2")
 	// Authentication - api
-	// if err := auth.InitApiRouter(apiV1.Group("/auth")); err != nil {
-	// 	return err
-	// }
+	if err := auth.InitApiRouter(apiV2.Group("/auth")); err != nil {
+		return err
+	}
 
 	// User Management  - api
-	if err := export.InitApiRouter(apiV2.Group("/export")); err != nil {
+	if err := api.InitApiRouter(apiV2.Group("")); err != nil {
 		return err
 	}
 

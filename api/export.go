@@ -1,12 +1,9 @@
-package export
+package api
 
 import (
 	"fmt"
 	"net/http"
-	"sale_ranking/core"
 	m "sale_ranking/model"
-	"sale_ranking/pkg/cache"
-	"sale_ranking/pkg/database"
 	"sale_ranking/pkg/log"
 	"sale_ranking/pkg/util"
 	"strconv"
@@ -18,36 +15,13 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-const pkgName = "EXPORT"
-
-var (
-	db    database.Database
-	redis cache.Redis
-)
-
-func initDataStore() error {
-	// Database
-	db = core.NewDatabase(pkgName)
-	if err := db.Connect(); err != nil {
-		log.Errorln(pkgName, err, "Connect to database error")
-		return err
-	}
-	// Redis cache
-	redis = core.NewRedis()
-	if err := redis.Ping(); err != nil {
-		log.Errorln(pkgName, err, "Connect to redis error ->")
-		return err
-	}
-	return nil
-}
-
 // GetUserEndpoint for Get user
 func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 
 	//////////////  getListStaffID  //////////////
-	if err := initDataStore(); err != nil {
-		log.Errorln(pkgName, err, "init db error")
-	}
+	// if err := initDataStore(); err != nil {
+	// 	log.Errorln(pkgName, err, "init db error")
+	// }
 	staff := []struct {
 		StaffId    string `json:"staff_id"`
 		Role       string `json:"role"`
@@ -57,20 +31,25 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	}
 	oneId := strings.TrimSpace(c.QueryParam("one_id"))
-	yearDefault := time.Now()
-	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("year")), 10); err == nil {
-		yearDefault = time.Unix(util.ConvertTimeStamp(f), 0)
+
+	year := strings.TrimSpace(c.QueryParam("year"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("year")), 10); err == nil {
+			yearDefault = time.Unix(util.ConvertTimeStamp(f), 0)
+		}
+		years, _, _ := yearDefault.Date()
+		year = strconv.Itoa(years)
 	}
-	year, _, _ := yearDefault.Date()
+
 	log.Infoln(pkgName, year)
 	log.Infoln(" query staff ")
-	if err := db.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ? 
+	if err := dbSale.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ? 
 	union
 	SELECT staff_id, "normal" as role, staff_child from staff_info where one_id = ? `, oneId, oneId).Scan(&staff).Error; err != nil {
 		log.Errorln(pkgName, err, "Select staff error")
 		return echo.ErrInternalServerError
 	}
-	// var staffs []model.StaffInfo
 	staffs := []struct {
 		StaffId    string `json:"staff_id"`
 		StaffChild string `json:"staff_child"`
@@ -80,7 +59,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		for _, v := range staff {
 			log.Infoln(pkgName, v.Role)
 			if strings.TrimSpace(v.Role) == "admin" {
-				if err := db.Ctx().Raw(`select staff_id from staff_info;`).Scan(&staffs).Error; err != nil {
+				if err := dbSale.Ctx().Raw(`select staff_id from staff_info;`).Scan(&staffs).Error; err != nil {
 					log.Errorln(pkgName, err, "Select data error")
 				}
 				if len(staffs) != 0 {
@@ -89,9 +68,15 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 					}
 				}
 			} else {
-				listStaffId = strings.Split(v.StaffChild, ",")
+				if strings.TrimSpace(v.StaffChild) != "" {
+					listStaffId = strings.Split(v.StaffChild, ",")
+				}
+				listStaffId = append(listStaffId, staff[0].StaffId)
 			}
 		}
+		// if strings.TrimSpace(staff[0].Role) != "admin" {
+		// 	listStaffId = append(listStaffId, staff[0].StaffId)
+		// }
 	}
 	//////////////  getListStaffID  //////////////
 	rawData := []struct {
@@ -121,41 +106,62 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		Status            string  `json:"status"`
 		Remark            string  `json:"remark"`
 	}{}
-	if err := db.Ctx().Raw(`SELECT so_mssql.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,
-                    	DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
-                    	PeriodAmount, SUM(PeriodAmount) as TotalAmount,
-                    	staff_id,prefix,fname,lname,nname,position,department,
-                    	(case
-                    		when pay_type is null then ''
-                    		else pay_type end
-                    	) as pay_type,
-                    	(case
-                    		when so_type is null then ''
-                    		else so_type end
-                    	) as so_type,
-                    	(case
-                    		when status is null then 0
-                    		else status end
-                    	) as status,
-                    	(case
-                    		when tb_expire.remark is null then ''
-                    		else tb_expire.remark end
-                    	) as remark
-                    from so_mssql
-                    left join
-                    (
-                        select staff_id, prefix, fname, lname, nname, position, department from staff_info
-                    ) tb_sale on so_mssql.sale_code = tb_sale.staff_id
-                    left join
-                    (
-                    	select pay_type,sonumber,so_type from check_so
-                    ) tb_check on so_mssql.sonumber = tb_check.sonumber
-                    left join
-                    (
-                    	select id,sonumber,status,remark from check_expire
-                    ) tb_expire on so_mssql.sonumber = tb_expire.sonumber
-                    WHERE Active_Inactive = 'Active' and has_refer = 0 and year(ContractEndDate) = ? and staff_id in (?)
-                    group by sonumber; `, year, listStaffId).Scan(&rawData).Error; err != nil {
+
+	if err := dbSale.Ctx().Raw(`
+	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount, SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,
+	(case
+		when status is null then 0
+		else status end
+	) as status,
+	  (case
+		when tb_expire.remark is null then ''
+		else tb_expire.remark end
+	) as remark  from (
+		SELECT *  from (
+		SELECT 	Active_Inactive,has_refer,sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,
+				DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
+								PeriodAmount, SUM(PeriodAmount) as TotalAmount,
+								staff_id,prefix,fname,lname,nname,position,department,SOType
+								FROM ( SELECT * FROM so_mssql WHERE SOType NOT IN ('onetime' , 'project base') ) as s
+							left join
+							(
+								select staff_id, prefix, fname, lname, nname, position, department from staff_info
+							
+							) tb_sale on s.sale_code = tb_sale.staff_id
+							WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ? 
+							group by sonumber
+			) as tb_so_number
+			left join
+			(
+			 select 
+			 	(case
+					when pay_type is null then ''
+					else pay_type end
+				) as pay_type,
+				sonumber as so_check,
+				(case
+					when so_type is null then ''
+					else so_type end
+				) as so_type 
+			from check_so
+			) tb_check on tb_so_number.sonumber = tb_check.so_check
+		
+		) as tb_ch_so
+		left join
+		(
+		  select id,sonumber,
+		  	(case
+				when status is null then 0
+				else status end
+			) as status,
+		  	(case
+				when remark is null then ''
+				else remark end
+			) as remark 
+			from check_expire
+		  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
+          group by tb_ch_so.sonumber
+		  `, listStaffId, year).Scan(&rawData).Error; err != nil {
 
 		log.Errorln(pkgName, err, "Select data error")
 	}
@@ -218,7 +224,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 	colRemark := "X"
 
 	for k, v := range rawData {
-		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
+
 		f.SetCellValue(mode, fmt.Sprint(colSoNumber, k+2), v.SOnumber)
 		f.SetCellValue(mode, fmt.Sprint(colCustomerId, k+2), v.CustomerId)
 		f.SetCellValue(mode, fmt.Sprint(colCustomerName, k+2), v.CustomerName)
@@ -259,31 +265,16 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 	// return c.JSON(http.StatusOK, model.Result{Data: rawData, Total: len(rawData)})
 }
 
-func TestbotEndPoint(c echo.Context) error {
-	if err := initDataStore(); err != nil {
-		log.Errorln(pkgName, err, "init db error")
-	}
-	d := struct {
-		StaffId string `json:"staff_id"`
-		// Role       string `json:"role"`
-		// StaffChild string `json:"staff_child"`
-	}{}
-	if err := db.Ctx().Raw(`SELECT * FROM user_info`).Scan(&d).Error; err != nil {
-		log.Errorln(pkgName, err, "Select data error")
-	}
-
-	return c.JSON(http.StatusOK, m.Result{Data: d})
-}
 func GetReportExcelSOEndPoint(c echo.Context) error {
-	if err := initDataStore(); err != nil {
-		log.Errorln(pkgName, err, "init db error")
-	}
+	// if err := initDataStore(); err != nil {
+	// 	log.Errorln(pkgName, err, "init db error")
+	// }
 	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	}
 	oneId := strings.TrimSpace(c.QueryParam("one_id"))
 	var user []m.UserInfo
-	if err := db.Ctx().Raw(` SELECT * FROM user_info WHERE role = 'admin' AND one_id = ? `, oneId).Scan(&user).Error; err != nil {
+	if err := dbSale.Ctx().Raw(` SELECT * FROM user_info WHERE role = 'admin' AND one_id = ? `, oneId).Scan(&user).Error; err != nil {
 		log.Errorln(pkgName, err, "User Not Found")
 		if !gorm.IsRecordNotFoundError(err) {
 			log.Errorln(pkgName, err, "Select user Error")
@@ -319,7 +310,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 	}{}
 	if len(user) != 0 {
 
-		if err := db.Ctx().Raw(`SELECT * FROM (SELECT check_so.remark_sale as remark,check_so.status_sale,check_so.status_so as status_so,check_so.sonumber,
+		if err := dbSale.Ctx().Raw(`SELECT * FROM (SELECT check_so.remark_sale as remark,check_so.status_sale,check_so.status_so as status_so,check_so.sonumber,
 			Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
 			so_refer,sale_code,sale_lead,PeriodAmount,so_type,pay_type,
 			in_factor,sale_factor,
@@ -370,7 +361,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			StaffId    string `json:"staff_id"`
 			StaffChild string `json:"staff_child"`
 		}{}
-		if err := db.Ctx().Raw(`SELECT * FROM staff_info where one_id = ?`, oneId).Scan(&staff).Error; err != nil {
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info where one_id = ?`, oneId).Scan(&staff).Error; err != nil {
 			log.Errorln(pkgName, err, "Select data error")
 		}
 
@@ -386,7 +377,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			log.Infoln(pkgName, "not found team", staff)
 		}
 
-		if err := db.Ctx().Raw(`SELECT * FROM (SELECT check_so.status_so as status_so,check_so.status_sale as status_sale,so_mssql.sonumber,Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
+		if err := dbSale.Ctx().Raw(`SELECT * FROM (SELECT check_so.status_so as status_so,check_so.status_sale as status_sale,so_mssql.sonumber,Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
 			so_refer,sale_code,sale_lead,PeriodAmount,so_type,pay_type,
 			in_factor,sale_factor,
 			SUM(PeriodAmount) as TotalAmount_old,

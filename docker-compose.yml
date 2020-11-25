@@ -1,0 +1,33 @@
+version: "3.3"
+services:
+  test:
+    image: sale_ranking_server:test
+    restart: on-failure
+    ports:
+    - 5001:5000
+    environment:
+      - SERVER_MODE=prod
+      - DB_SALE_HOST=db
+      - DB_SALE_USERNAME=root
+      - DB_SALE_PASSWORD=mis@Pass01
+      - DB_SALE_NAME=ratingscoring_test1
+      - DB_QUOTATION_HOST=203.154.135.51
+      - DB_QUOTATION_USERNAME=root
+      - DB_QUOTATION_PASSWORD=118E84FDC1207D817492A
+      - DB_QUOTATION_NAME=quatation
+      - DB_QUOTATION_PORT=3313
+      - DB_MSSQL_HOST=203.150.11.51
+      - DB_MSSQL_USERNAME=sa
+      - DB_MSSQL_NAME=BI2
+      - DB_MSSQL_PASSWORD='vC#n<H7S'
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RECAPTCHA_SECRET=6Ldu3uIUAAAAAOeTaPJBXjgfPqVaK74pKxOdZcGy
+      - ATTENDANT_TOKEN=DVIdkD7Bg/Gc8z1+O9tcAup44PMHbX1JxQYOLDiyRD4xd9m+IsEW8QoafTzPXWw5Dw==
+      - ATTENDANT_TOKEN_TYPE=Bearer
+      - CONDITION_BASE_SALE='recovery','key account','up&cross','retention','JV'
+      - CONDITION_GOV_KEY_SALE='key','account'
+      - CONDITION_GOV_RECOVER_SALE='recovery'
+      - ACCOUNT_NOT_SALE='61073','62125','62273','57030','60265','61025','62186','19007','62268'
+
+

@@ -59,11 +59,12 @@ func (db *Database) Connect() error {
 	case DriverMSSQL:
 		driver = DriverMSSQL
 		dsn = fmt.Sprintf(
-			"sqlserver://%s:%s@%s:%s?database=%s",
+			// "sqlserver://%s:%s@%s:%s?database=%s",
+			"server=%s;user id=%s;password=%s;database=%s",
+			db.config.Host,
 			db.config.Username,
 			db.config.Password,
-			db.config.Host,
-			db.config.Port,
+			// db.config.Port,
 			db.config.Name,
 		)
 	case DriverPostgres:
@@ -129,7 +130,7 @@ func (db *Database) MigrateDatabase(tables []interface{}) error {
 
 func (db *Database) startKeepAlive() error {
 	var err error
-	db.job, err = scheduler.Every(15).Seconds().Run(func() {
+	db.job, err = scheduler.Every(30).Seconds().Run(func() {
 		if err := db.ctx.DB().Ping(); err != nil {
 			log.Errorln(db.config.PackageName, err, "Database keepalive error")
 			if err := db.Reconnect(); err != nil {

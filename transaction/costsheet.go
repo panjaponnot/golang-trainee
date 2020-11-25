@@ -1,9 +1,9 @@
 package transaction
 
 import (
-	"golang_template/core"
-	"golang_template/pkg/server"
 	"net/http"
+	"sale_ranking/core"
+	"sale_ranking/pkg/server"
 
 	"github.com/labstack/echo/v4"
 )
