@@ -864,7 +864,7 @@ type StaffProfileV3 struct {
 	Image           string          `json:"image"`
 	StartJob        string          `json:"start_job"`
 	Mail            string          `json:"mail"`
-	OneMail         string          `json:"onemail"`
+	OneMail         string          `json:"onemail" gorm:"column:onemail"`
 	SummarySostatus []Somssql       `json:"SummarySostatus"`
 	SummaryHeader   []SomssqlHeader `json:"SummaryHeader"`
 	CustomerNewso   []SomssqlNew    `json:"CustomerNewso"`
@@ -898,8 +898,8 @@ func PersonalInformation(StaffId string) StaffProfileV3 {
 }
 
 type Somssql struct {
-	SOWebStatus string `json:"SOWebStatus"`
-	Total       string `json:"total"`
+	SOWebStatus string `json:"SOWebStatus" gorm:"column:SOWebStatus"`
+	Total       string `json:"total" gorm:"column:total"`
 }
 
 func SOstatus(StaffChild []string, Type string, Year string, Quarter string, Month string) []Somssql {
@@ -941,11 +941,11 @@ func SOstatus(StaffChild []string, Type string, Year string, Quarter string, Mon
 }
 
 type SomssqlHeader struct {
-	TotalCustomer       string `json:"total_customer"`
-	TotalSo             string `json:"total_so"`
-	AmountSo            string `json:"amount_so"`
-	AmountRecuring      string `json:"amount_recuring"`
-	AmountRecuringNewso string `json:"amount_recuring_newso"`
+	TotalCustomer       string `json:"total_customer" gorm:"column:total_customer"`
+	TotalSo             string `json:"total_so" gorm:"column:total_so"`
+	AmountSo            string `json:"amount_so" gorm:"column:amount_so"`
+	AmountRecuring      string `json:"amount_recuring" gorm:"column:amount_recuring"`
+	AmountRecuringNewso string `json:"amount_recuring_newso" gorm:"column:amount_recuring_newso"`
 }
 
 func HeaderSummary(StaffChild []string, Type string, Year string, Quarter string, Month string) []SomssqlHeader {
@@ -996,10 +996,10 @@ func HeaderSummary(StaffChild []string, Type string, Year string, Quarter string
 }
 
 type SomssqlNew struct {
-	CustomerId   string `json:"Customer_ID"`
-	CustomerName string `json:"Customer_Name"`
-	AmountSo     string `json:"amount_so"`
-	TotalSo      string `json:"total_so"`
+	CustomerId   string `json:"Customer_ID" gorm:"column:Customer_ID"`
+	CustomerName string `json:"Customer_Name" gorm:"column:Customer_Name"`
+	AmountSo     string `json:"amount_so" gorm:"column:amount_so"`
+	TotalSo      string `json:"total_so" gorm:"column:total_so"`
 }
 
 func NewSOSummary(StaffChild []string, Type string, Year string, Quarter string, Month string) []SomssqlNew {
@@ -1383,9 +1383,9 @@ func ListMonth(Year int, Month int) []ListMonthData {
 }
 
 type SoSummary struct {
-	YearChart    string `json:"year_chart"`
-	QuarterChart string `json:"quarter_chart"`
-	Amount       string `json:"amount"`
+	YearChart    string `json:"year_chart" gorm:"column:year_chart"`
+	QuarterChart string `json:"quarter_chart" gorm:"column:quarter_chart"`
+	Amount       string `json:"amount" gorm:"column:amount"`
 }
 
 func SOChart(StaffChild []string, Type string, Year string, Quarter string, Month string) []SoSummary {
@@ -1470,9 +1470,9 @@ func SOChart(StaffChild []string, Type string, Year string, Quarter string, Mont
 }
 
 type SoSFChart struct {
-	YearChart    string `json:"year_chart"`
-	QuarterChart string `json:"quarter_chart"`
-	SaleFactor   string `json:"sale_factor"`
+	YearChart    string `json:"year_chart" gorm:"column:year_chart"`
+	QuarterChart string `json:"quarter_chart" gorm:"column:quarter_chart"`
+	SaleFactor   string `json:"sale_factor" gorm:"column:sale_factor"`
 }
 
 func SFChart(StaffChild []string, Type string, Year string, Quarter string, Month string) []SoSFChart {
