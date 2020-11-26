@@ -428,3 +428,19 @@ func CreateLogQuotation(c echo.Context) error {
 	}
 	return c.JSON(http.StatusNoContent, nil)
 }
+
+func GetLogQuotationEndPoint(c echo.Context) error {
+	if strings.TrimSpace(c.Param("id")) == "" {
+		return echo.ErrBadRequest
+	}
+	docNo := strings.TrimSpace(c.Param("id"))
+	var quoLog []m.QuotationLog
+	if err := dbQuataion.Ctx().Model(&m.QuotationLog{}).Where(m.QuotationLog{DocNumberEfrom: docNo}).Order("created_at desc").Find(&quoLog).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			log.Errorln(pkgName, err, "get quotation log error :-")
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "get quotation log error"})
+		}
+	}
+
+	return c.JSON(http.StatusOK, server.Result{Data: quoLog})
+}
