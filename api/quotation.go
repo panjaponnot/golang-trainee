@@ -399,7 +399,7 @@ func CreateLogQuotation(c echo.Context) error {
 			log.Errorln(pkgName, err, "Create sale approve error :-")
 		}
 
-		if sale.Status != strings.TrimSpace(body.Status) || sale.DocNumberEfrom != body.DocNumberEfrom || sale.Reason != strings.TrimSpace(body.Remark) {
+		if sale.Status != strings.TrimSpace(body.Status) || sale.Reason != strings.TrimSpace(body.Remark) {
 			sale.Status = strings.TrimSpace(body.Status)
 			sale.Reason = strings.TrimSpace(body.Remark)
 			sale.CreateAt = time.Now()
