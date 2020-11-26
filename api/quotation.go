@@ -441,6 +441,5 @@ func GetLogQuotationEndPoint(c echo.Context) error {
 			return c.JSON(http.StatusInternalServerError, server.Result{Message: "get quotation log error"})
 		}
 	}
-
 	return c.JSON(http.StatusOK, server.Result{Data: quoLog})
 }

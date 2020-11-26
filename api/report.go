@@ -541,7 +541,9 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 	}
 	var rawData []PendingData
 	if err := dbSale.Ctx().Raw(`
-	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount, SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,so_type,
+	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,
+	so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount,
+	 SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,SOType as so_type,
         (case
                 when status is null then 0
                 else status end
@@ -553,7 +555,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
                 SELECT *  from (
                 SELECT  Active_Inactive,has_refer,sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,
                                 DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
-                                                                PeriodAmount, SUM(PeriodAmount) as TotalAmount,
+                                                                PeriodAmount, SUM(PeriodAmount) as TotalAmount,SOType,
                                                                 staff_id,prefix,fname,lname,nname,position,department
                                                                 FROM ( SELECT * FROM so_mssql WHERE SOType NOT IN ('onetime' , 'project base') ) as s
                                                         left join
@@ -564,21 +566,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
                                                         WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ?
                                                         group by sonumber
                         ) as tb_so_number
-                        left join
-                        (
-                         select 
-                                (case
-                                        when pay_type is null then ''
-                                        else pay_type end
-                                ) as pay_type,
-                                sonumber as so_check,
-                                (case
-                                        when so_type is null then ''
-                                        else so_type end
-                                ) as so_type 
-                        from check_so
-                        ) tb_check on tb_so_number.sonumber = tb_check.so_check
-
+                        
                 ) as tb_ch_so
                 left join
                 (
