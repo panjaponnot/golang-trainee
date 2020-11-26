@@ -388,7 +388,9 @@ func CreateLogQuotation(c echo.Context) error {
 	}
 
 	for _, body := range bodyData {
-
+		if body.DocNumberEfrom == "" || body.StaffId == "" || body.Status == "" || body.UserName == "" || body.OneId == "" {
+			return echo.ErrBadRequest
+		}
 		var sale m.SaleApprove
 		if err := dbQuataion.Ctx().Model(&m.SaleApprove{}).Where(m.SaleApprove{DocNumberEfrom: body.DocNumberEfrom}).Attrs(m.SaleApprove{
 			Reason:         strings.TrimSpace(body.Remark),
