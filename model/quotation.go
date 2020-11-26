@@ -14,8 +14,8 @@ type QuotationLog struct {
 }
 
 type SaleApprove struct {
-	Id             int       `gorm:"column:id_increment"`
-	Reason         string    `gorm:"column:reason type:text"`
+	Id             int       `gorm:"column:id_increment; primary_key;"`
+	Reason         string    `gorm:"column:reason"`
 	DocNumberEfrom string    `gorm:"column:doc_number_eform"`
 	Status         string    `gorm:"column:status"`
 	CreateAt       time.Time `gorm:"column:create_at"`

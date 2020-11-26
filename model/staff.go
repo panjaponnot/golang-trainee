@@ -37,8 +37,16 @@ type UserInfo struct {
 	Username   string    `json:"username"`
 	OneMail    string    `json:"onemail"`
 	Role       string    `json:"role"`
+	SubRole    string    `json:"sub_role" gorm:"column:sub_role"`
 	Comment    string    `json:"comment"`
 	CreateDate time.Time `json:"create_date"`
+}
+
+func (UserInfo) TableName() string {
+	return `user_info`
+}
+func (StaffInfo) TableName() string {
+	return `staff_info`
 }
 
 type StaffAll struct {

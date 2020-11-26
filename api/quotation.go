@@ -386,21 +386,29 @@ func CreateLogQuotation(c echo.Context) error {
 	if err := c.Bind(&bodyData); err != nil {
 		return echo.ErrBadRequest
 	}
-	for _, body := range bodyData {
 
+	for _, body := range bodyData {
+		if body.DocNumberEfrom == "" || body.StaffId == "" || body.Status == "" || body.UserName == "" || body.OneId == "" {
+			return echo.ErrBadRequest
+		}
 		var sale m.SaleApprove
-		if err := dbSale.Ctx().Model(&m.SaleApprove{}).Where(m.SaleApprove{DocNumberEfrom: body.DocNumberEfrom}).Attrs(m.SaleApprove{
+		if err := dbQuataion.Ctx().Model(&m.SaleApprove{}).Where(m.SaleApprove{DocNumberEfrom: body.DocNumberEfrom}).Attrs(m.SaleApprove{
 			Reason:         strings.TrimSpace(body.Remark),
 			DocNumberEfrom: strings.TrimSpace(body.DocNumberEfrom),
 			Status:         strings.TrimSpace(body.Status),
+			CreateAt:       time.Now(),
 		}).FirstOrCreate(&sale).Error; err != nil {
 			log.Errorln(pkgName, err, "Create sale approve error :-")
 		}
-		sale.Status = strings.TrimSpace(body.Status)
-		sale.Reason = strings.TrimSpace(body.Remark)
-		if err := dbSale.Ctx().Model(&m.SaleApprove{}).Save(&sale).Error; err != nil {
-			log.Errorln(pkgName, err, "save sale approve error :-")
-			return echo.ErrInternalServerError
+
+		if sale.Status != strings.TrimSpace(body.Status) || sale.Reason != strings.TrimSpace(body.Remark) {
+			sale.Status = strings.TrimSpace(body.Status)
+			sale.Reason = strings.TrimSpace(body.Remark)
+			sale.CreateAt = time.Now()
+			if err := dbQuataion.Ctx().Save(&sale).Error; err != nil {
+				log.Errorln(pkgName, err, "save sale approve error :-")
+				return echo.ErrInternalServerError
+			}
 		}
 
 		d := time.Now()
@@ -413,10 +421,25 @@ func CreateLogQuotation(c echo.Context) error {
 		quoLog.Status = body.Status
 		quoLog.Remark = body.Remark
 
-		if err := dbSale.Ctx().Model(&m.QuotationLog{}).Create(&quoLog).Error; err != nil {
+		if err := dbQuataion.Ctx().Model(&m.QuotationLog{}).Create(&quoLog).Error; err != nil {
 			log.Errorln(pkgName, err, "create quotation log error :-")
 			return c.JSON(http.StatusInternalServerError, server.Result{Message: "create quotation log error"})
 		}
 	}
 	return c.JSON(http.StatusNoContent, nil)
+}
+
+func GetLogQuotationEndPoint(c echo.Context) error {
+	if strings.TrimSpace(c.Param("id")) == "" {
+		return echo.ErrBadRequest
+	}
+	docNo := strings.TrimSpace(c.Param("id"))
+	var quoLog []m.QuotationLog
+	if err := dbQuataion.Ctx().Model(&m.QuotationLog{}).Where(m.QuotationLog{DocNumberEfrom: docNo}).Order("created_at desc").Find(&quoLog).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			log.Errorln(pkgName, err, "get quotation log error :-")
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "get quotation log error"})
+		}
+	}
+	return c.JSON(http.StatusOK, server.Result{Data: quoLog})
 }

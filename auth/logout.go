@@ -2,8 +2,9 @@ package auth
 
 import (
 	"fmt"
-	"github.com/labstack/echo/v4"
 	"net/http"
+
+	"github.com/labstack/echo/v4"
 )
 
 func logOutEndpoint(c echo.Context) error {
@@ -11,7 +12,7 @@ func logOutEndpoint(c echo.Context) error {
 	if err != nil {
 		return echo.ErrUnauthorized
 	}
-	key := fmt.Sprintf("%s:%s", sessionKey, session.UserUid)
+	key := fmt.Sprintf("%s:%s", sessionKey, session.Uid)
 	_ = redis.Del(key)
 	return c.JSON(http.StatusNoContent, nil)
 }

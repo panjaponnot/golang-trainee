@@ -266,7 +266,7 @@ func sumIF(input []model.SummaryCustomer) float64 {
 		sum += i.SumIf
 	}
 
-	fmt.Println("sum was ", sum)
+	fmt.Println("sum was if", sum)
 	return sum
 }
 func sumEF(input []model.SummaryCustomer) float64 {
@@ -276,6 +276,6 @@ func sumEF(input []model.SummaryCustomer) float64 {
 		sum += i.SumEf
 	}
 
-	fmt.Println("sum was ", sum)
+	fmt.Println("sum was ef", sum)
 	return sum
 }

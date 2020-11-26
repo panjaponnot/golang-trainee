@@ -49,12 +49,13 @@ func InitApiRouter(g *echo.Group) error {
 	if err := initDataStore(); err != nil {
 		log.Errorln(pkgName, err, "connect database error")
 	}
-	// defer dbSale.Close()
-	// g.Use(auth.AuthMiddlewareWithConfig(auth.Config{Skipper: func(c echo.Context) bool {
+	// middleware and skipper path
+	// g.Use(auth.UserAuthMiddleware(auth.Config{Skipper: func(c echo.Context) bool {
 	// 	skipper := server.NewSkipperPath("")
-	// 	skipper.Add("/api/v1/export", http.MethodGet)
+	// 	skipper.Add("/api/v2/export", http.MethodGet)
 	// 	return skipper.Test(c)
 	// }}))
+
 	export := g.Group("/export")
 	export.GET("/pending", GetReportExcelSOPendingEndPoint)
 	export.GET("/so", GetReportExcelSOEndPoint)
@@ -71,7 +72,8 @@ func InitApiRouter(g *echo.Group) error {
 
 	quotation := g.Group("/quotation")
 	quotation.GET("/summary", GetSummaryQuotationEndPoint)
-	quotation.POST("/log", CreateLogQuotation)
+	quotation.PUT("/log", CreateLogQuotation)
+	quotation.GET("/log/:id", GetLogQuotationEndPoint)
 
 	permission := g.Group("/permission")
 	permission.GET("/lead/:id", CheckTeamLeadEndPoint)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"sale_ranking/core"
-	m "sale_ranking/model"
 	"sale_ranking/pkg/attendant"
 	"sale_ranking/pkg/cache"
 	"sale_ranking/pkg/database"
@@ -19,7 +18,7 @@ import (
 )
 
 type CacheSession struct {
-	UserUid      uuid.UUID                `json:"user_uid"`
+	Uid          uuid.UUID                `json:"user_uid"`
 	AccountId    string                   `json:"account_id"`
 	Ip           string                   `json:"ip"`
 	Agent        string                   `json:"agent"`
@@ -27,7 +26,10 @@ type CacheSession struct {
 	AccessToken  string                   `json:"access_token"`
 	TokenType    string                   `json:"token_type"`
 	Profile      attendant.AccountProfile `json:"profile"`
-	Permissions  []m.Permission           `json:"permissions"`
+	Role         string                   `json:"role"`
+	SubRole      string                   `json:"sub_role"`
+	Username     string                   `json:"username"`
+	GenToken     string                   `json:"gen_token"`
 }
 
 type CacheTicket struct {
@@ -44,7 +46,7 @@ const (
 	ticketKey  = "ticket"
 
 	authorizedContext = "auth"
-	sessionTimeOut    = 4 * time.Hour
+	sessionTimeOut    = 24 * time.Hour
 
 	// User status
 	StatusNone      = ""          // valid but no any requests to any companies
@@ -66,7 +68,7 @@ func InitApiRouter(g *echo.Group) error {
 	g.Use(UserAuthMiddleware(Config{Skipper: func(c echo.Context) bool {
 		skipper := server.NewSkipperPath("")
 		skipper.Add("/api/v2/auth/ticket", http.MethodGet)
-		skipper.Add("/api/v2/auth/login", http.MethodGet)
+		skipper.Add("/api/v2/auth/login", http.MethodPost)
 
 		return skipper.Test(c)
 	}}))
@@ -76,6 +78,8 @@ func InitApiRouter(g *echo.Group) error {
 	g.POST("/login", submitLoginEndpoint)
 	g.GET("/login", getLogInByOneIdEndpoint)
 	g.GET("/logout", logOutEndpoint)
+	g.GET("/test", getStateEndPoint)
+
 	return nil
 }
 
