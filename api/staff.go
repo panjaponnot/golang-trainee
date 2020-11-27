@@ -1503,14 +1503,6 @@ func SFChart(StaffChild []string, Type string, Year string, Quarter string, Mont
 
 		ListQuarter := ListQuarter(YearInt, QuarterInt)
 		for n, l := range ListQuarter {
-			// YearInt, err := strconv.Atoi(l.Year)
-			// if err != nil {
-			// 	log.Errorln(pkgName, err)
-			// }
-			// QuarterInt, err := strconv.Atoi(l.Quarter)
-			// if err != nil {
-			// 	log.Errorln(pkgName, err)
-			// }
 			SqlStr += fmt.Sprintf(`
 			select
 			year(ContractStartDate) as year_chart,
