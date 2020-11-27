@@ -67,7 +67,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		month = fmt.Sprintf("AND MONTH(start_date) = %s", strings.TrimSpace(c.QueryParam("month")))
 	}
 	if strings.TrimSpace(c.QueryParam("search")) != "" {
-		search = fmt.Sprintf("AND INSTR(CONCAT_WS('|', company_name, service, employee_code, salename, team), '%s')", strings.TrimSpace(c.QueryParam("search")))
+		search = fmt.Sprintf("AND INSTR(CONCAT_WS('|', company_name, service, employee_code, salename, team,quatation_th.doc_number_eform), '%s')", strings.TrimSpace(c.QueryParam("search")))
 	}
 
 	dataResult := struct {
@@ -276,7 +276,7 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		wg.Done()
 	}()
 	go func() {
-		// count service
+		// count company
 		var dataRaw []struct {
 			TotalPrice   float64 `json:"total_price"`
 			TotalCompany int     `json:"total_company"`
