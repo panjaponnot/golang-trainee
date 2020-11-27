@@ -83,6 +83,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		Lost         int
 		Resend       int
 		ReasonWin    interface{}
+		ReasonResend interface{}
 		ReasonLost   interface{}
 		CountService interface{}
 		CountCompany interface{}
@@ -126,7 +127,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(12)
+	wg.Add(13)
 	go func() {
 		// work
 		var dataRaw []QuotationJoin
@@ -349,6 +350,25 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		dataCount.Resend = len(dataRaw)
 		wg.Done()
 	}()
+	go func() {
+		// reason win
+		var dataRaw []struct {
+			TotalReason int    `json:"total_reason_resend" gorm:"column:total_reason_resend"`
+			Reason      string `json:"reason"`
+		}
+		sql := fmt.Sprintf(`SELECT sales_approve.reason,COUNT(sales_approve.reason) as total_reason_resend FROM quatation_th 
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'Resend/Revised'
+		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL 
+		AND (total IS NOT NULL OR total_discount IS NOT NULL)
+		AND YEAR(start_date) = ? %s %s %s %s  GROUP BY sales_approve.reason`, textStaffId, quarter, month, search)
+		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
+			hasErr += 1
+		}
+		dataCount.ReasonResend = dataRaw
+		wg.Done()
+	}()
 	wg.Wait()
 
 	if hasErr != 0 {
@@ -364,12 +384,13 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 			"not_check": dataCount.NotWork,
 			"resend":    dataCount.Resend,
 		},
-		"reason_win":  dataCount.ReasonWin,
-		"reason_lost": dataCount.ReasonLost,
-		"service":     dataCount.CountService,
-		"company":     dataCount.CountCompany,
-		"type":        dataCount.CountType,
-		"team":        dataCount.CountTeam,
+		"reason_resend": dataCount.ReasonResend,
+		"reason_win":    dataCount.ReasonWin,
+		"reason_lost":   dataCount.ReasonLost,
+		"service":       dataCount.CountService,
+		"company":       dataCount.CountCompany,
+		"type":          dataCount.CountType,
+		"team":          dataCount.CountTeam,
 	}
 	return c.JSON(http.StatusOK, dataResult)
 }
