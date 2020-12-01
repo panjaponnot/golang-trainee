@@ -282,6 +282,20 @@ func GetRankingBaseSale(c echo.Context) error {
 				} else {
 					r.ScoreGrowth = 0
 				}
+				if r.InvAmount > r.InvAmountOld {
+					var so []m.SOMssql
+					if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code = ? AND getCN <> ''`, r.StaffId).Group("getCN").Find(&so).Error; err != nil {
+					}
+					log.Infoln("SO", "=====>", len(so))
+
+					// wait cal aging & blacklist
+
+					baseCal := r.InvAmountOld * 0.003
+					growthCal := (r.InvAmount - r.InvAmountOld) * 0.03
+					saleFactor := (baseCal + growthCal) * (r.SaleFactor * r.SaleFactor)
+					r.Commission = saleFactor * (r.InFactor / 0.7)
+
+				}
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
@@ -329,6 +343,9 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 	listStaffId, err := CheckPermissionKeyAccount(strings.TrimSpace(c.QueryParam(("staff_id"))), finalFilter)
 	if err != nil {
 		return echo.ErrInternalServerError
+	}
+	if len(listStaffId) == 0 {
+		return c.JSON(http.StatusNoContent, nil)
 	}
 
 	page, _ := strconv.Atoi(strings.TrimSpace(c.QueryParam("page")))
@@ -579,6 +596,13 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 				} else {
 					r.ScoreGrowth = 0
 				}
+				if r.InvAmount > r.InvAmountOld {
+					// wait cal aging & blacklist
+					baseCal := r.InvAmountOld * 0.003
+					growthCal := (r.InvAmount - r.InvAmountOld) * 0.03
+					saleFactor := (baseCal + growthCal) * (r.SaleFactor * r.SaleFactor)
+					r.Commission = saleFactor * (r.InFactor / 0.7)
+				}
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
@@ -625,7 +649,9 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 	if err != nil {
 		return echo.ErrInternalServerError
 	}
-
+	if len(listStaffId) == 0 {
+		return c.JSON(http.StatusNoContent, nil)
+	}
 	page, _ := strconv.Atoi(strings.TrimSpace(c.QueryParam("page")))
 	if strings.TrimSpace(c.QueryParam("page")) == "" {
 		page = 1

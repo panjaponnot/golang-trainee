@@ -6,6 +6,7 @@ import (
 	m "sale_ranking/model"
 	"sale_ranking/pkg/log"
 	"sale_ranking/pkg/util"
+	"strings"
 
 	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo/v4"
@@ -31,6 +32,15 @@ func CheckPermissionBaseSale(id string, filter string) ([]string, error) {
 		}
 		return listStaffId, nil
 	} else {
+		var staffCheck []m.StaffInfo
+		sqlCheck := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id  = ?`)
+		if err := dbSale.Ctx().Raw(sqlCheck, id).Scan(&staffCheck).Error; err != nil {
+			return nil, err
+		}
+		if len(staffCheck) == 0 {
+			return nil, nil
+		}
+
 		var staff []m.StaffInfo
 		sql := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id NOT IN (?) and department NOT IN  ( select department from staff_info where %s)`, filter)
 		if err := dbSale.Ctx().Raw(sql, notSale).Scan(&staff).Error; err != nil {
@@ -67,6 +77,14 @@ func CheckPermissionKeyAccount(id string, filter string) ([]string, error) {
 		}
 		return listStaffId, nil
 	} else {
+		var staffCheck []m.StaffInfo
+		sqlCheck := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id  = ?`)
+		if err := dbSale.Ctx().Raw(sqlCheck, id).Scan(&staffCheck).Error; err != nil {
+			return nil, err
+		}
+		if len(staffCheck) == 0 {
+			return nil, nil
+		}
 		var staff []m.StaffInfo
 		sql := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id NOT IN (?) and department  IN  ( select department from staff_info where %s)`, filter)
 		if err := dbSale.Ctx().Raw(sql, notSale).Scan(&staff).Error; err != nil {
@@ -105,6 +123,15 @@ func CheckPermissionRecovery(id string, filter string) ([]string, error) {
 		}
 		return listStaffId, nil
 	} else {
+		var staffCheck []m.StaffInfo
+		sqlCheck := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id  = ?`)
+		if err := dbSale.Ctx().Raw(sqlCheck, id).Scan(&staffCheck).Error; err != nil {
+			return nil, err
+		}
+		if len(staffCheck) == 0 {
+			return nil, nil
+		}
+
 		var staff []m.StaffInfo
 		sql := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id NOT IN (?) and department  IN  ( select department from staff_info where %s)`, filter)
 		if err := dbSale.Ctx().Raw(sql, notSale).Scan(&staff).Error; err != nil {
@@ -142,8 +169,16 @@ func CheckPermissionTeamLead(id string, filter string) ([]string, error) {
 		}
 		return listStaffId, nil
 	} else {
+		var staffCheck m.StaffInfo
+		sqlCheck := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE  staff_id  = ? and  staff_child <> ''`)
+		if err := dbSale.Ctx().Raw(sqlCheck, id).Scan(&staffCheck).Error; err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(staffCheck.StaffChild) == "" {
+			return nil, nil
+		}
+
 		var staff []m.StaffInfo
-		// sql := fmt.Sprintf(`SELECT staff_id,staff_child from staff_info WHERE staff_id NOT IN (?) and department  IN  ( select department from staff_info where %s)`, filter)
 		sql := fmt.Sprintf(`SELECT staff_id from staff_info where staff_id NOT IN (?) and  staff_child <> '' and department not in('Up&Cross 2', 'Up&Cross 1', 'Retention', 'Sale JV', 'ฝ่าย Up and Cross Sales');`)
 		if err := dbSale.Ctx().Raw(sql, notSale).Scan(&staff).Error; err != nil {
 			log.Errorln(pkgName, err, "user select error")

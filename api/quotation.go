@@ -433,14 +433,22 @@ func CreateLogQuotation(c echo.Context) error {
 		}
 
 		d := time.Now()
-		var quoLog m.QuotationLog
-		quoLog.Date = d.Format("2006-Jan-02")
-		quoLog.DocNumberEfrom = body.DocNumberEfrom
-		quoLog.UserName = body.UserName
-		quoLog.OneId = body.OneId
-		quoLog.StaffId = body.StaffId
-		quoLog.Status = body.Status
-		quoLog.Remark = body.Remark
+		quoLog := m.QuotationLog{
+			Date:           d.Format("2006-Jan-02"),
+			DocNumberEfrom: body.DocNumberEfrom,
+			UserName:       body.UserName,
+			OneId:          body.OneId,
+			StaffId:        body.StaffId,
+			Status:         body.Status,
+			Remark:         body.Remark,
+		}
+		// quoLog.Date = d.Format("2006-Jan-02")
+		// quoLog.DocNumberEfrom = body.DocNumberEfrom
+		// quoLog.UserName = body.UserName
+		// quoLog.OneId = body.OneId
+		// quoLog.StaffId = body.StaffId
+		// quoLog.Status = body.Status
+		// quoLog.Remark = body.Remark
 
 		if err := dbQuataion.Ctx().Model(&m.QuotationLog{}).Create(&quoLog).Error; err != nil {
 			log.Errorln(pkgName, err, "create quotation log error :-")
