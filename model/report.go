@@ -95,6 +95,7 @@ type SOMssql struct {
 	Department        string  `json:"department"`
 	Status            string  `json:"status"`
 	Remark            string  `json:"remark"`
+	GetCN             string  `json:"get_cn" gorm:"column:getCN"`
 }
 
 func (SOMssql) TableName() string {

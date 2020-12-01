@@ -395,7 +395,7 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 	return c.JSON(http.StatusOK, dataResult)
 }
 
-func CreateLogQuotation(c echo.Context) error {
+func CreateLogQuotationEndPoint(c echo.Context) error {
 	bodyData := []struct {
 		OneId          string `json:"one_id"`
 		StaffId        string `json:"staff_id"`
