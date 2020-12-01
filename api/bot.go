@@ -1019,7 +1019,23 @@ func CheckQuotationEndPoint(c echo.Context) error {
 			tx.Rollback()
 			return c.JSON(http.StatusInternalServerError, m.Result{Message: err})
 		}
+		d := time.Now()
+		quoLog := m.QuotationLog{
+			Date:           d.Format("2006-Jan-02"),
+			DocNumberEfrom: DocNumberEform,
+			UserName:       "",
+			OneId:          OneId,
+			StaffId:        EmployeeId,
+			Status:         Status,
+			Remark:         Reason,
+		}
+		if err := dbQuataion.Ctx().Model(&m.QuotationLog{}).Create(&quoLog).Error; err != nil {
+			log.Errorln(pkgName, err, "create quotation log error :-")
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "create quotation log error"})
+		}
+
 	}
+
 	var DatabaseData []QuatationTh
 	// EmployeeId = "62080"
 	if err := dbQuataion.Ctx().Raw(`select * from quatation_th as qt left outer join sales_approve as sa on
