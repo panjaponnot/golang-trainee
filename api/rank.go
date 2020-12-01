@@ -222,9 +222,10 @@ func GetRankingBaseSale(c echo.Context) error {
 	sqlFilter := `select * from staff_info where INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,one_id), ?) `
 
 	var staffInfo []m.StaffInfo
+	mapCnStaff := map[string][]string{}
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(4)
 	go func() {
 		if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
@@ -250,6 +251,20 @@ func GetRankingBaseSale(c echo.Context) error {
 				hasErr += 1
 			}
 		}
+		wg.Done()
+	}()
+	go func() {
+		var so []m.SOMssql
+		if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND getCN <> '' AND quarter(ContractStartDate) = ?`, listStaffId, quarterNum).Find(&so).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				log.Errorln(pkgName, err, "select data error :-")
+				hasErr += 1
+			}
+		}
+		for _, s := range so {
+			mapCnStaff[s.SaleCode] = append(mapCnStaff[s.SaleCode], s.GetCN)
+		}
+
 		wg.Done()
 	}()
 	wg.Wait()
@@ -283,11 +298,10 @@ func GetRankingBaseSale(c echo.Context) error {
 					r.ScoreGrowth = 0
 				}
 				if r.InvAmount > r.InvAmountOld {
-					var so []m.SOMssql
-					if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code = ? AND getCN <> ''`, r.StaffId).Group("getCN").Find(&so).Error; err != nil {
-					}
-					log.Infoln("SO", "=====>", len(so))
-
+					// var so []m.SOMssql
+					// if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code = ? AND getCN <> ''`, r.StaffId).Group("getCN").Find(&so).Error; err != nil {
+					// }
+					// log.Infoln("SO", "=====>", len(mapCnStaff[r.StaffId]))
 					// wait cal aging & blacklist
 
 					baseCal := r.InvAmountOld * 0.003
@@ -900,6 +914,13 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 				} else {
 					r.ScoreGrowth = 0
 				}
+				if r.InvAmount > r.InvAmountOld {
+					// wait cal aging & blacklist
+					baseCal := r.InvAmountOld * 0.003
+					growthCal := (r.InvAmount - r.InvAmountOld) * 0.03
+					saleFactor := (baseCal + growthCal) * (r.SaleFactor * r.SaleFactor)
+					r.Commission = saleFactor * (r.InFactor / 0.7)
+				}
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
@@ -1271,6 +1292,13 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 					r.ScoreGrowth = 4
 				} else {
 					r.ScoreGrowth = 0
+				}
+				if r.InvAmount > r.InvAmountOld {
+					// wait cal aging & blacklist
+					baseCal := r.InvAmountOld * 0.003
+					growthCal := (r.InvAmount - r.InvAmountOld) * 0.03
+					saleFactor := (baseCal + growthCal) * (r.SaleFactor * r.SaleFactor)
+					r.Commission = saleFactor * (r.InFactor / 0.7)
 				}
 			}
 		}
