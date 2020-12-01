@@ -903,3 +903,109 @@ func CheckRemark(remark string, types string) string {
 	return ""
 
 }
+
+func UpdateSOEndPoint(c echo.Context) error {
+	type SoData struct {
+		SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
+		CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
+		ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
+		SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
+		Day               string  `json:"day" gorm:"column:days"`
+		SoMonth           string  `json:"so_month" gorm:"column:so_month"`
+		SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
+		PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+		TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
+		StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
+		PayType           string  `json:"pay_type" gorm:"column:pay_type"`
+		SoType            string  `json:"so_type" gorm:"column:so_type"`
+		Prefix            string  `json:"prefix"`
+		Fname             string  `json:"fname"`
+		Lname             string  `json:"lname"`
+		Nname             string  `json:"nname"`
+		Position          string  `json:"position"`
+		Department        string  `json:"department"`
+		Status            string  `json:"status"`
+		Remark            string  `json:"remark"`
+		StatusSO          bool    `json:"status_so" gorm:"column:status_so"`
+		StatusSale        bool    `json:"status_sale" gorm:"column:status_sale"`
+	}
+	body := struct {
+		Data  []SoData `json:"data"`
+		OneId string   `json:"one_id"`
+	}{}
+
+	if err := c.Bind(&body); err != nil {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid Body data"})
+	}
+
+	if strings.TrimSpace(body.OneId) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid one id"})
+	}
+	id := strings.TrimSpace(body.OneId)
+	var CheckExpire []m.CheckExpire
+	if err := dbSale.Ctx().Raw(`select * from check_expire;`).Scan(&CheckExpire).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+
+	type SoAll struct {
+		SOnumber string `json:"sonumber" gorm:"column:sonumber"`
+	}
+	var SoAllData []SoAll
+	var SoAllStr string
+	if len(CheckExpire) > 0 {
+		for _, c := range CheckExpire {
+			data := SoAll{
+				SOnumber: c.SOnumber,
+			}
+			SoAllStr += c.SOnumber
+			SoAllData = append(SoAllData, data)
+		}
+	}
+	var ListData []SoData
+	for _, d := range body.Data {
+		ListData = append(ListData, d)
+	}
+	var ValuesUpdate []m.CheckExpire
+	var ValuesInsert []m.CheckExpire
+
+	for _, d := range ListData {
+		if strings.Contains(SoAllStr, d.SOnumber) {
+			value := m.CheckExpire{
+				SOnumber: d.SOnumber,
+				Status:   d.Status,
+				Remark:   d.Remark,
+				CreateBy: body.OneId,
+			}
+			ValuesUpdate = append(ValuesUpdate, value)
+		} else {
+			value := m.CheckExpire{
+				SOnumber: d.SOnumber,
+				Status:   d.Status,
+				Remark:   d.Remark,
+				CreateBy: body.OneId,
+			}
+			ValuesInsert = append(ValuesInsert, value)
+		}
+	}
+
+	sqlinsert := `insert into check_expire(sonumber, status,remark,create_by) values(?,?,?,?);`
+	sqlupdate := `update check_expire set status = ?, remark = ?, create_by = ? where sonumber = ?;`
+
+	for _, v := range ValuesUpdate {
+		if err := dbSale.Ctx().Exec(sqlinsert, v.SOnumber, v.Status, v.Remark, v.CreateBy).Error; err != nil {
+			return echo.ErrInternalServerError
+		}
+	}
+
+	for _, v := range ValuesInsert {
+		if err := dbSale.Ctx().Exec(sqlupdate, v.Status, v.Remark, v.CreateBy, v.SOnumber).Error; err != nil {
+			return echo.ErrInternalServerError
+		}
+	}
+	return c.JSON(http.StatusNoContent, nil)
+}

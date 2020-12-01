@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 type OrgChart struct {
 	StaffId      string  `json:"staff_id"`
 	Fname        string  `json:"fname" gorm:"column:fname"`
@@ -98,4 +100,16 @@ type SOMssql struct {
 
 func (SOMssql) TableName() string {
 	return "so_mssql"
+}
+
+type CheckExpire struct {
+	SOnumber   string    `json:"so_number" gorm:"column:sonumber"`
+	Status     string    `json:"status" gorm:"column:status"`
+	Remark     string    `json:"remark" gorm:"column:remark"`
+	CreateDate time.Time `json:"create_date" gorm:"column:create_date"`
+	CreateBy   string    `json:"create_by" gorm:"column:create_by"`
+}
+
+func (CheckExpire) TableName() string {
+	return "check_expire_log"
 }
