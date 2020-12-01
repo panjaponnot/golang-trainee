@@ -702,10 +702,8 @@ func GetGq(c echo.Context, StaffId string) []m.GqDict {
 			} else {
 				StaffChild += fmt.Sprintf("'%s',", s)
 			}
-
 		}
 	}
-
 	var DateData []string
 	DateData = append(DateData, DateResult[0].Cur0)
 	DateData = append(DateData, DateResult[0].Pv1)
