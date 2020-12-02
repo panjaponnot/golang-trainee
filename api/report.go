@@ -1001,7 +1001,7 @@ func UpdateSOEndPoint(c echo.Context) error {
 			return echo.ErrInternalServerError
 		}
 		//Log
-		if err := dbQuataion.Ctx().Model(&m.CheckExpire{}).Create(&v).Error; err != nil {
+		if err := dbSale.Ctx().Model(&m.CheckExpire{}).Create(&v).Error; err != nil {
 			log.Errorln(pkgName, err, "create CheckExpire log error :-")
 			return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
 		}
@@ -1012,7 +1012,7 @@ func UpdateSOEndPoint(c echo.Context) error {
 			return echo.ErrInternalServerError
 		}
 		//Log
-		if err := dbQuataion.Ctx().Model(&m.CheckExpire{}).Create(&v).Error; err != nil {
+		if err := dbSale.Ctx().Model(&m.CheckExpire{}).Create(&v).Error; err != nil {
 			log.Errorln(pkgName, err, "create CheckExpire log error :-")
 			return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
 		}
