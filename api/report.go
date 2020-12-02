@@ -993,7 +993,7 @@ func UpdateSOEndPoint(c echo.Context) error {
 		}
 	}
 
-	sqlinsert := `insert into check_expire(sonumber, status,remark,create_by) values(?,?,?,?);`
+	sqlinsert := `insert into check_expire(sonumber,status,remark,create_by) values(?,?,?,?);`
 	sqlupdate := `update check_expire set status = ?, remark = ?, create_by = ? where sonumber = ?;`
 
 	for _, v := range ValuesUpdate {

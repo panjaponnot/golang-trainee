@@ -195,7 +195,7 @@ func CheckPermissionTeamLead(id string, filter string) ([]string, error) {
 }
 
 func CheckTeamLeadEndPoint(c echo.Context) error {
-	id := c.Param("id")
+	id := strings.TrimSpace(c.Param("id"))
 	var user []m.UserInfo
 	if err := dbSale.Ctx().Raw(`SELECT * from user_info WHERE role = 'admin' and staff_id = ?`, id).Scan(&user).Error; err != nil {
 		if !gorm.IsRecordNotFoundError(err) {

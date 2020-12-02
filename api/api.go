@@ -73,7 +73,7 @@ func InitApiRouter(g *echo.Group) error {
 
 	sale := g.Group("/sale")
 	sale.GET("/summary", GetSummarySaleFactorEndPoint)
-	sale.GET("/type", GetSummaryInteranlFactorAndExternalFactorEndPoint)
+	sale.GET("/type", GetSummaryInternalFactorAndExternalFactorEndPoint)
 
 	quotation := g.Group("/quotation")
 	quotation.GET("/summary", GetSummaryQuotationEndPoint)
