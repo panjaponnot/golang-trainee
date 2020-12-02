@@ -71,9 +71,10 @@ func InitApiRouter(g *echo.Group) error {
 	report.GET("/ranking/lead", GetRankingTeamLeadEndPoint)
 	report.PUT("/pending", UpdateSOEndPoint)
 
-	sale := g.Group("/sale")
+	sale := g.Group("/factor")
 	sale.GET("/summary/:id", GetSummarySaleFactorEndPoint)
 	sale.GET("/type/:id", GetSummaryInternalFactorAndExternalFactorEndPoint)
+	sale.GET("/sale/:id", GetSaleFactorEndPoint)
 
 	quotation := g.Group("/quotation")
 	quotation.GET("/summary", GetSummaryQuotationEndPoint)
