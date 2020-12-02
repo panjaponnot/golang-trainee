@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -68,7 +69,12 @@ func GetSummarySaleFactorEndPoint(c echo.Context) error {
 	return c.JSON(http.StatusOK, dataResult)
 }
 
-func GetSummaryInteranlFactorAndExternalFactorEndPoint(c echo.Context) error {
+func GetSummaryInternalFactorAndExternalFactorEndPoint(c echo.Context) error {
+	accountId := strings.TrimSpace(c.Param("id"))
+	check := checkPermissionUser(accountId)
+	if !check {
+		return echo.ErrNotFound
+	}
 	today := time.Now()
 	year, month, _ := today.Date()
 	sql := `SELECT
@@ -156,4 +162,9 @@ func GetSummaryInteranlFactorAndExternalFactorEndPoint(c echo.Context) error {
 		"sale_factor_total": sumRevenue / sumEngCost,
 	}
 	return c.JSON(http.StatusOK, dataResult)
+}
+
+func checkPermissionUser(oneId string) bool {
+
+	return true
 }

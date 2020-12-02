@@ -103,6 +103,7 @@ func (SOMssql) TableName() string {
 }
 
 type CheckExpire struct {
+	Model
 	SOnumber   string    `json:"so_number" gorm:"column:sonumber"`
 	Status     string    `json:"status" gorm:"column:status"`
 	Remark     string    `json:"remark" gorm:"column:remark"`

@@ -946,7 +946,7 @@ func UpdateSOEndPoint(c echo.Context) error {
 	if strings.TrimSpace(body.OneId) == "" {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid one id"})
 	}
-	id := strings.TrimSpace(body.OneId)
+	// id := strings.TrimSpace(body.OneId)
 	var CheckExpire []m.CheckExpire
 	if err := dbSale.Ctx().Raw(`select * from check_expire;`).Scan(&CheckExpire).Error; err != nil {
 		log.Errorln(pkgName, err, "Select data error")
@@ -979,7 +979,7 @@ func UpdateSOEndPoint(c echo.Context) error {
 				SOnumber: d.SOnumber,
 				Status:   d.Status,
 				Remark:   d.Remark,
-				CreateBy: body.OneId,
+				CreateBy: strings.TrimSpace(body.OneId),
 			}
 			ValuesUpdate = append(ValuesUpdate, value)
 		} else {
@@ -987,7 +987,7 @@ func UpdateSOEndPoint(c echo.Context) error {
 				SOnumber: d.SOnumber,
 				Status:   d.Status,
 				Remark:   d.Remark,
-				CreateBy: body.OneId,
+				CreateBy: strings.TrimSpace(body.OneId),
 			}
 			ValuesInsert = append(ValuesInsert, value)
 		}
