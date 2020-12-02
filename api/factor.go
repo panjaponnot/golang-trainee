@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+	m "sale_ranking/model"
+	"sale_ranking/pkg/log"
 	"strings"
 	"time"
 
@@ -10,6 +12,11 @@ import (
 )
 
 func GetSummarySaleFactorEndPoint(c echo.Context) error {
+	accountId := strings.TrimSpace(c.Param("id"))
+	check := checkPermissionUser(accountId)
+	if !check {
+		return echo.ErrNotFound
+	}
 	today := time.Now()
 	year, month, _ := today.Date()
 	sql := `select 
@@ -165,6 +172,13 @@ func GetSummaryInternalFactorAndExternalFactorEndPoint(c echo.Context) error {
 }
 
 func checkPermissionUser(oneId string) bool {
-
-	return true
+	var user m.UserInfo
+	if err := dbSale.Ctx().Model(&m.UserInfo{}).Where(m.UserInfo{OneId: oneId}).First(&user).Error; err != nil {
+		log.Errorln(pkgName, err, "check user error :-")
+		return false
+	}
+	if user.OneId != "" && user.Username != "" {
+		return true
+	}
+	return false
 }
