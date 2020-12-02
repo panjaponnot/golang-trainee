@@ -1000,12 +1000,44 @@ func UpdateSOEndPoint(c echo.Context) error {
 		if err := dbSale.Ctx().Exec(sqlinsert, v.SOnumber, v.Status, v.Remark, v.CreateBy).Error; err != nil {
 			return echo.ErrInternalServerError
 		}
+		//Log
+		if err := dbQuataion.Ctx().Model(&m.CheckExpire{}).Create(&v).Error; err != nil {
+			log.Errorln(pkgName, err, "create CheckExpire log error :-")
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
+		}
 	}
 
 	for _, v := range ValuesInsert {
 		if err := dbSale.Ctx().Exec(sqlupdate, v.Status, v.Remark, v.CreateBy, v.SOnumber).Error; err != nil {
 			return echo.ErrInternalServerError
 		}
+		//Log
+		if err := dbQuataion.Ctx().Model(&m.CheckExpire{}).Create(&v).Error; err != nil {
+			log.Errorln(pkgName, err, "create CheckExpire log error :-")
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
+		}
 	}
+
+	// d := time.Now()
+	// quoLog := m.QuotationLog{
+	// 	Date:           d.Format("2006-Jan-02"),
+	// 	DocNumberEfrom: DocNumberEform,
+	// 	UserName:       "",
+	// 	OneId:          OneId,
+	// 	StaffId:        EmployeeId,
+	// 	Status:         Status,
+	// 	Remark:         Reason,
+	// }
+	// CheckExpireLog := m.CheckExpire{
+	// 	SOnumber: d.SOnumber,
+	// 	Status:   d.Status,
+	// 	Remark:   d.Remark,
+	// 	CreateBy: body.OneId,
+	// }
+	// if err := dbQuataion.Ctx().Model(&m.CheckExpire{}).Create(&CheckExpireLog).Error; err != nil {
+	// 	log.Errorln(pkgName, err, "create CheckExpire log error :-")
+	// 	return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
+	// }
+
 	return c.JSON(http.StatusNoContent, nil)
 }
