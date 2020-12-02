@@ -36,6 +36,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		ServicePlatform string    `json:"service_platform"`
 		Reason          string    `json:"reason"`
 		Status          string    `json:"status" gorm:"column:status_sale"`
+		Remark          string    `json:"remark" gorm:"column:remark"`
 	}
 
 	year := strings.TrimSpace(c.QueryParam("year"))
@@ -148,7 +149,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		// total all
 		var dataRaw []QuotationJoin
 		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve WHERE status IN ('Win','Lost','Resend/Revised')) as sales_approve 
+		LEFT JOIN (SELECT doc_number_eform,reason,remark,status as status_sale FROM sales_approve WHERE status IN ('Win','Lost','Resend/Revised')) as sales_approve 
 		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
 		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
