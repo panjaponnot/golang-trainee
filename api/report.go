@@ -979,7 +979,7 @@ func UpdateSOEndPoint(c echo.Context) error {
 				SOnumber: d.SOnumber,
 				Status:   d.Status,
 				Remark:   d.Remark,
-				CreateBy: body.OneId,
+				CreateBy: id,
 			}
 			ValuesUpdate = append(ValuesUpdate, value)
 		} else {
@@ -987,7 +987,7 @@ func UpdateSOEndPoint(c echo.Context) error {
 				SOnumber: d.SOnumber,
 				Status:   d.Status,
 				Remark:   d.Remark,
-				CreateBy: body.OneId,
+				CreateBy: id,
 			}
 			ValuesInsert = append(ValuesInsert, value)
 		}
