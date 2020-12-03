@@ -906,7 +906,7 @@ func CheckRemark(remark string, types string) string {
 
 func UpdateSOEndPoint(c echo.Context) error {
 	type SoData struct {
-		SOnumber string `json:"so_number" gorm:"column:sonumber"`
+		SOnumber string `json:"sonumber" gorm:"column:sonumber"`
 		// CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
 		// CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
 		// ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
@@ -973,8 +973,11 @@ func UpdateSOEndPoint(c echo.Context) error {
 	var ValuesUpdate []m.CheckExpire
 	var ValuesInsert []m.CheckExpire
 
+	// log.Infoln("string ==>", SoAllStr)
+	// log.Infoln("SOnumber ==>", ListData[0].SOnumber)
+	// log.Infoln(strings.Contains(SoAllStr, ListData[0].SOnumber))
 	for _, d := range ListData {
-		if strings.Contains(SoAllStr, d.SOnumber) {
+		if strings.Contains(SoAllStr, "BOI-20190101-0026") {
 			value := m.CheckExpire{
 				SOnumber: d.SOnumber,
 				Status:   d.Status,
@@ -996,27 +999,32 @@ func UpdateSOEndPoint(c echo.Context) error {
 	sqlinsert := `insert into check_expire(sonumber,status,remark,create_by) values(?,?,?,?);`
 	sqlupdate := `update check_expire set status = ?, remark = ?, create_by = ? where sonumber = ?;`
 
-	for _, v := range ValuesUpdate {
-		if err := dbSale.Ctx().Exec(sqlinsert, v.SOnumber, v.Status, v.Remark, v.CreateBy).Error; err != nil {
-			return echo.ErrInternalServerError
-		}
-		//Log
-		if err := dbSale.Ctx().Model(&m.CheckExpire{}).Create(&v).Error; err != nil {
-			log.Errorln(pkgName, err, "create CheckExpire log error :-")
-			return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
+	if len(ValuesUpdate) > 0 {
+		for _, v := range ValuesUpdate {
+			if err := dbSale.Ctx().Exec(sqlupdate, v.Status, v.Remark, v.CreateBy, v.SOnumber).Error; err != nil {
+				return echo.ErrInternalServerError
+			}
+			//Log
+			if err := dbSale.Ctx().Model(&m.CheckExpire{}).Create(&v).Error; err != nil {
+				log.Errorln(pkgName, err, "create CheckExpire log error :-")
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
+			}
 		}
 	}
 
-	for _, v := range ValuesInsert {
-		if err := dbSale.Ctx().Exec(sqlupdate, v.Status, v.Remark, v.CreateBy, v.SOnumber).Error; err != nil {
-			return echo.ErrInternalServerError
-		}
-		//Log
-		if err := dbSale.Ctx().Model(&m.CheckExpire{}).Create(&v).Error; err != nil {
-			log.Errorln(pkgName, err, "create CheckExpire log error :-")
-			return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
+	if len(ValuesInsert) > 0 {
+		for _, v := range ValuesInsert {
+			if err := dbSale.Ctx().Exec(sqlinsert, v.SOnumber, v.Status, v.Remark, v.CreateBy).Error; err != nil {
+				return echo.ErrInternalServerError
+			}
+			//Log
+			if err := dbSale.Ctx().Model(&m.CheckExpire{}).Create(&v).Error; err != nil {
+				log.Errorln(pkgName, err, "create CheckExpire log error :-")
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
+			}
 		}
 	}
 
 	return c.JSON(http.StatusNoContent, nil)
+
 }
