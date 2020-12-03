@@ -906,33 +906,33 @@ func CheckRemark(remark string, types string) string {
 
 func UpdateSOEndPoint(c echo.Context) error {
 	type SoData struct {
-		SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
-		CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
-		CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
-		ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
-		ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
-		SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
-		SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
-		SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
-		Day               string  `json:"day" gorm:"column:days"`
-		SoMonth           string  `json:"so_month" gorm:"column:so_month"`
-		SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
-		PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
-		TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
-		StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
-		PayType           string  `json:"pay_type" gorm:"column:pay_type"`
-		SoType            string  `json:"so_type" gorm:"column:so_type"`
-		Prefix            string  `json:"prefix"`
-		Fname             string  `json:"fname"`
-		Lname             string  `json:"lname"`
-		Nname             string  `json:"nname"`
-		Position          string  `json:"position"`
-		Department        string  `json:"department"`
-		Status            string  `json:"status"`
-		Remark            string  `json:"remark"`
-		StatusSO          bool    `json:"status_so" gorm:"column:status_so"`
-		StatusSale        bool    `json:"status_sale" gorm:"column:status_sale"`
+		SOnumber string `json:"so_number" gorm:"column:sonumber"`
+		// CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
+		// CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
+		// ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		// ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		// SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
+		// SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
+		// SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
+		// Day               string  `json:"day" gorm:"column:days"`
+		// SoMonth           string  `json:"so_month" gorm:"column:so_month"`
+		// SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		// PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
+		// PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+		// TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
+		// StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
+		// PayType           string  `json:"pay_type" gorm:"column:pay_type"`
+		// SoType            string  `json:"so_type" gorm:"column:so_type"`
+		// Prefix            string  `json:"prefix"`
+		// Fname             string  `json:"fname"`
+		// Lname             string  `json:"lname"`
+		// Nname             string  `json:"nname"`
+		// Position          string  `json:"position"`
+		// Department        string  `json:"department"`
+		Status string `json:"status"`
+		Remark string `json:"remark"`
+		// StatusSO          bool    `json:"status_so" gorm:"column:status_so"`
+		// StatusSale        bool    `json:"status_sale" gorm:"column:status_sale"`
 	}
 	body := struct {
 		Data  []SoData `json:"data"`
@@ -1017,27 +1017,6 @@ func UpdateSOEndPoint(c echo.Context) error {
 			return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
 		}
 	}
-
-	// d := time.Now()
-	// quoLog := m.QuotationLog{
-	// 	Date:           d.Format("2006-Jan-02"),
-	// 	DocNumberEfrom: DocNumberEform,
-	// 	UserName:       "",
-	// 	OneId:          OneId,
-	// 	StaffId:        EmployeeId,
-	// 	Status:         Status,
-	// 	Remark:         Reason,
-	// }
-	// CheckExpireLog := m.CheckExpire{
-	// 	SOnumber: d.SOnumber,
-	// 	Status:   d.Status,
-	// 	Remark:   d.Remark,
-	// 	CreateBy: body.OneId,
-	// }
-	// if err := dbQuataion.Ctx().Model(&m.CheckExpire{}).Create(&CheckExpireLog).Error; err != nil {
-	// 	log.Errorln(pkgName, err, "create CheckExpire log error :-")
-	// 	return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
-	// }
 
 	return c.JSON(http.StatusNoContent, nil)
 }
