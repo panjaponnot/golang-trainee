@@ -11,6 +11,24 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+type SaleFactor struct {
+	TotalRevenue float64 `gorm:"column:total_revenue"`
+	CountSo      int     `gorm:"column:count_so"`
+	InFactor     float64 `gorm:"column:in_factor"`
+	ExFactor     float64 `gorm:"column:ex_factor"`
+	EngCost      float64 `gorm:"column:engcost"`
+	RealSF       float64 `gorm:"column:real_sf"`
+	Department   string  `gorm:"column:department"`
+}
+
+type CountSoPerson struct {
+	CountSo    int    `gorm:"column:count_so"`
+	Department string `gorm:"column:department"`
+	Fname      string `gorm:"column:fname"`
+	Lname      string `gorm:"column:lname"`
+	StaffId    string `gorm:"column:staff_id"`
+}
+
 func GetSummarySaleFactorEndPoint(c echo.Context) error {
 	accountId := strings.TrimSpace(c.Param("id"))
 	check := checkPermissionUser(accountId)
@@ -124,15 +142,7 @@ func GetSummaryInternalFactorAndExternalFactorEndPoint(c echo.Context) error {
 						SELECT department FROM staff_info WHERE staff_child = '' and department <> 'Sale JV' GROUP BY department
 					)
 					GROUP BY department`
-	type SaleFactor struct {
-		TotalRevenue float64 `gorm:"column:total_revenue"`
-		CountSo      int     `gorm:"column:count_so"`
-		InFactor     float64 `gorm:"column:in_factor"`
-		ExFactor     float64 `gorm:"column:ex_factor"`
-		EngCost      float64 `gorm:"column:engcost"`
-		RealSF       float64 `gorm:"column:real_sf"`
-		Department   string  `gorm:"column:department"`
-	}
+
 	var saleFac []SaleFactor
 	var countCom []SaleFactor
 	var dataRaw []SaleFactor
@@ -171,13 +181,131 @@ func GetSummaryInternalFactorAndExternalFactorEndPoint(c echo.Context) error {
 	return c.JSON(http.StatusOK, dataResult)
 }
 
+func GetSaleFactorEndPoint(c echo.Context) error {
+	accountId := strings.TrimSpace(c.Param("id"))
+	check := checkPermissionUser(accountId)
+	if !check {
+		return echo.ErrNotFound
+	}
+	type SaleFactorPerson struct {
+		TotalRevenue float64 `gorm:"column:total_revenue"`
+		CountSo      int     `gorm:"column:count_so"`
+		InFactor     float64 `gorm:"column:in_factor"`
+		ExFactor     float64 `gorm:"column:ex_factor"`
+		EngCost      float64 `gorm:"column:engcost"`
+		RealSF       float64 `gorm:"column:real_sf"`
+		Department   string  `gorm:"column:department"`
+		StaffId      string  `gorm:"column:staff_id"`
+		StaffChild   string  `gorm:"column:staff_child"`
+		Fname        string  `gorm:"column:fname"`
+		Lname        string  `gorm:"column:lname"`
+		Nname        string  `gorm:"column:nname"`
+	}
+	today := time.Now()
+	year, month, _ := today.Date()
+	var countSale []CountSoPerson
+	var saleFac []SaleFactorPerson
+	var dataRaw []SaleFactorPerson
+	sql := `select 
+				sum(in_factor) as in_factor,
+				sum(ex_factor) as ex_factor,
+				sum(revenue) as total_revenue,
+				sum(engcost) as engcost,
+				sum(revenue)/sum(engcost) as real_sf,
+				department,staff_id,fname,lname,nname,staff_child
+			from (
+				Select 
+						TotalContractAmount as revenue,
+						(CASE
+								WHEN TotalContractAmount is not null and sale_factor is not null and sale_factor != 0 THEN TotalContractAmount/sale_factor
+								ELSE 0 END
+						) as engcost,
+						sale_factor,
+						sale_code,
+						in_factor,
+						ex_factor
+				from so_mssql where month(PeriodStartDate) = ? and year(PeriodStartDate) = ?
+				group by sonumber
+			) tb_so
+			LEFT JOIN staff_info ON tb_so.sale_code = staff_info.staff_id
+			where department in (
+				SELECT department FROM staff_info WHERE staff_child = '' and department <> 'Sale JV' GROUP BY department
+			)
+			GROUP BY staff_id ORDER BY real_sf desc`
+
+	countCompany := `SELECT COUNT(Customer_ID) as count_so , department ,fname,lname,staff_id
+			from (
+					Select 
+									Customer_ID, Customer_name, sale_code
+					from so_mssql where month(PeriodStartDate) = ? and year(PeriodStartDate) = ?
+					group by Customer_ID
+			) tb_so
+			LEFT JOIN staff_info ON tb_so.sale_code = staff_info.staff_id
+			where department in (
+					SELECT department FROM staff_info WHERE  department <> 'Sale JV' GROUP BY department
+			) GROUP BY staff_id`
+
+	if err := dbSale.Ctx().Raw(sql, month, year).Scan(&saleFac).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return echo.ErrInternalServerError
+		}
+	}
+	if err := dbSale.Ctx().Raw(countCompany, month, year).Scan(&countSale).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return echo.ErrInternalServerError
+		}
+	}
+
+	sumRevenue := 0.0
+	sumEngCost := 0.0
+	for _, v := range saleFac {
+		for _, c := range countSale {
+			if v.StaffId == c.StaffId {
+				childCountSo := 0
+				childInfac := 0.0
+				childExfac := 0.0
+				if v.StaffChild != "" {
+					splitStaff := strings.Split(v.StaffChild, ",")
+					for _, s := range splitStaff {
+						for _, f := range saleFac {
+							if s == f.StaffId {
+								childInfac += v.InFactor
+								childExfac += v.ExFactor
+							}
+						}
+						for _, ch := range countSale {
+							if v.StaffId == ch.StaffId {
+								childCountSo += ch.CountSo
+							}
+						}
+					}
+				}
+
+				v.CountSo = c.CountSo + childCountSo
+				v.InFactor = (v.InFactor + childInfac) / float64(c.CountSo+childCountSo)
+				v.ExFactor = (v.ExFactor + childExfac) / float64(c.CountSo+childCountSo)
+
+				dataRaw = append(dataRaw, v)
+			}
+		}
+		sumRevenue += v.TotalRevenue
+		sumEngCost += v.EngCost
+	}
+
+	dataResult := map[string]interface{}{
+		"data":              dataRaw,
+		"sale_factor_total": sumRevenue / sumEngCost,
+	}
+	return c.JSON(http.StatusOK, dataResult)
+}
+
 func checkPermissionUser(oneId string) bool {
 	var user m.UserInfo
 	if err := dbSale.Ctx().Model(&m.UserInfo{}).Where(m.UserInfo{OneId: oneId}).First(&user).Error; err != nil {
 		log.Errorln(pkgName, err, "check user error :-")
 		return false
 	}
-	if user.OneId != "" && user.Username != "" {
+	if user.OneId != "" && user.Username != "" && user.Role != "" && user.SubRole != "" {
 		return true
 	}
 	return false
