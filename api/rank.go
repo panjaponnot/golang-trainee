@@ -255,16 +255,15 @@ func GetRankingBaseSale(c echo.Context) error {
 	}()
 	go func() {
 		var so []m.SOMssql
-		if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND getCN <> '' AND quarter(ContractStartDate) = ?`, listStaffId, quarterNum).Find(&so).Error; err != nil {
+		if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND INCSCDocNo = '' AND quarter(ContractStartDate) = ? AND year(ContractStartDate) = year(now()) AND DATEDIFF(NOW(),PeriodEndDate) > 60`, listStaffId, quarterNum-1).Group("Customer_ID").Find(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
 				log.Errorln(pkgName, err, "select data error :-")
 				hasErr += 1
 			}
 		}
 		for _, s := range so {
-			mapCnStaff[s.SaleCode] = append(mapCnStaff[s.SaleCode], s.GetCN)
+			mapCnStaff[s.SaleCode] = append(mapCnStaff[s.SaleCode], s.INCSCDocNo)
 		}
-
 		wg.Done()
 	}()
 	wg.Wait()
@@ -299,16 +298,26 @@ func GetRankingBaseSale(c echo.Context) error {
 				}
 				if r.InvAmount > r.InvAmountOld {
 					// var so []m.SOMssql
-					// if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code = ? AND getCN <> ''`, r.StaffId).Group("getCN").Find(&so).Error; err != nil {
+					// if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code = ? AND INCSCDocNo <> ''`, r.StaffId).Group("INCSCDocNo").Find(&so).Error; err != nil {
 					// }
-					// log.Infoln("SO", "=====>", len(mapCnStaff[r.StaffId]))
+					i := len(mapCnStaff[r.StaffId])
+					x := 0
+					if len(mapCnStaff[r.StaffId]) > 0 {
+						x = (i * 1000) + ((i - 1) * 1000)
+					}
+					// log.Infoln("SO", "=====>", len(mapCnStaff[r.StaffId]), " === total -- ", x)
 					// wait cal aging & blacklist
 
+					// 1 => 1000
+					// 2 => 3000
+					// 3 => 5000
+					// 4 => 7000
 					baseCal := r.InvAmountOld * 0.003
 					growthCal := (r.InvAmount - r.InvAmountOld) * 0.03
 					saleFactor := (baseCal + growthCal) * (r.SaleFactor * r.SaleFactor)
-					r.Commission = saleFactor * (r.InFactor / 0.7)
+					r.Commission = (saleFactor * (r.InFactor / 0.7))
 
+					log.Infoln("SO", "=====>", len(mapCnStaff[r.StaffId]), " === comission not cal== ", int(r.Commission), "  == aging =", x)
 				}
 			}
 		}

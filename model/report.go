@@ -87,6 +87,7 @@ type SOMssql struct {
 	StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
 	PayType           string  `json:"pay_type" gorm:"column:pay_type"`
 	SoType            string  `json:"so_type" gorm:"column:so_type"`
+	INCSCDocNo        string  `json:"INCSCDocNo" gorm:"column:INCSCDocNo"`
 	Prefix            string  `json:"prefix"`
 	Fname             string  `json:"fname"`
 	Lname             string  `json:"lname"`

@@ -12,21 +12,21 @@ import (
 )
 
 type SaleFactor struct {
-	TotalRevenue float64 `gorm:"column:total_revenue"`
-	CountSo      int     `gorm:"column:count_so"`
-	InFactor     float64 `gorm:"column:in_factor"`
-	ExFactor     float64 `gorm:"column:ex_factor"`
-	EngCost      float64 `gorm:"column:engcost"`
-	RealSF       float64 `gorm:"column:real_sf"`
-	Department   string  `gorm:"column:department"`
+	TotalRevenue float64 `json:"total_revenue" gorm:"column:total_revenue"`
+	CountSo      int     `json:"count_so" gorm:"column:count_so"`
+	InFactor     float64 `json:"in_factor" gorm:"column:in_factor"`
+	ExFactor     float64 `json:"ex_factor" gorm:"column:ex_factor"`
+	EngCost      float64 `json:"eng_cost" gorm:"column:engcost"`
+	RealSF       float64 `json:"real_sf" gorm:"column:real_sf"`
+	Department   string  `json:"department" gorm:"column:department"`
 }
 
 type CountSoPerson struct {
-	CountSo    int    `gorm:"column:count_so"`
-	Department string `gorm:"column:department"`
-	Fname      string `gorm:"column:fname"`
-	Lname      string `gorm:"column:lname"`
-	StaffId    string `gorm:"column:staff_id"`
+	CountSo    int    `json:"count_so" gorm:"column:count_so"`
+	Department string `json:"department" gorm:"column:department"`
+	Fname      string `json:"fname" gorm:"column:fname"`
+	Lname      string `json:"lname" gorm:"column:lname"`
+	StaffId    string `json:"staff_id" gorm:"column:staff_id"`
 }
 
 func GetSummarySaleFactorEndPoint(c echo.Context) error {
@@ -60,10 +60,10 @@ func GetSummarySaleFactorEndPoint(c echo.Context) error {
 			)
 			GROUP BY department ORDER BY real_sf desc  `
 	saleFac := []struct {
-		TotalRevenue float64 `gorm:"column:total_revenue"`
-		EngCost      float64 `gorm:"column:engcost"`
-		RealSF       float64 `gorm:"column:real_sf"`
-		Department   string  `gorm:"column:department"`
+		TotalRevenue float64 `json:"total_revenue" gorm:"column:total_revenue"`
+		EngCost      float64 `json:"eng_cost" gorm:"column:engcost"`
+		RealSF       float64 `json:"real_sf" gorm:"column:real_sf"`
+		Department   string  `json:"department" gorm:"column:department"`
 	}{}
 	if err := dbSale.Ctx().Raw(sql, month, year).Scan(&saleFac).Error; err != nil {
 		if !gorm.IsRecordNotFoundError(err) {
@@ -188,18 +188,18 @@ func GetSaleFactorEndPoint(c echo.Context) error {
 		return echo.ErrNotFound
 	}
 	type SaleFactorPerson struct {
-		TotalRevenue float64 `gorm:"column:total_revenue"`
-		CountSo      int     `gorm:"column:count_so"`
-		InFactor     float64 `gorm:"column:in_factor"`
-		ExFactor     float64 `gorm:"column:ex_factor"`
-		EngCost      float64 `gorm:"column:engcost"`
-		RealSF       float64 `gorm:"column:real_sf"`
-		Department   string  `gorm:"column:department"`
-		StaffId      string  `gorm:"column:staff_id"`
-		StaffChild   string  `gorm:"column:staff_child"`
-		Fname        string  `gorm:"column:fname"`
-		Lname        string  `gorm:"column:lname"`
-		Nname        string  `gorm:"column:nname"`
+		TotalRevenue float64 `json:"total_revenue" gorm:"column:total_revenue"`
+		CountSo      int     `json:"count_so" gorm:"column:count_so"`
+		InFactor     float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor     float64 `json:"ex_factor" gorm:"column:ex_factor"`
+		EngCost      float64 `json:"eng_cost" gorm:"column:engcost"`
+		RealSF       float64 `json:"real_sf" gorm:"column:real_sf"`
+		Department   string  `json:"department" gorm:"column:department"`
+		StaffId      string  `json:"staff_id" gorm:"column:staff_id"`
+		StaffChild   string  `json:"staff_child" gorm:"column:staff_child"`
+		Fname        string  `json:"fname" gorm:"column:fname"`
+		Lname        string  `json:"lname" gorm:"column:lname"`
+		Nname        string  `json:"nname" gorm:"column:nname"`
 	}
 	today := time.Now()
 	year, month, _ := today.Date()
