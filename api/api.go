@@ -110,6 +110,8 @@ func InitApiRouter(g *echo.Group) error {
 	staff.POST("/staffpicture", CreateStaffPictureEndPoint) //success
 	staff.GET("/summary", HeaderSummaryEndPoint)
 
+	staff.GET("/dept", DepartmentStaffEndPoint)
+
 	// report.GET("/ranking/base", GetRankingBaseSale)
 
 	bot := g.Group("/bot")
