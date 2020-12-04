@@ -183,6 +183,7 @@ func GetSummaryInternalFactorAndExternalFactorEndPoint(c echo.Context) error {
 
 func GetSaleFactorEndPoint(c echo.Context) error {
 	accountId := strings.TrimSpace(c.Param("id"))
+	search := strings.TrimSpace(c.QueryParam("search"))
 	check := checkPermissionUser(accountId)
 	if !check {
 		return echo.ErrNotFound
@@ -266,6 +267,15 @@ func GetSaleFactorEndPoint(c echo.Context) error {
 				LEFT JOIN staff_info ON tb_so.sale_code = staff_info.staff_id
 				where department in (
 				SELECT department FROM staff_info WHERE department <> 'Sale JV' GROUP BY department)`
+	sqlFilter := `select * from staff_info where INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,one_id), ?) `
+
+	var staffInfo []m.StaffInfo
+	if err := dbSale.Ctx().Raw(sqlFilter, search).Scan(&staffInfo).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return echo.ErrInternalServerError
+		}
+	}
+
 	if err := dbSale.Ctx().Raw(sql, month, year).Scan(&saleFac).Error; err != nil {
 		if !gorm.IsRecordNotFoundError(err) {
 			return echo.ErrInternalServerError
@@ -323,9 +333,18 @@ func GetSaleFactorEndPoint(c echo.Context) error {
 			}
 		}
 	}
+	// filter
+	var dataRe []SaleFactorPerson
+	for _, r := range dataRaw {
+		for _, s := range staffInfo {
+			if r.StaffId == s.StaffId {
+				dataRe = append(dataRe, r)
+			}
+		}
+	}
 
 	dataResult := map[string]interface{}{
-		"data":      dataRaw,
+		"data":      dataRe,
 		"in_factor": sumFac.InFactor,
 		"ex_factor": sumFac.ExFactor,
 	}
