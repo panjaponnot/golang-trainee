@@ -300,22 +300,20 @@ func GetRankingBaseSale(c echo.Context) error {
 					// var so []m.SOMssql
 					// if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code = ? AND INCSCDocNo <> ''`, r.StaffId).Group("INCSCDocNo").Find(&so).Error; err != nil {
 					// }
+					// 1 => 1000
+					// 2 => 3000
+					// 3 => 5000
+					// 4 => 7000
 					i := len(mapCnStaff[r.StaffId])
 					x := 0
 					if len(mapCnStaff[r.StaffId]) > 0 {
 						x = (i * 1000) + ((i - 1) * 1000)
 					}
-					// log.Infoln("SO", "=====>", len(mapCnStaff[r.StaffId]), " === total -- ", x)
-					// wait cal aging & blacklist
 
-					// 1 => 1000
-					// 2 => 3000
-					// 3 => 5000
-					// 4 => 7000
 					baseCal := r.InvAmountOld * 0.003
 					growthCal := (r.InvAmount - r.InvAmountOld) * 0.03
 					saleFactor := (baseCal + growthCal) * (r.SaleFactor * r.SaleFactor)
-					r.Commission = (saleFactor * (r.InFactor / 0.7))
+					r.Commission = (saleFactor * (r.InFactor / 0.7)) - float64(x)
 
 					log.Infoln("SO", "=====>", len(mapCnStaff[r.StaffId]), " === comission not cal== ", int(r.Commission), "  == aging =", x)
 				}
@@ -559,9 +557,10 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 	sqlFilter := `select * from staff_info where INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,one_id), ?) `
 
 	var staffInfo []m.StaffInfo
+	mapCnStaff := map[string][]string{}
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(4)
 	go func() {
 		if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
@@ -586,6 +585,19 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 				log.Errorln(pkgName, err, "select data error :-")
 				hasErr += 1
 			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		var so []m.SOMssql
+		if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND INCSCDocNo = '' AND quarter(ContractStartDate) = ? AND year(ContractStartDate) = year(now()) AND DATEDIFF(NOW(),PeriodEndDate) > 60`, listStaffId, quarterNum-1).Group("Customer_ID").Find(&so).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				log.Errorln(pkgName, err, "select data error :-")
+				hasErr += 1
+			}
+		}
+		for _, s := range so {
+			mapCnStaff[s.SaleCode] = append(mapCnStaff[s.SaleCode], s.INCSCDocNo)
 		}
 		wg.Done()
 	}()
@@ -620,11 +632,16 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 					r.ScoreGrowth = 0
 				}
 				if r.InvAmount > r.InvAmountOld {
+					i := len(mapCnStaff[r.StaffId])
+					x := 0
+					if len(mapCnStaff[r.StaffId]) > 0 {
+						x = (i * 1000) + ((i - 1) * 1000)
+					}
 					// wait cal aging & blacklist
 					baseCal := r.InvAmountOld * 0.003
 					growthCal := (r.InvAmount - r.InvAmountOld) * 0.03
 					saleFactor := (baseCal + growthCal) * (r.SaleFactor * r.SaleFactor)
-					r.Commission = saleFactor * (r.InFactor / 0.7)
+					r.Commission = saleFactor*(r.InFactor/0.7) - float64(x)
 				}
 			}
 		}
@@ -862,9 +879,10 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 	sqlFilter := `select * from staff_info where INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,one_id), ?) `
 
 	var staffInfo []m.StaffInfo
+	mapCnStaff := map[string][]string{}
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(4)
 	go func() {
 		if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
@@ -889,6 +907,19 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 				hasErr += 1
 				log.Errorln(pkgName, err, "select data error :-")
 			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		var so []m.SOMssql
+		if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND INCSCDocNo = '' AND quarter(ContractStartDate) = ? AND year(ContractStartDate) = year(now()) AND DATEDIFF(NOW(),PeriodEndDate) > 60`, listStaffId, quarterNum-1).Group("Customer_ID").Find(&so).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				log.Errorln(pkgName, err, "select data error :-")
+				hasErr += 1
+			}
+		}
+		for _, s := range so {
+			mapCnStaff[s.SaleCode] = append(mapCnStaff[s.SaleCode], s.INCSCDocNo)
 		}
 		wg.Done()
 	}()
@@ -924,11 +955,16 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 					r.ScoreGrowth = 0
 				}
 				if r.InvAmount > r.InvAmountOld {
+					i := len(mapCnStaff[r.StaffId])
+					x := 0
+					if len(mapCnStaff[r.StaffId]) > 0 {
+						x = (i * 1000) + ((i - 1) * 1000)
+					}
 					// wait cal aging & blacklist
 					baseCal := r.InvAmountOld * 0.003
 					growthCal := (r.InvAmount - r.InvAmountOld) * 0.03
 					saleFactor := (baseCal + growthCal) * (r.SaleFactor * r.SaleFactor)
-					r.Commission = saleFactor * (r.InFactor / 0.7)
+					r.Commission = saleFactor*(r.InFactor/0.7) - float64(x)
 				}
 			}
 		}
@@ -1241,9 +1277,10 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 	sqlFilter := `select * from staff_info where staff_child <> '' AND  INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,one_id), ?)  `
 
 	var staffInfo []m.StaffInfo
+	mapCnStaff := map[string][]string{}
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(4)
 	go func() {
 		if err := dbSale.Ctx().Raw(sql, quarter, quarter, quarterNum, quarterNum, quarter, quarter, quarterNum, quarterNum, listStaffId).Scan(&report).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
@@ -1268,6 +1305,19 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 				hasErr += 1
 				log.Errorln(pkgName, err, "select data error :-")
 			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		var so []m.SOMssql
+		if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND INCSCDocNo = '' AND quarter(ContractStartDate) = ? AND year(ContractStartDate) = year(now()) AND DATEDIFF(NOW(),PeriodEndDate) > 60`, listStaffId, quarterNum-1).Group("Customer_ID").Find(&so).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				log.Errorln(pkgName, err, "select data error :-")
+				hasErr += 1
+			}
+		}
+		for _, s := range so {
+			mapCnStaff[s.SaleCode] = append(mapCnStaff[s.SaleCode], s.INCSCDocNo)
 		}
 		wg.Done()
 	}()
@@ -1303,11 +1353,16 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 					r.ScoreGrowth = 0
 				}
 				if r.InvAmount > r.InvAmountOld {
+					i := len(mapCnStaff[r.StaffId])
+					x := 0
+					if len(mapCnStaff[r.StaffId]) > 0 {
+						x = (i * 1000) + ((i - 1) * 1000)
+					}
 					// wait cal aging & blacklist
 					baseCal := r.InvAmountOld * 0.003
 					growthCal := (r.InvAmount - r.InvAmountOld) * 0.03
 					saleFactor := (baseCal + growthCal) * (r.SaleFactor * r.SaleFactor)
-					r.Commission = saleFactor * (r.InFactor / 0.7)
+					r.Commission = saleFactor*(r.InFactor/0.7) - float64(x)
 				}
 			}
 		}
