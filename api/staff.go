@@ -1562,3 +1562,46 @@ func SFChart(StaffChild []string, Type string, Year string, Quarter string, Mont
 		return Result
 	}
 }
+
+func DepartmentStaffEndPoint(c echo.Context) error {
+	type Department struct {
+		Dept string `json:"department" gorm:"column:department"`
+	}
+
+	type StaffProfile struct {
+		OneId    string `json:"one_id" gorm:"column:one_id"`
+		StaffId  string `json:"staff_id" gorm:"column:staff_id"`
+		Prefix   string `json:"prefix" gorm:"column:prefix"`
+		Fname    string `json:"fname" gorm:"column:fname"`
+		Lname    string `json:"lname" gorm:"column:lname"`
+		Nname    string `json:"nname" gorm:"column:nname"`
+		Position string `json:"position" gorm:"column:position"`
+	}
+
+	type DeptStaff struct {
+		Dept  Department     `json:"department" gorm:"column:department"`
+		Staff []StaffProfile `json:"staff_id" gorm:"column:staff_id"`
+	}
+
+	var Dept []Department
+	if err := dbSale.Ctx().Raw(`SELECT distinct department FROM staff_info;`).Scan(&Dept).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+	var DeptStaffData []DeptStaff
+	for _, d := range Dept {
+		var Staff []StaffProfile
+		if err := dbSale.Ctx().Raw(`SELECT *  FROM staff_info where department = ?;`, d.Dept).Scan(&Staff).Error; err != nil {
+			log.Errorln(pkgName, err, "Select data error")
+		}
+
+		if len(Staff) > 0 {
+			data := DeptStaff{
+				Dept:  d,
+				Staff: Staff,
+			}
+			DeptStaffData = append(DeptStaffData, data)
+		}
+
+	}
+	return c.JSON(http.StatusOK, DeptStaffData)
+}
