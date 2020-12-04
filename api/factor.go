@@ -183,6 +183,7 @@ func GetSummaryInternalFactorAndExternalFactorEndPoint(c echo.Context) error {
 
 func GetSaleFactorEndPoint(c echo.Context) error {
 	accountId := strings.TrimSpace(c.Param("id"))
+	search := strings.TrimSpace(c.QueryParam("search"))
 	check := checkPermissionUser(accountId)
 	if !check {
 		return echo.ErrNotFound
@@ -244,6 +245,36 @@ func GetSaleFactorEndPoint(c echo.Context) error {
 			where department in (
 					SELECT department FROM staff_info WHERE  department <> 'Sale JV' GROUP BY department
 			) GROUP BY staff_id`
+	sqlFactor := `select 
+					sum(in_factor)/count(sonumber) as in_fac,
+					sum(ex_factor)/count(sonumber) as ex_fac
+
+				from (
+				Select 
+					TotalContractAmount as revenue,
+					(CASE
+						WHEN TotalContractAmount is not null and sale_factor is not null and sale_factor != 0 THEN TotalContractAmount/sale_factor
+						ELSE 0 END
+					) as engcost,
+					sale_factor,
+					in_factor,
+					ex_factor,
+					sale_code,
+				sonumber
+				from so_mssql
+				group by sonumber
+				) tb_so
+				LEFT JOIN staff_info ON tb_so.sale_code = staff_info.staff_id
+				where department in (
+				SELECT department FROM staff_info WHERE department <> 'Sale JV' GROUP BY department)`
+	sqlFilter := `select * from staff_info where INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,one_id), ?) `
+
+	var staffInfo []m.StaffInfo
+	if err := dbSale.Ctx().Raw(sqlFilter, search).Scan(&staffInfo).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return echo.ErrInternalServerError
+		}
+	}
 
 	if err := dbSale.Ctx().Raw(sql, month, year).Scan(&saleFac).Error; err != nil {
 		if !gorm.IsRecordNotFoundError(err) {
@@ -255,9 +286,19 @@ func GetSaleFactorEndPoint(c echo.Context) error {
 			return echo.ErrInternalServerError
 		}
 	}
+	sumFac := struct {
+		InFactor float64 `gorm:"column:in_fac"`
+		ExFactor float64 `gorm:"column:ex_fac"`
+	}{}
+	if err := dbSale.Ctx().Raw(sqlFactor).Scan(&sumFac).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return echo.ErrInternalServerError
+		}
+	}
 
-	sumRevenue := 0.0
-	sumEngCost := 0.0
+	sumInFac := 0.0
+	sumExFac := 0.0
+	sumSo := 0
 	for _, v := range saleFac {
 		for _, c := range countSale {
 			if v.StaffId == c.StaffId {
@@ -280,21 +321,32 @@ func GetSaleFactorEndPoint(c echo.Context) error {
 						}
 					}
 				}
-
+				sumSo += c.CountSo
 				v.CountSo = c.CountSo + childCountSo
 				v.InFactor = (v.InFactor + childInfac) / float64(c.CountSo+childCountSo)
 				v.ExFactor = (v.ExFactor + childExfac) / float64(c.CountSo+childCountSo)
 
+				sumInFac += (v.InFactor)
+				sumExFac += (v.ExFactor)
+
 				dataRaw = append(dataRaw, v)
 			}
 		}
-		sumRevenue += v.TotalRevenue
-		sumEngCost += v.EngCost
+	}
+	// filter
+	var dataRe []SaleFactorPerson
+	for _, r := range dataRaw {
+		for _, s := range staffInfo {
+			if r.StaffId == s.StaffId {
+				dataRe = append(dataRe, r)
+			}
+		}
 	}
 
 	dataResult := map[string]interface{}{
-		"data":              dataRaw,
-		"sale_factor_total": sumRevenue / sumEngCost,
+		"data":      dataRe,
+		"in_factor": sumFac.InFactor,
+		"ex_factor": sumFac.ExFactor,
 	}
 	return c.JSON(http.StatusOK, dataResult)
 }
