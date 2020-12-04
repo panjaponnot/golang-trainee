@@ -402,6 +402,7 @@ func CreateLogQuotationEndPoint(c echo.Context) error {
 		StaffId        string `json:"staff_id"`
 		Status         string `json:"status"`
 		DocNumberEfrom string `json:"doc_number_eform"`
+		Reason         string `json:"reason"`
 		Remark         string `json:"remark"`
 		UserName       string `json:"user_name"`
 	}{}
@@ -415,7 +416,8 @@ func CreateLogQuotationEndPoint(c echo.Context) error {
 		}
 		var sale m.SaleApprove
 		if err := dbQuataion.Ctx().Model(&m.SaleApprove{}).Where(m.SaleApprove{DocNumberEfrom: body.DocNumberEfrom}).Attrs(m.SaleApprove{
-			Reason:         strings.TrimSpace(body.Remark),
+			Reason:         strings.TrimSpace(body.Reason),
+			Remark:         strings.TrimSpace(body.Remark),
 			DocNumberEfrom: strings.TrimSpace(body.DocNumberEfrom),
 			Status:         strings.TrimSpace(body.Status),
 			CreateAt:       time.Now(),
@@ -423,9 +425,10 @@ func CreateLogQuotationEndPoint(c echo.Context) error {
 			log.Errorln(pkgName, err, "Create sale approve error :-")
 		}
 
-		if sale.Status != strings.TrimSpace(body.Status) || sale.Reason != strings.TrimSpace(body.Remark) {
+		if sale.Status != strings.TrimSpace(body.Status) || sale.Reason != strings.TrimSpace(body.Reason) || sale.Remark != strings.TrimSpace(body.Remark) {
 			sale.Status = strings.TrimSpace(body.Status)
-			sale.Reason = strings.TrimSpace(body.Remark)
+			sale.Reason = strings.TrimSpace(body.Reason)
+			sale.Remark = strings.TrimSpace(body.Remark)
 			sale.CreateAt = time.Now()
 			if err := dbQuataion.Ctx().Save(&sale).Error; err != nil {
 				log.Errorln(pkgName, err, "save sale approve error :-")
@@ -442,14 +445,8 @@ func CreateLogQuotationEndPoint(c echo.Context) error {
 			StaffId:        body.StaffId,
 			Status:         body.Status,
 			Remark:         body.Remark,
+			Reason:         body.Reason,
 		}
-		// quoLog.Date = d.Format("2006-Jan-02")
-		// quoLog.DocNumberEfrom = body.DocNumberEfrom
-		// quoLog.UserName = body.UserName
-		// quoLog.OneId = body.OneId
-		// quoLog.StaffId = body.StaffId
-		// quoLog.Status = body.Status
-		// quoLog.Remark = body.Remark
 
 		if err := dbQuataion.Ctx().Model(&m.QuotationLog{}).Create(&quoLog).Error; err != nil {
 			log.Errorln(pkgName, err, "create quotation log error :-")
