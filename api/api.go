@@ -56,6 +56,11 @@ func InitApiRouter(g *echo.Group) error {
 	// 	return skipper.Test(c)
 	// }}))
 
+	track := g.Group("/track")
+	track.GET("/invoice", GetTrackingInvoiceEndPoint)
+	track.GET("/bill", GetTrackingBillingEndPoint)
+	track.GET("/customer", GetSummaryCustomerEndPoint)
+
 	export := g.Group("/export")
 	export.GET("/pending", GetReportExcelSOPendingEndPoint)
 	export.GET("/so", GetReportExcelSOEndPoint)
@@ -84,8 +89,8 @@ func InitApiRouter(g *echo.Group) error {
 	permission := g.Group("/permission")
 	permission.GET("/lead/:id", CheckTeamLeadEndPoint)
 
-	summary := g.Group("/summary")
-	summary.GET("/customer", GetSummaryCustomerEndPoint)
+	// summary := g.Group("/summary")
+	// summary.GET("/customer", GetSummaryCustomerEndPoint)
 
 	webhook := g.Group("/webhook")
 	webhook.GET("/user", GetUserOneThEndPoint)
