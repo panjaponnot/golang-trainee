@@ -69,7 +69,6 @@ func InitApiRouter(g *echo.Group) error {
 		skipper := server.NewSkipperPath("")
 		skipper.Add("/api/v2/auth/ticket", http.MethodGet)
 		skipper.Add("/api/v2/auth/login", http.MethodPost)
-
 		return skipper.Test(c)
 	}}))
 	// Router

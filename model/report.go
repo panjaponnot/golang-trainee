@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 type OrgChart struct {
 	StaffId      string  `json:"staff_id"`
 	Fname        string  `json:"fname" gorm:"column:fname"`
@@ -29,6 +31,7 @@ type OrgChart struct {
 	Quarter      string  `json:"quarter"`
 	Year         float64 `json:"year"`
 	JobMonths    int     `json:"job_months"`
+	Commission   float64 `json:"commission"`
 }
 
 type InvBefore struct {
@@ -64,4 +67,51 @@ type SummaryCustomer struct {
 	Status            string  `json:"status" gorm:"column:status"`
 	SaleFactor        float64 `json:"sale_factor" gorm:"column:sale_factor"`
 	SoNumberAll       int     `json:"sonumber_all" gorm:"column:sonumber_all"`
+}
+
+type SOMssql struct {
+	SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
+	CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
+	CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
+	ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+	ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+	SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
+	SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
+	SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
+	Day               string  `json:"day" gorm:"column:days"`
+	SoMonth           string  `json:"so_month" gorm:"column:so_month"`
+	SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+	PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
+	PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+	TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
+	StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
+	PayType           string  `json:"pay_type" gorm:"column:pay_type"`
+	SoType            string  `json:"so_type" gorm:"column:so_type"`
+	INCSCDocNo        string  `json:"INCSCDocNo" gorm:"column:INCSCDocNo"`
+	Prefix            string  `json:"prefix"`
+	Fname             string  `json:"fname"`
+	Lname             string  `json:"lname"`
+	Nname             string  `json:"nname"`
+	Position          string  `json:"position"`
+	Department        string  `json:"department"`
+	Status            string  `json:"status"`
+	Remark            string  `json:"remark"`
+	GetCN             string  `json:"get_cn" gorm:"column:getCN"`
+}
+
+func (SOMssql) TableName() string {
+	return "so_mssql"
+}
+
+type CheckExpire struct {
+	Model
+	SOnumber   string    `json:"so_number" gorm:"column:sonumber"`
+	Status     string    `json:"status" gorm:"column:status"`
+	Remark     string    `json:"remark" gorm:"column:remark"`
+	CreateDate time.Time `json:"create_date" gorm:"column:create_date"`
+	CreateBy   string    `json:"create_by" gorm:"column:create_by"`
+}
+
+func (CheckExpire) TableName() string {
+	return "check_expire_log"
 }

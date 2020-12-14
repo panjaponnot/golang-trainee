@@ -36,6 +36,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		ServicePlatform string    `json:"service_platform"`
 		Reason          string    `json:"reason"`
 		Status          string    `json:"status" gorm:"column:status_sale"`
+		Remark          string    `json:"remark" gorm:"column:remark"`
 	}
 
 	year := strings.TrimSpace(c.QueryParam("year"))
@@ -67,7 +68,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		month = fmt.Sprintf("AND MONTH(start_date) = %s", strings.TrimSpace(c.QueryParam("month")))
 	}
 	if strings.TrimSpace(c.QueryParam("search")) != "" {
-		search = fmt.Sprintf("AND INSTR(CONCAT_WS('|', company_name, service, employee_code, salename, team), %s)", strings.TrimSpace(c.QueryParam("search")))
+		search = fmt.Sprintf("AND INSTR(CONCAT_WS('|', company_name, service, employee_code, salename, team,quatation_th.doc_number_eform), '%s')", strings.TrimSpace(c.QueryParam("search")))
 	}
 
 	dataResult := struct {
@@ -83,6 +84,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		Lost         int
 		Resend       int
 		ReasonWin    interface{}
+		ReasonResend interface{}
 		ReasonLost   interface{}
 		CountService interface{}
 		CountCompany interface{}
@@ -126,7 +128,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(12)
+	wg.Add(13)
 	go func() {
 		// work
 		var dataRaw []QuotationJoin
@@ -147,7 +149,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		// total all
 		var dataRaw []QuotationJoin
 		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve WHERE status IN ('Win','Lost','Resend/Revised')) as sales_approve 
+		LEFT JOIN (SELECT doc_number_eform,reason,remark,status as status_sale FROM sales_approve WHERE status IN ('Win','Lost','Resend/Revised','Cancel')) as sales_approve 
 		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
 		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
@@ -276,7 +278,7 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		wg.Done()
 	}()
 	go func() {
-		// count service
+		// count company
 		var dataRaw []struct {
 			TotalPrice   float64 `json:"total_price"`
 			TotalCompany int     `json:"total_company"`
@@ -349,6 +351,25 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		dataCount.Resend = len(dataRaw)
 		wg.Done()
 	}()
+	go func() {
+		// reason win
+		var dataRaw []struct {
+			TotalReason int    `json:"total_reason_resend" gorm:"column:total_reason_resend"`
+			Reason      string `json:"reason"`
+		}
+		sql := fmt.Sprintf(`SELECT sales_approve.reason,COUNT(sales_approve.reason) as total_reason_resend FROM quatation_th 
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'Resend/Revised'
+		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL 
+		AND (total IS NOT NULL OR total_discount IS NOT NULL)
+		AND YEAR(start_date) = ? %s %s %s %s  GROUP BY sales_approve.reason`, textStaffId, quarter, month, search)
+		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
+			hasErr += 1
+		}
+		dataCount.ReasonResend = dataRaw
+		wg.Done()
+	}()
 	wg.Wait()
 
 	if hasErr != 0 {
@@ -364,59 +385,88 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 			"not_check": dataCount.NotWork,
 			"resend":    dataCount.Resend,
 		},
-		"reason_win":  dataCount.ReasonWin,
-		"reason_lost": dataCount.ReasonLost,
-		"service":     dataCount.CountService,
-		"company":     dataCount.CountCompany,
-		"type":        dataCount.CountType,
-		"team":        dataCount.CountTeam,
+		"reason_resend": dataCount.ReasonResend,
+		"reason_win":    dataCount.ReasonWin,
+		"reason_lost":   dataCount.ReasonLost,
+		"service":       dataCount.CountService,
+		"company":       dataCount.CountCompany,
+		"type":          dataCount.CountType,
+		"team":          dataCount.CountTeam,
 	}
 	return c.JSON(http.StatusOK, dataResult)
 }
 
-func CreateLogQuotation(c echo.Context) error {
+func CreateLogQuotationEndPoint(c echo.Context) error {
 	bodyData := []struct {
 		OneId          string `json:"one_id"`
 		StaffId        string `json:"staff_id"`
 		Status         string `json:"status"`
 		DocNumberEfrom string `json:"doc_number_eform"`
+		Reason         string `json:"reason"`
 		Remark         string `json:"remark"`
 		UserName       string `json:"user_name"`
 	}{}
 	if err := c.Bind(&bodyData); err != nil {
 		return echo.ErrBadRequest
 	}
-	for _, body := range bodyData {
 
+	for _, body := range bodyData {
+		if body.DocNumberEfrom == "" || body.StaffId == "" || body.Status == "" || body.UserName == "" || body.OneId == "" {
+			return echo.ErrBadRequest
+		}
 		var sale m.SaleApprove
-		if err := dbSale.Ctx().Model(&m.SaleApprove{}).Where(m.SaleApprove{DocNumberEfrom: body.DocNumberEfrom}).Attrs(m.SaleApprove{
-			Reason:         strings.TrimSpace(body.Remark),
+		if err := dbQuataion.Ctx().Model(&m.SaleApprove{}).Where(m.SaleApprove{DocNumberEfrom: body.DocNumberEfrom}).Attrs(m.SaleApprove{
+			Reason:         strings.TrimSpace(body.Reason),
+			Remark:         strings.TrimSpace(body.Remark),
 			DocNumberEfrom: strings.TrimSpace(body.DocNumberEfrom),
 			Status:         strings.TrimSpace(body.Status),
+			CreateAt:       time.Now(),
 		}).FirstOrCreate(&sale).Error; err != nil {
 			log.Errorln(pkgName, err, "Create sale approve error :-")
 		}
-		sale.Status = strings.TrimSpace(body.Status)
-		sale.Reason = strings.TrimSpace(body.Remark)
-		if err := dbSale.Ctx().Model(&m.SaleApprove{}).Save(&sale).Error; err != nil {
-			log.Errorln(pkgName, err, "save sale approve error :-")
-			return echo.ErrInternalServerError
+
+		if sale.Status != strings.TrimSpace(body.Status) || sale.Reason != strings.TrimSpace(body.Reason) || sale.Remark != strings.TrimSpace(body.Remark) {
+			sale.Status = strings.TrimSpace(body.Status)
+			sale.Reason = strings.TrimSpace(body.Reason)
+			sale.Remark = strings.TrimSpace(body.Remark)
+			sale.CreateAt = time.Now()
+			if err := dbQuataion.Ctx().Save(&sale).Error; err != nil {
+				log.Errorln(pkgName, err, "save sale approve error :-")
+				return echo.ErrInternalServerError
+			}
 		}
 
 		d := time.Now()
-		var quoLog m.QuotationLog
-		quoLog.Date = d.Format("2006-Jan-02")
-		quoLog.DocNumberEfrom = body.DocNumberEfrom
-		quoLog.UserName = body.UserName
-		quoLog.OneId = body.OneId
-		quoLog.StaffId = body.StaffId
-		quoLog.Status = body.Status
-		quoLog.Remark = body.Remark
+		quoLog := m.QuotationLog{
+			Date:           d.Format("2006-Jan-02"),
+			DocNumberEfrom: body.DocNumberEfrom,
+			UserName:       body.UserName,
+			OneId:          body.OneId,
+			StaffId:        body.StaffId,
+			Status:         body.Status,
+			Remark:         body.Remark,
+			Reason:         body.Reason,
+		}
 
-		if err := dbSale.Ctx().Model(&m.QuotationLog{}).Create(&quoLog).Error; err != nil {
+		if err := dbQuataion.Ctx().Model(&m.QuotationLog{}).Create(&quoLog).Error; err != nil {
 			log.Errorln(pkgName, err, "create quotation log error :-")
 			return c.JSON(http.StatusInternalServerError, server.Result{Message: "create quotation log error"})
 		}
 	}
 	return c.JSON(http.StatusNoContent, nil)
+}
+
+func GetLogQuotationEndPoint(c echo.Context) error {
+	if strings.TrimSpace(c.Param("id")) == "" {
+		return echo.ErrBadRequest
+	}
+	docNo := strings.TrimSpace(c.Param("id"))
+	var quoLog []m.QuotationLog
+	if err := dbQuataion.Ctx().Model(&m.QuotationLog{}).Where(m.QuotationLog{DocNumberEfrom: docNo}).Order("created_at desc").Find(&quoLog).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			log.Errorln(pkgName, err, "get quotation log error :-")
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "get quotation log error"})
+		}
+	}
+	return c.JSON(http.StatusOK, server.Result{Data: quoLog})
 }

@@ -33,6 +33,7 @@ func init() {
 	}
 	tablesSale = []interface{}{
 		//log qoutation
+		&m.CheckExpire{},
 		&m.Invoice{},
 		&m.InvoiceStatus{},
 	}

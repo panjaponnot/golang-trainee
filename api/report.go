@@ -541,7 +541,9 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 	}
 	var rawData []PendingData
 	if err := dbSale.Ctx().Raw(`
-	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount, SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,so_type,
+	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,
+	so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount,
+	 SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,SOType as so_type,
         (case
                 when status is null then 0
                 else status end
@@ -553,7 +555,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
                 SELECT *  from (
                 SELECT  Active_Inactive,has_refer,sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,
                                 DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
-                                                                PeriodAmount, SUM(PeriodAmount) as TotalAmount,
+                                                                PeriodAmount, SUM(PeriodAmount) as TotalAmount,SOType,
                                                                 staff_id,prefix,fname,lname,nname,position,department
                                                                 FROM ( SELECT * FROM so_mssql WHERE SOType NOT IN ('onetime' , 'project base') ) as s
                                                         left join
@@ -564,21 +566,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
                                                         WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ?
                                                         group by sonumber
                         ) as tb_so_number
-                        left join
-                        (
-                         select 
-                                (case
-                                        when pay_type is null then ''
-                                        else pay_type end
-                                ) as pay_type,
-                                sonumber as so_check,
-                                (case
-                                        when so_type is null then ''
-                                        else so_type end
-                                ) as so_type 
-                        from check_so
-                        ) tb_check on tb_so_number.sonumber = tb_check.so_check
-
+                        
                 ) as tb_ch_so
                 left join
                 (
@@ -913,5 +901,130 @@ func CheckRemark(remark string, types string) string {
 	}
 
 	return ""
+
+}
+
+func UpdateSOEndPoint(c echo.Context) error {
+	type SoData struct {
+		SOnumber string `json:"sonumber" gorm:"column:sonumber"`
+		// CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
+		// CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
+		// ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		// ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		// SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
+		// SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
+		// SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
+		// Day               string  `json:"day" gorm:"column:days"`
+		// SoMonth           string  `json:"so_month" gorm:"column:so_month"`
+		// SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		// PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
+		// PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+		// TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
+		// StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
+		// PayType           string  `json:"pay_type" gorm:"column:pay_type"`
+		// SoType            string  `json:"so_type" gorm:"column:so_type"`
+		// Prefix            string  `json:"prefix"`
+		// Fname             string  `json:"fname"`
+		// Lname             string  `json:"lname"`
+		// Nname             string  `json:"nname"`
+		// Position          string  `json:"position"`
+		// Department        string  `json:"department"`
+		Status string `json:"status"`
+		Remark string `json:"remark"`
+		// StatusSO          bool    `json:"status_so" gorm:"column:status_so"`
+		// StatusSale        bool    `json:"status_sale" gorm:"column:status_sale"`
+	}
+	body := struct {
+		Data  []SoData `json:"data"`
+		OneId string   `json:"one_id"`
+	}{}
+
+	if err := c.Bind(&body); err != nil {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid Body data"})
+	}
+
+	if strings.TrimSpace(body.OneId) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid one id"})
+	}
+	id := strings.TrimSpace(body.OneId)
+	var CheckExpire []m.CheckExpire
+	if err := dbSale.Ctx().Raw(`select * from check_expire;`).Scan(&CheckExpire).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+
+	type SoAll struct {
+		SOnumber string `json:"sonumber" gorm:"column:sonumber"`
+	}
+	var SoAllData []SoAll
+	var SoAllStr string
+	if len(CheckExpire) > 0 {
+		for _, c := range CheckExpire {
+			data := SoAll{
+				SOnumber: c.SOnumber,
+			}
+			SoAllStr += c.SOnumber
+			SoAllData = append(SoAllData, data)
+		}
+	}
+	var ListData []SoData
+	for _, d := range body.Data {
+		ListData = append(ListData, d)
+	}
+	var ValuesUpdate []m.CheckExpire
+	var ValuesInsert []m.CheckExpire
+
+	// log.Infoln("string ==>", SoAllStr)
+	// log.Infoln("SOnumber ==>", ListData[0].SOnumber)
+	// log.Infoln(strings.Contains(SoAllStr, ListData[0].SOnumber))
+	for _, d := range ListData {
+		if strings.Contains(SoAllStr, "BOI-20190101-0026") {
+			value := m.CheckExpire{
+				SOnumber: d.SOnumber,
+				Status:   d.Status,
+				Remark:   d.Remark,
+				CreateBy: id,
+			}
+			ValuesUpdate = append(ValuesUpdate, value)
+		} else {
+			value := m.CheckExpire{
+				SOnumber: d.SOnumber,
+				Status:   d.Status,
+				Remark:   d.Remark,
+				CreateBy: id,
+			}
+			ValuesInsert = append(ValuesInsert, value)
+		}
+	}
+
+	sqlinsert := `insert into check_expire(sonumber,status,remark,create_by) values(?,?,?,?);`
+	sqlupdate := `update check_expire set status = ?, remark = ?, create_by = ? where sonumber = ?;`
+
+	if len(ValuesUpdate) > 0 {
+		for _, v := range ValuesUpdate {
+			if err := dbSale.Ctx().Exec(sqlupdate, v.Status, v.Remark, v.CreateBy, v.SOnumber).Error; err != nil {
+				return echo.ErrInternalServerError
+			}
+			//Log
+			if err := dbSale.Ctx().Model(&m.CheckExpire{}).Create(&v).Error; err != nil {
+				log.Errorln(pkgName, err, "create CheckExpire log error :-")
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
+			}
+		}
+	}
+
+	if len(ValuesInsert) > 0 {
+		for _, v := range ValuesInsert {
+			if err := dbSale.Ctx().Exec(sqlinsert, v.SOnumber, v.Status, v.Remark, v.CreateBy).Error; err != nil {
+				return echo.ErrInternalServerError
+			}
+			//Log
+			if err := dbSale.Ctx().Model(&m.CheckExpire{}).Create(&v).Error; err != nil {
+				log.Errorln(pkgName, err, "create CheckExpire log error :-")
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "create CheckExpire log error"})
+			}
+		}
+	}
+
+	return c.JSON(http.StatusNoContent, nil)
 
 }

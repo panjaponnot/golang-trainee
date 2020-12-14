@@ -49,12 +49,13 @@ func InitApiRouter(g *echo.Group) error {
 	if err := initDataStore(); err != nil {
 		log.Errorln(pkgName, err, "connect database error")
 	}
-	// defer dbSale.Close()
-	// g.Use(auth.AuthMiddlewareWithConfig(auth.Config{Skipper: func(c echo.Context) bool {
+	// middleware and skipper path
+	// g.Use(auth.UserAuthMiddleware(auth.Config{Skipper: func(c echo.Context) bool {
 	// 	skipper := server.NewSkipperPath("")
-	// 	skipper.Add("/api/v1/export", http.MethodGet)
+	// 	skipper.Add("/api/v2/export", http.MethodGet)
 	// 	return skipper.Test(c)
 	// }}))
+
 	export := g.Group("/export")
 	export.GET("/pending", GetReportExcelSOPendingEndPoint)
 	export.GET("/so", GetReportExcelSOEndPoint)
@@ -68,10 +69,17 @@ func InitApiRouter(g *echo.Group) error {
 	report.GET("/ranking/key", GetRankingKeyAccountEndPoint)
 	report.GET("/ranking/recovery", GetRankingRecoveryEndPoint)
 	report.GET("/ranking/lead", GetRankingTeamLeadEndPoint)
+	report.PUT("/pending", UpdateSOEndPoint)
+
+	sale := g.Group("/factor")
+	sale.GET("/summary/:id", GetSummarySaleFactorEndPoint)
+	sale.GET("/type/:id", GetSummaryInternalFactorAndExternalFactorEndPoint)
+	sale.GET("/sale/:id", GetSaleFactorEndPoint)
 
 	quotation := g.Group("/quotation")
 	quotation.GET("/summary", GetSummaryQuotationEndPoint)
-	quotation.PUT("/log", CreateLogQuotation)
+	quotation.PUT("/log", CreateLogQuotationEndPoint)
+	quotation.GET("/log/:id", GetLogQuotationEndPoint)
 
 	permission := g.Group("/permission")
 	permission.GET("/lead/:id", CheckTeamLeadEndPoint)
@@ -101,6 +109,8 @@ func InitApiRouter(g *echo.Group) error {
 	staff.GET("/profile/v2", GetStaffProfileV2EndPoint)     //success
 	staff.POST("/staffpicture", CreateStaffPictureEndPoint) //success
 	staff.GET("/summary", HeaderSummaryEndPoint)
+
+	staff.GET("/dept", DepartmentStaffEndPoint)
 
 	// report.GET("/ranking/base", GetRankingBaseSale)
 

@@ -69,28 +69,6 @@ func submitLoginEndpoint(c echo.Context) error {
 	if err := c.Bind(&data); err != nil {
 		return echo.ErrBadRequest
 	}
-	// var ticket CacheTicket
-	// key := fmt.Sprintf("%s:%s", ticketKey, data.Ticket)
-	// if err := redis.Get(key, &ticket); err != nil || ticket.ClientIp != c.RealIP() || ticket.Agent != c.Request().UserAgent() {
-	// 	return echo.ErrForbidden
-	// }
-	// _ = redis.Del(key)
-	// authCode, err := core.AESDecryptCipherByKey([]byte(data.Secret), ticket.Salt)
-	// if err != nil {
-	// 	log.Errorln(pkgName, err, "Decrypt secret error")
-	// 	return echo.ErrBadRequest
-	// }
-	// if !util.Contains(excludeReCaptCha, c.RealIP()) {
-	// 	if err := core.ReCaptCha().VerifyWithOptions(data.ReCaptChaToken, recaptcha.VerifyOption{Action: "SSOAuth", Threshold: core.ReCaptChaTrustScore()}); err != nil {
-	// 		log.Errorln(pkgName, err, "reCaptCah verify error for SSO from", c.RealIP(), c.Request().UserAgent())
-	// 		return echo.ErrForbidden
-	// 	}
-	// }
-	// account, err := core.IdentityClient().VerifyAuthorizedCode(string(authCode))
-	// if err != nil {
-	// 	log.Errorln(pkgName, err, "One Identity service not available")
-	// 	return c.JSON(http.StatusServiceUnavailable, server.Result{Error: "one id service not available"})
-	// }
 
 	id, err := core.IdentityClient().Login(data.Username, data.Password, false)
 	if err != nil {
@@ -118,34 +96,6 @@ func submitLoginEndpoint(c echo.Context) error {
 		}
 	}
 
-	// if err := db.Ctx().Model(&m.User{}).Where(m.User{AccountId: account.AccountID}).First(&user).Error; err != nil {
-	// 	if gorm.IsRecordNotFoundError(err) {
-	// 		user = m.User{
-	// 			AccountId: attendantProfile.AccountID,
-	// 			Status:    "",
-	// 		}
-	// 		if err := db.Ctx().Model(&m.User{}).Create(&user).Error; err != nil {
-	// 			log.Errorln(pkgName, err, "Register new account error")
-	// 			return c.JSON(http.StatusInternalServerError, server.Result{Error: "register new account error"})
-	// 		}
-	// 	} else {
-	// 		log.Errorln(pkgName, err, "Get login user error")
-	// 		return c.JSON(http.StatusInternalServerError, server.Result{Error: "server error"})
-	// 	}
-	// }
-
-	// Select permission
-	// if err := db.Ctx().Model(&m.Permission{}).Where(m.Permission{AccountId: account.AccountID}).Preload("Company").Preload("Role").Find(&permissions).Error; err != nil {
-	// 	log.Errorln(pkgName, err, "Get user permission error")
-	// 	return c.JSON(http.StatusInternalServerError, server.Result{Error: "get user permission error"})
-	// }
-
-	// token, err := core.EncodeAccessToken(user.Uid, account.AccountID, nil)
-	// if err != nil {
-	// 	log.Errorln(pkgName, err, "Encode access token error")
-	// 	return c.JSON(http.StatusInternalServerError, server.Result{Error: "Generate session token error"})
-	// }
-	// resourceKey, _ := core.EncryptWithServerKey([]byte(fmt.Sprintf("%s|%s", user.Uid, account.AccountID)))
 	uid := uuid.NewV4()
 	t, e := core.EncodeAccessTokenVersionEdit(uid, id.AccountID, nil)
 	if e != nil {
@@ -153,11 +103,6 @@ func submitLoginEndpoint(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, server.Result{Error: "Generate session token error"})
 	}
 
-	// d, err := core.DecodeAccessTokenVersionEdit(t)
-	// if err != nil {
-	// 	log.Errorln(pkgName, err, "Encode access token error")
-	// 	return c.JSON(http.StatusInternalServerError, server.Result{Error: "Generate session token error"})
-	// }
 	var resultData map[string]interface{}
 	if user.StaffId != "" && user.Username != "" && user.OneId != "" {
 		// Write session cache
@@ -216,19 +161,6 @@ func submitLoginEndpoint(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, resultData)
-	// switch user.Status {
-	// case StatusActivated:
-	// 	// activated account
-	// 	return c.JSON(http.StatusOK, server.Result{Data: resultData})
-	// case StatusWaiting:
-	// 	// requested to access
-	// 	return c.JSON(http.StatusForbidden, server.Result{Error: "waiting account", Data: resultData})
-	// case StatusSuspended:
-	// 	// suspended by admin
-	// 	return c.JSON(http.StatusForbidden, server.Result{Error: "suspended account", Data: resultData})
-	// }
-	// valid but no action
-	// return c.JSON(http.StatusForbidden, server.Result{Error: "valid account", Data: resultData})
 }
 
 // func submitLoginEndpoint(c echo.Context) error {
