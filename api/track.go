@@ -627,8 +627,8 @@ func GetTrackingBillingEndPoint(c echo.Context) error {
 		"detail": notBilling[0],
 	}
 	dataInv := map[string]interface{}{
-		"billing":      dataBill,
-		"ิnon_billing": dataNonBill,
+		"billing":     dataBill,
+		"non_billing": dataNonBill,
 	}
 	dataRaw := map[string]interface{}{
 		"bill":       dataInv,

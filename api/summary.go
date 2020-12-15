@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"sale_ranking/model"
+	m "sale_ranking/model"
+	"sale_ranking/pkg/log"
 	"sale_ranking/pkg/server"
 	"sale_ranking/pkg/util"
 	"strconv"
@@ -278,4 +280,35 @@ func sumEF(input []model.SummaryCustomer) float64 {
 
 	fmt.Println("sum was ef", sum)
 	return sum
+}
+
+func CheckPermissionSummary(acc string) (bool, string) {
+	var user m.UserInfo
+	if err := dbSale.Ctx().Model(&m.UserInfo{}).First(&user).Error; err == nil {
+		return true, user.SubRole
+	}
+
+	var staff m.StaffInfo
+	if err := dbSale.Ctx().Model(&m.StaffInfo{}).First(&staff).Error; err == nil {
+		return true, "sale"
+	}
+	return false, ""
+}
+
+func GetSummarySOPending(c echo.Context) error {
+	accountId := strings.TrimSpace(c.Param("id"))
+	log.Infoln("ACC", accountId)
+	check, role := CheckPermissionSummary(accountId)
+	if !check {
+		return echo.ErrUnauthorized
+	}
+
+	if role == "admin" {
+		log.Infoln("ROLE", "admin")
+	} else {
+
+		log.Infoln("ROLE", "sale")
+	}
+
+	return c.JSON(http.StatusOK, nil)
 }

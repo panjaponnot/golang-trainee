@@ -429,9 +429,6 @@ func CheckPermissionOrg(id string) (map[string][]string, error) {
 }
 
 func GetReportSOPendingEndPoint(c echo.Context) error {
-	// if err := initDataStore(); err != nil {
-	// 	log.Errorln(pkgName, err, "init db error")
-	// }
 
 	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
