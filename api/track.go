@@ -387,12 +387,6 @@ func GetTrackingBillingEndPoint(c echo.Context) error {
 		}
 	}
 
-	// var reciept []m.SOMssql
-	// if err := dbSale.Ctx().Raw(`select * from so_mssql where BLSCDocNo IN (?) and INCSCDocNo <> ''`, listInvBilling).Scan(&reciept).Error; err != nil {
-	// 	log.Errorln(pkgName, err, "select data error -:")
-	// }
-	// log.Infoln("INV", "=========>", len(inv))
-
 	var billing []m.TrackInvoice
 	var nonBilling []m.TrackInvoice
 	var notBilling []m.TrackInvoice
@@ -704,27 +698,6 @@ func GetTrackingReceiptEndPoint(c echo.Context) error {
 		return echo.ErrInternalServerError
 	}
 
-	//////////////////////////
-	// soTest := []struct {
-	// 	InvNo string `json:"invoice_no" gorm:"column:invoice_no"`
-	// }{}
-
-	// sqlTest := `SELECT BLSCDocNo invoice_no FROM so_mssql
-	// WHERE Active_Inactive = 'Active' and BLSCDocNo <> '' and INCSCDocNo <> ''
-	// and PeriodStartDate <= ? and PeriodEndDate >= ?
-	// and PeriodStartDate <= PeriodEndDate`
-	// if err := dbSale.Ctx().Raw(sqlTest, dateTo, dateFrom).Scan(&soTest).Error; err != nil {
-	// 	log.Errorln(pkgName, err, "select data error -:")
-	// 	return echo.ErrInternalServerError
-	// }
-	// dataTest := map[string]int{
-	// 	"test": len(soTest),
-	// 	// "ิnon_billing": hasBill,
-	// 	// "receipt":      len(receipt),
-	// }
-	// return c.JSON(http.StatusOK, dataTest)
-	//////////////////////////
-
 	listInv := []string{}
 	for _, v := range so {
 		listInv = append(listInv, v.InvNo)
@@ -919,7 +892,6 @@ func GetTrackingReceiptEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	wg.Wait()
-	log.Infoln("INV", "=========>", len(listInvBilling))
 	dataReceipt := map[string]interface{}{
 		"has_receipt": len(receipt),
 		"detail":      sumSo[0],

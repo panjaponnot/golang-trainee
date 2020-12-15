@@ -17,10 +17,6 @@ import (
 )
 
 func GetDataOrgChartEndPoint(c echo.Context) error {
-	// if err := initDataStore(); err != nil {
-	// 	log.Errorln(pkgName, err, "connect database error")
-	// 	return c.JSON(http.StatusInternalServerError, err)
-	// }
 
 	if strings.TrimSpace(c.QueryParam(("staff_id"))) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Message: "invalid staff id"})
@@ -32,9 +28,6 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "func check permission error :-")
 		return c.JSON(http.StatusInternalServerError, m.Result{Error: "check permission error"})
 	}
-	// fmt.Println("listStaffId ===>", listStaffId[strings.TrimSpace(c.QueryParam(("staff_id")))])
-
-	// return c.JSON(http.StatusOK, listStaffId)
 	if len(listStaffId) == 0 {
 		return c.JSON(http.StatusNoContent, nil)
 	}
@@ -49,7 +42,6 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 
 	var org []m.OrgChart
 	var filterOrg []m.OrgChart
-	// var defaultOrg []OrgChart
 	var inv []m.InvBefore
 	var result m.Result
 	today := time.Now()
@@ -277,21 +269,12 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 		}
 		wg.Done()
 	}()
-	// go func() {
-	// 	if err := dbSale.Ctx().Raw(sqlDefault, "").Offset(p.Offset()).Limit(p.Size).Scan(&defaultOrg).Error; err != nil {
-	// 		if !gorm.IsRecordNotFoundError(err) {
-	// 			hasErr += 1
-	// 		}
-	// 	}
-	// 	wg.Done()
-	// }()
 	wg.Wait()
 	if hasErr != 0 {
 		return echo.ErrInternalServerError
 	}
 
 	var dataResult []m.OrgChart
-	// set data
 	for _, o := range org {
 		if s, ok := listStaffId[o.StaffId]; ok {
 			for _, or := range org {
@@ -357,10 +340,6 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 		}
 
 	}
-
-	// fmt.Println(len(filterOrg))
-	// fmt.Println(len(dataResult))
-	// fmt.Println("listStaffId ===>", listStaffId)
 	result.Data = dataResult
 	result.Count = len(dataResult)
 	result.Total = len(org)
@@ -507,9 +486,6 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 				listStaffId = append(listStaffId, staff[0].StaffId)
 			}
 		}
-		// if strings.TrimSpace(staff[0].Role) != "admin" {
-		// 	listStaffId = append(listStaffId, staff[0].StaffId)
-		// }
 	}
 	//////////////  getListStaffID  //////////////
 	type PendingData struct {
@@ -907,32 +883,8 @@ func CheckRemark(remark string, types string) string {
 func UpdateSOEndPoint(c echo.Context) error {
 	type SoData struct {
 		SOnumber string `json:"sonumber" gorm:"column:sonumber"`
-		// CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
-		// CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
-		// ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
-		// ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
-		// SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
-		// SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
-		// SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
-		// Day               string  `json:"day" gorm:"column:days"`
-		// SoMonth           string  `json:"so_month" gorm:"column:so_month"`
-		// SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		// PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
-		// PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
-		// TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
-		// StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
-		// PayType           string  `json:"pay_type" gorm:"column:pay_type"`
-		// SoType            string  `json:"so_type" gorm:"column:so_type"`
-		// Prefix            string  `json:"prefix"`
-		// Fname             string  `json:"fname"`
-		// Lname             string  `json:"lname"`
-		// Nname             string  `json:"nname"`
-		// Position          string  `json:"position"`
-		// Department        string  `json:"department"`
-		Status string `json:"status"`
-		Remark string `json:"remark"`
-		// StatusSO          bool    `json:"status_so" gorm:"column:status_so"`
-		// StatusSale        bool    `json:"status_sale" gorm:"column:status_sale"`
+		Status   string `json:"status"`
+		Remark   string `json:"remark"`
 	}
 	body := struct {
 		Data  []SoData `json:"data"`
@@ -973,9 +925,6 @@ func UpdateSOEndPoint(c echo.Context) error {
 	var ValuesUpdate []m.CheckExpire
 	var ValuesInsert []m.CheckExpire
 
-	// log.Infoln("string ==>", SoAllStr)
-	// log.Infoln("SOnumber ==>", ListData[0].SOnumber)
-	// log.Infoln(strings.Contains(SoAllStr, ListData[0].SOnumber))
 	for _, d := range ListData {
 		if strings.Contains(SoAllStr, "BOI-20190101-0026") {
 			value := m.CheckExpire{

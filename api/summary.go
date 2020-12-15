@@ -27,7 +27,7 @@ func GetSummaryCustomerEndPoint(c echo.Context) error {
 	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
 	status := strings.TrimSpace(c.QueryParam("status"))
-	// fmt.Println("====> filter", search)
+
 	ds := time.Now()
 	de := time.Now()
 	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
