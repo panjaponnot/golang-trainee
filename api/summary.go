@@ -296,19 +296,87 @@ func CheckPermissionSummary(acc string) (bool, string) {
 }
 
 func GetSummarySOPending(c echo.Context) error {
+
+	if strings.TrimSpace(c.Param("id")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	}
 	accountId := strings.TrimSpace(c.Param("id"))
 	log.Infoln("ACC", accountId)
 	check, role := CheckPermissionSummary(accountId)
 	if !check {
 		return echo.ErrUnauthorized
 	}
+	year := strings.TrimSpace(c.QueryParam("year"))
+	month := strings.TrimSpace(c.QueryParam("month"))
+	// search := strings.TrimSpace(c.QueryParam("search"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		year = strconv.Itoa(yearDefault.Year())
+	}
 
+	if strings.TrimSpace(c.QueryParam("month")) == "" {
+		monthDefault := time.Now()
+		month = strconv.Itoa(int(monthDefault.Month()))
+	}
+	// var rawData []PendingData
+	var so []m.SOMssql
 	if role == "admin" {
 		log.Infoln("ROLE", "admin")
+		// 	if err := dbSale.Ctx().Raw(`
+		// SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,
+		// so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount,
+		//  SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,SOType as so_type,
+		//     (case
+		//             when status is null then 0
+		//             else status end
+		//     ) as status,
+		//       (case
+		//             when tb_expire.remark is null then ''
+		//             else tb_expire.remark end
+		//     ) as remark  from (
+		//             SELECT *  from (
+		//             SELECT  Active_Inactive,has_refer,sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,
+		//                             DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
+		//                                                             PeriodAmount, SUM(PeriodAmount) as TotalAmount,SOType,
+		//                                                             staff_id,prefix,fname,lname,nname,position,department
+		//                                                             FROM ( SELECT * FROM so_mssql WHERE SOType NOT IN ('onetime' , 'project base') ) as s
+		//                                                     left join
+		//                                                     (
+		//                                                             select staff_id, prefix, fname, lname, nname, position, department from staff_info
+
+		//                                                     ) tb_sale on s.sale_code = tb_sale.staff_id
+		//                                                     WHERE Active_Inactive = 'Active' and has_refer = 0 and year(ContractEndDate) = ? and month(ContractEndDate) = ?
+		//                                                     group by sonumber
+		//                     ) as tb_so_number
+
+		//             ) as tb_ch_so
+		//             left join
+		//             (
+		//               select id,sonumber,
+		//                     (case
+		//                             when status is null then 0
+		//                             else status end
+		//                     ) as status,
+		//                     (case
+		//                             when remark is null then ''
+		//                             else remark end
+		//                     ) as remark
+		//                     from check_expire
+		// 			  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
+		// 			  WHERE INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,Customer_ID,Customer_Name), ?)
+		//               group by tb_ch_so.sonumber
+		// 	  `, year, month, search).Scan(&rawData).Error; err != nil {
+		// 		log.Errorln(pkgName, err, "Select data error")
+		// 	}
+
+		sqlActive := `SELECT Customer_ID from so_mssql WHERE SOType NOT IN ('onetime' , 'project base')  and Active_Inactive = 'Active' and has_refer = 0 and year(ContractEndDate) = ? and month(ContractEndDate) = ?  group by sonumber`
+		if err := dbSale.Ctx().Raw(sqlActive, year, month).Scan(&so).Error; err != nil {
+			log.Errorln(pkgName, err, "Select data error")
+		}
 	} else {
 
 		log.Infoln("ROLE", "sale")
 	}
 
-	return c.JSON(http.StatusOK, nil)
+	return c.JSON(http.StatusOK, m.Result{Data: len(so)})
 }

@@ -446,8 +446,8 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 		year = strconv.Itoa(years)
 	}
 
-	log.Infoln(pkgName, year)
-	log.Infoln(" query staff ")
+	// log.Infoln(pkgName, year)
+	// log.Infoln(" query staff ")
 	staff := []struct {
 		StaffId    string `json:"staff_id"`
 		Role       string `json:"role"`
@@ -485,33 +485,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 		}
 	}
 	//////////////  getListStaffID  //////////////
-	type PendingData struct {
-		SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
-		CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
-		CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
-		ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
-		ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
-		SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
-		SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
-		SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
-		Day               string  `json:"day" gorm:"column:days"`
-		SoMonth           string  `json:"so_month" gorm:"column:so_month"`
-		SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
-		PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
-		TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
-		StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
-		PayType           string  `json:"pay_type" gorm:"column:pay_type"`
-		SoType            string  `json:"so_type" gorm:"column:so_type"`
-		Prefix            string  `json:"prefix"`
-		Fname             string  `json:"fname"`
-		Lname             string  `json:"lname"`
-		Nname             string  `json:"nname"`
-		Position          string  `json:"position"`
-		Department        string  `json:"department"`
-		Status            string  `json:"status"`
-		Remark            string  `json:"remark"`
-	}
+
 	var rawData []PendingData
 	if err := dbSale.Ctx().Raw(`
 	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,
@@ -973,4 +947,32 @@ func UpdateSOEndPoint(c echo.Context) error {
 
 	return c.JSON(http.StatusNoContent, nil)
 
+}
+
+type PendingData struct {
+	SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
+	CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
+	CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
+	ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+	ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+	SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
+	SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
+	SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
+	Day               string  `json:"day" gorm:"column:days"`
+	SoMonth           string  `json:"so_month" gorm:"column:so_month"`
+	SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+	PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
+	PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+	TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
+	StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
+	PayType           string  `json:"pay_type" gorm:"column:pay_type"`
+	SoType            string  `json:"so_type" gorm:"column:so_type"`
+	Prefix            string  `json:"prefix"`
+	Fname             string  `json:"fname"`
+	Lname             string  `json:"lname"`
+	Nname             string  `json:"nname"`
+	Position          string  `json:"position"`
+	Department        string  `json:"department"`
+	Status            string  `json:"status"`
+	Remark            string  `json:"remark"`
 }
