@@ -91,7 +91,7 @@ func InitApiRouter(g *echo.Group) error {
 	permission.GET("/lead/:id", CheckTeamLeadEndPoint)
 
 	summary := g.Group("/summary")
-	summary.GET("/all/:id", GetSummarySOPending)
+	summary.GET("/all/:id", GetSummaryPendingSOEndPoint)
 
 	webhook := g.Group("/webhook")
 	webhook.GET("/user", GetUserOneThEndPoint)
