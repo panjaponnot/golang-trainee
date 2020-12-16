@@ -10,6 +10,7 @@ import (
 	"sale_ranking/pkg/util"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -283,11 +284,22 @@ func sumEF(input []model.SummaryCustomer) float64 {
 }
 
 func GetSummaryPendingSOEndPoint(c echo.Context) error {
-	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
+	if strings.TrimSpace(c.Param("id")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	}
+	year := strings.TrimSpace(c.QueryParam("year"))
+	month := strings.TrimSpace(c.QueryParam("month"))
+	// search := strings.TrimSpace(c.QueryParam("search"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		year = strconv.Itoa(yearDefault.Year())
+	}
 
-	oneId := strings.TrimSpace(c.QueryParam("one_id"))
+	if strings.TrimSpace(c.QueryParam("month")) == "" {
+		monthDefault := time.Now()
+		month = strconv.Itoa(int(monthDefault.Month()))
+	}
+	oneId := strings.TrimSpace(c.Param("id"))
 	staff := []struct {
 		ContractEndDate string `json:"ContractEndDate" gorm:"column:ContractEndDate"`
 		Status          string `json:"status" gorm:"column:status"`
@@ -301,33 +313,119 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "Select staff error")
 		return echo.ErrInternalServerError
 	}
+	type PendingDataSum struct {
+		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
+		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
+		ContractStartDate   string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate     string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
+		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleLead            string  `json:"sale_lead" gorm:"column:sale_lead"`
+		Day                 string  `json:"day" gorm:"column:days"`
+		SoMonth             string  `json:"so_month" gorm:"column:so_month"`
+		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
+		PeriodAmount        float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+		TotalAmount         float64 `json:"total_amount" gorm:"column:TotalAmount"`
+		StaffId             string  `json:"staff_id" gorm:"column:staff_id"`
+		PayType             string  `json:"pay_type" gorm:"column:pay_type"`
+		SoType              string  `json:"so_type" gorm:"column:so_type"`
+		Prefix              string  `json:"prefix"`
+		Fname               string  `json:"fname"`
+		Lname               string  `json:"lname"`
+		Nname               string  `json:"nname"`
+		Position            string  `json:"position"`
+		Department          string  `json:"department"`
+		Status              string  `json:"status"`
+		Remark              string  `json:"remark"`
+		TotalContractAmount int     `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+	}
 
 	Active := 0
 	Update := 0
 	NotUpdate := 0
-
-	for _, s := range staff {
-		if s.Days >= 0 {
-			Active += 1
-		} else if s.Status == "1" {
-			Update += 1
-		} else if s.Status == "0" && s.Remark != "" {
-			Update += 1
-		} else {
-			NotUpdate += 1
+	var DataActive []PendingDataSum
+	var DataUpdate []PendingDataSum
+	var DataNotUpdate []PendingDataSum
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+	go func() {
+		if err := dbSale.Ctx().Raw(` SELECT * from staff_info
+			join so_mssql on so_mssql.sale_code = staff_info.staff_id
+			left join check_expire on check_expire.sonumber = so_mssql.sonumber
+			 WHERE staff_info.one_id = ? 
+			 AND YEAR(ContractEndDate) >= ?
+			 AND MONTH(ContractEndDate) > ?
+			 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataActive).Error; err != nil {
+			log.Errorln(pkgName, err, "Select DataActive error")
+			// return echo.ErrInternalServerError
 		}
-	}
+		if len(DataActive) > 0 {
+			for _, d := range DataActive {
+				Active += d.TotalContractAmount
+			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(` SELECT * from staff_info
+			join so_mssql on so_mssql.sale_code = staff_info.staff_id
+			left join check_expire on check_expire.sonumber = so_mssql.sonumber
+			 WHERE staff_info.one_id = ? 
+			 AND YEAR(ContractEndDate) = ?
+			 AND MONTH(ContractEndDate) = ?
+			 AND check_expire.remark IS NOT NULL
+			 AND check_expire.status IS NOT NULL
+			 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataUpdate).Error; err != nil {
+			log.Errorln(pkgName, err, "Select DataUpdate error")
+			// return echo.ErrInternalServerError
+		}
+		if len(DataUpdate) > 0 {
+			for _, d := range DataUpdate {
+				Update += d.TotalContractAmount
+			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(` SELECT * from staff_info
+			join so_mssql on so_mssql.sale_code = staff_info.staff_id
+			left join check_expire on check_expire.sonumber = so_mssql.sonumber
+			 WHERE staff_info.one_id = ? 
+			 AND YEAR(ContractEndDate) = ?
+			 AND MONTH(ContractEndDate) = ?
+			 AND check_expire.remark IS NULL
+			 AND check_expire.status IS NULL
+			 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataNotUpdate).Error; err != nil {
+			log.Errorln(pkgName, err, "Select DataNotUpdate error")
+			// return echo.ErrInternalServerError
+		}
+		if len(DataNotUpdate) > 0 {
+			for _, d := range DataNotUpdate {
+				NotUpdate += d.TotalContractAmount
+			}
+		}
+		wg.Done()
+	}()
+	wg.Wait()
 
-	type Result struct {
-		Active    int `json:"Active"`
-		Update    int `json:"Update"`
-		NotUpdate int `json:"NotUpdate"`
+	dataActive := map[string]interface{}{
+		"total_amount": Active,
+		"count_so":     len(DataActive),
 	}
-
-	data := Result{
-		Active:    Active,
-		Update:    Update,
-		NotUpdate: NotUpdate,
+	dataUpdate := map[string]interface{}{
+		"total_amount": Update,
+		"count_so":     len(DataUpdate),
 	}
-	return c.JSON(http.StatusOK, data)
+	dataNotUpdate := map[string]interface{}{
+		"total_amount": NotUpdate,
+		"count_so":     len(DataNotUpdate),
+	}
+	dataRaw := map[string]interface{}{
+		"Active":    dataActive,
+		"Update":    dataUpdate,
+		"NotUpdate": dataNotUpdate,
+	}
+	return c.JSON(http.StatusOK, dataRaw)
 }
