@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"sale_ranking/model"
+	m "sale_ranking/model"
+	"sale_ranking/pkg/log"
 	"sale_ranking/pkg/server"
 	"sale_ranking/pkg/util"
 	"strconv"
@@ -278,4 +280,54 @@ func sumEF(input []model.SummaryCustomer) float64 {
 
 	fmt.Println("sum was ef", sum)
 	return sum
+}
+
+func GetSummaryEndPoint(c echo.Context) error {
+	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	}
+
+	oneId := strings.TrimSpace(c.QueryParam("one_id"))
+	staff := []struct {
+		ContractEndDate string `json:"ContractEndDate" gorm:"column:ContractEndDate"`
+		Status          string `json:"status" gorm:"column:status"`
+		Remark          string `json:"remark" gorm:"column:remark"`
+		Days            int    `json:"days" gorm:"column:days"`
+	}{}
+	if err := dbSale.Ctx().Raw(` SELECT so_mssql.ContractEndDate,check_expire.status,check_expire.remark,DATEDIFF(so_mssql.ContractEndDate, NOW()) as days from staff_info
+	join so_mssql on so_mssql.sale_code = staff_info.staff_id
+	left join check_expire on check_expire.sonumber = so_mssql.sonumber
+	 WHERE staff_info.one_id = ? `, oneId).Scan(&staff).Error; err != nil {
+		log.Errorln(pkgName, err, "Select staff error")
+		return echo.ErrInternalServerError
+	}
+
+	Active := 0
+	Update := 0
+	NotUpdate := 0
+
+	for _, s := range staff {
+		if s.Days >= 0 {
+			Active += 1
+		} else if s.Status == "1" {
+			Update += 1
+		} else if s.Status == "0" && s.Remark != "" {
+			Update += 1
+		} else {
+			NotUpdate += 1
+		}
+	}
+
+	type Result struct {
+		Active    int `json:"Active"`
+		Update    int `json:"Update"`
+		NotUpdate int `json:"NotUpdate"`
+	}
+
+	data := Result{
+		Active:    Active,
+		Update:    Update,
+		NotUpdate: NotUpdate,
+	}
+	return c.JSON(http.StatusOK, data)
 }
