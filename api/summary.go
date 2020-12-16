@@ -282,7 +282,7 @@ func sumEF(input []model.SummaryCustomer) float64 {
 	return sum
 }
 
-func GetSummaryEndPoint(c echo.Context) error {
+func GetSummaryPendingSOEndPoint(c echo.Context) error {
 	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	}
