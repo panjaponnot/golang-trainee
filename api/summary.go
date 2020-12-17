@@ -300,19 +300,19 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 		month = strconv.Itoa(int(monthDefault.Month()))
 	}
 	oneId := strings.TrimSpace(c.Param("id"))
-	staff := []struct {
-		ContractEndDate string `json:"ContractEndDate" gorm:"column:ContractEndDate"`
-		Status          string `json:"status" gorm:"column:status"`
-		Remark          string `json:"remark" gorm:"column:remark"`
-		Days            int    `json:"days" gorm:"column:days"`
-	}{}
-	if err := dbSale.Ctx().Raw(` SELECT so_mssql.ContractEndDate,check_expire.status,check_expire.remark,DATEDIFF(so_mssql.ContractEndDate, NOW()) as days from staff_info
-	join so_mssql on so_mssql.sale_code = staff_info.staff_id
-	left join check_expire on check_expire.sonumber = so_mssql.sonumber
-	 WHERE staff_info.one_id = ? `, oneId).Scan(&staff).Error; err != nil {
-		log.Errorln(pkgName, err, "Select staff error")
-		return echo.ErrInternalServerError
-	}
+	// staff := []struct {
+	// 	ContractEndDate string `json:"ContractEndDate" gorm:"column:ContractEndDate"`
+	// 	Status          string `json:"status" gorm:"column:status"`
+	// 	Remark          string `json:"remark" gorm:"column:remark"`
+	// 	Days            int    `json:"days" gorm:"column:days"`
+	// }{}
+	// if err := dbSale.Ctx().Raw(` SELECT so_mssql.ContractEndDate,check_expire.status,check_expire.remark,DATEDIFF(so_mssql.ContractEndDate, NOW()) as days from staff_info
+	// join so_mssql on so_mssql.sale_code = staff_info.staff_id
+	// left join check_expire on check_expire.sonumber = so_mssql.sonumber
+	//  WHERE staff_info.one_id = ? `, oneId).Scan(&staff).Error; err != nil {
+	// 	log.Errorln(pkgName, err, "Select staff error")
+	// 	return echo.ErrInternalServerError
+	// }
 	type PendingDataSum struct {
 		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
 		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
@@ -428,4 +428,159 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 		"NotUpdate": dataNotUpdate,
 	}
 	return c.JSON(http.StatusOK, dataRaw)
+}
+
+func GetContractEndPoint(c echo.Context) error {
+	if strings.TrimSpace(c.Param("id")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	}
+	year := strings.TrimSpace(c.QueryParam("year"))
+	month := strings.TrimSpace(c.QueryParam("month"))
+	// search := strings.TrimSpace(c.QueryParam("search"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		year = strconv.Itoa(yearDefault.Year())
+	}
+
+	if strings.TrimSpace(c.QueryParam("month")) == "" {
+		monthDefault := time.Now()
+		month = strconv.Itoa(int(monthDefault.Month()))
+	}
+	oneId := strings.TrimSpace(c.Param("id"))
+	type PendingDataSum struct {
+		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
+		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
+		ContractStartDate   string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate     string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
+		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleLead            string  `json:"sale_lead" gorm:"column:sale_lead"`
+		Day                 string  `json:"day" gorm:"column:days"`
+		SoMonth             string  `json:"so_month" gorm:"column:so_month"`
+		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
+		PeriodAmount        float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+		TotalAmount         float64 `json:"total_amount" gorm:"column:TotalAmount"`
+		StaffId             string  `json:"staff_id" gorm:"column:staff_id"`
+		PayType             string  `json:"pay_type" gorm:"column:pay_type"`
+		SoType              string  `json:"so_type" gorm:"column:so_type"`
+		Prefix              string  `json:"prefix"`
+		Fname               string  `json:"fname"`
+		Lname               string  `json:"lname"`
+		Nname               string  `json:"nname"`
+		Position            string  `json:"position"`
+		Department          string  `json:"department"`
+		Status              string  `json:"status"`
+		Remark              string  `json:"remark"`
+		TotalContractAmount int     `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+	}
+
+	CheckTrue := 0
+	CheckFalse := 0
+	var DataCheckTrue []PendingDataSum
+	var DataCheckFalse []PendingDataSum
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		if err := dbSale.Ctx().Raw(` SELECT * from staff_info
+			join so_mssql on so_mssql.sale_code = staff_info.staff_id
+			left join check_expire on check_expire.sonumber = so_mssql.sonumber
+			 WHERE staff_info.one_id = ? 
+			 AND YEAR(ContractEndDate) = ?
+			 AND MONTH(ContractEndDate) = ?
+			 AND check_expire.status = '1'
+			 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataCheckTrue).Error; err != nil {
+			log.Errorln(pkgName, err, "Select CheckTrue error")
+			// AND check_expire.remark IS NOT NULL
+			// return echo.ErrInternalServerError
+		}
+		if len(DataCheckTrue) > 0 {
+			for _, d := range DataCheckTrue {
+				CheckTrue += d.TotalContractAmount
+			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(` SELECT * from staff_info
+			join so_mssql on so_mssql.sale_code = staff_info.staff_id
+			left join check_expire on check_expire.sonumber = so_mssql.sonumber
+			 WHERE staff_info.one_id = ? 
+			 AND YEAR(ContractEndDate) = ?
+			 AND MONTH(ContractEndDate) = ?
+			 AND check_expire.status = '0'
+			 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataCheckFalse).Error; err != nil {
+			log.Errorln(pkgName, err, "Select CheckFalse error")
+			// AND check_expire.remark IS NULL
+			// return echo.ErrInternalServerError
+		}
+		if len(DataCheckFalse) > 0 {
+			for _, d := range DataCheckFalse {
+				CheckFalse += d.TotalContractAmount
+			}
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+
+	dataCheckTrue := map[string]interface{}{
+		"total_amount": CheckTrue,
+		"count_so":     len(DataCheckTrue),
+	}
+	dataCheckFalse := map[string]interface{}{
+		"total_amount": CheckFalse,
+		"count_so":     len(DataCheckFalse),
+	}
+	dataRaw := map[string]interface{}{
+		"CheckTrue":  dataCheckTrue,
+		"CheckFalse": dataCheckFalse,
+	}
+	return c.JSON(http.StatusOK, dataRaw)
+}
+
+func GetTeamsEndPoint(c echo.Context) error {
+	// if strings.TrimSpace(c.Param("id")) == "" {
+	// 	return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	// }
+	year := strings.TrimSpace(c.QueryParam("year"))
+	month := strings.TrimSpace(c.QueryParam("month"))
+	// search := strings.TrimSpace(c.QueryParam("search"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		year = strconv.Itoa(yearDefault.Year())
+	}
+	if strings.TrimSpace(c.QueryParam("month")) == "" {
+		monthDefault := time.Now()
+		month = strconv.Itoa(int(monthDefault.Month()))
+	}
+	// oneId := strings.TrimSpace(c.Param("id"))
+
+	type PendingDataSum struct {
+		SaleTeamnumber string  `json:"sale_team" gorm:"column:sale_team"`
+		Sum            float64 `json:"sum" gorm:"column:sum"`
+		CountSO        string  `json:"CountSO" gorm:"column:CountSO"`
+	}
+
+	// CheckTrue := 0
+	// CheckFalse := 0
+	var DataTeam []PendingDataSum
+	// var DataCheckFalse []PendingDataSum
+	if err := dbSale.Ctx().Raw(` SELECT T1.sale_team,sum(T1.sum) as sum ,COUNT(T1.sonumber) as CountSO
+		FROM (SELECT so_mssql.sonumber,so_mssql.sale_team,SUM(so_mssql.TotalContractAmount) as sum from so_mssql
+					join check_expire on check_expire.sonumber = so_mssql.sonumber
+					 AND YEAR(ContractEndDate) = ?
+					 AND MONTH(ContractEndDate) = ?
+					 AND check_expire.status != '1'
+					 GROUP BY so_mssql.sale_team,so_mssql.sonumber) AS T1
+		GROUP BY T1.sale_team`, year, month).Scan(&DataTeam).Error; err != nil {
+		log.Errorln(pkgName, err, "Select DataTeam error")
+		// return echo.ErrInternalServerError
+	}
+	// if len(DataTeam) > 0 {
+	// 	for _, d := range DataTeam {
+	// 		CheckTrue += d.TotalContractAmount
+	// 	}
+	// }
+	return c.JSON(http.StatusOK, DataTeam)
 }
