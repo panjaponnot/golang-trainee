@@ -12,6 +12,7 @@ import (
 const pkgName = "API"
 
 var (
+	dbEquip    database.Database
 	dbSale     database.Database
 	dbQuataion database.Database
 	dbMssql    database.Database
@@ -20,6 +21,11 @@ var (
 
 func initDataStore() error {
 	// Database
+	dbEquip = core.NewDatabaseMssql(pkgName, "equip")
+	if err := dbEquip.Connect(); err != nil {
+		log.Errorln(pkgName, err, "Connect to database equip error")
+		return err
+	}
 	dbSale = core.NewDatabase(pkgName, "salerank")
 	if err := dbSale.Connect(); err != nil {
 		log.Errorln(pkgName, err, "Connect to database salerank error")
@@ -94,6 +100,9 @@ func InitApiRouter(g *echo.Group) error {
 	summary.GET("/all/:id", GetSummaryPendingSOEndPoint)
 	summary.GET("/contract/:id", GetContractEndPoint)
 	summary.GET("/teams", GetTeamsEndPoint)
+
+	summary.GET("/vm", GetVmSummaryEndPoint)
+	summary.GET("/vm/v2", GetVmSummaryV2EndPoint)
 
 	webhook := g.Group("/webhook")
 	webhook.GET("/user", GetUserOneThEndPoint)

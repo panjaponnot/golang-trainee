@@ -32,6 +32,13 @@ const (
 	// envDbPassword = "DB_PASSWORD"
 	// envDbName     = "DB_NAME"
 
+	// db mssql equip
+	envDbMssqlEquipHost     = "DB_MSSQL_EQUIP_HOST"
+	envDbMssqlEquipPort     = "DB_MSSQL_EQUIP_PORT"
+	envDbMssqlEquipUsername = "DB_MSSQL_EQUIP_USERNAME"
+	envDbMssqlEquipPassword = "DB_MSSQL_EQUIP_PASSWORD"
+	envDbMssqlEquipName     = "DB_MSSQL_EQUIP_NAME"
+
 	// db sale
 	envDbSaleHost     = "DB_SALE_HOST"
 	envDbSalePort     = "DB_SALE_PORT"
@@ -176,6 +183,16 @@ func getDatabaseConfig(packageName string, dbName string) database.Config {
 			Username:    util.GetEnv(envDbMssqlUsername, ""),
 			Password:    util.GetEnv(envDbMssqlPassword, ""),
 			Name:        util.GetEnv(envDbMssqlName, ""),
+			Prod:        util.IsProduction(),
+			PackageName: packageName,
+		}
+	case "equip":
+		return database.Config{
+			Host:        util.GetEnv(envDbMssqlEquipHost, "127.0.0.1"),
+			Port:        util.GetEnv(envDbMssqlEquipPort, "1433"),
+			Username:    util.GetEnv(envDbMssqlEquipUsername, ""),
+			Password:    util.GetEnv(envDbMssqlEquipPassword, ""),
+			Name:        util.GetEnv(envDbMssqlEquipName, ""),
 			Prod:        util.IsProduction(),
 			PackageName: packageName,
 		}

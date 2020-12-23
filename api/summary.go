@@ -584,3 +584,66 @@ func GetTeamsEndPoint(c echo.Context) error {
 	// }
 	return c.JSON(http.StatusOK, DataTeam)
 }
+
+func GetVmSummaryEndPoint(c echo.Context) error {
+	if strings.TrimSpace(c.QueryParam("so")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	}
+	so := strings.TrimSpace(c.QueryParam("so"))
+	vm := []struct {
+		EquipmentCode string `json:"EquipmentCode" gorm:"column:EquipmentCode"`
+		Description   string `json:"Description" gorm:"column:Description"`
+		EquipmentType string `json:"EquipmentType" gorm:"column:EquipmentType"`
+		ObjectID      string `json:"ObjectID" gorm:"column:ObjectID"`
+	}{}
+	if err := dbEquip.Ctx().Raw(` SELECT [EquipmentCode]
+				,[Description]
+				,[EquipmentType]
+				,master_equipment.ObjectID
+			FROM [ITSM_UK].[dbo].[master_equipment]
+			JOIN [ITSM_UK].[dbo].[master_equipment_properties] ON master_equipment_properties.ObjectID = master_equipment.ObjectID
+			WHERE master_equipment.EquipmentType = 'LVMG'
+			AND master_equipment_properties.xValue = ? `, so).Scan(&vm).Error; err != nil {
+		log.Errorln(pkgName, err, "Select vm error")
+		return echo.ErrInternalServerError
+	}
+
+	dataRaw := map[string]interface{}{
+		"vm":      vm,
+		"summary": len(vm),
+	}
+	return c.JSON(http.StatusOK, dataRaw)
+}
+
+func GetVmSummaryV2EndPoint(c echo.Context) error {
+	if strings.TrimSpace(c.QueryParam("customer")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid customer"})
+	}
+	Customer := strings.TrimSpace(c.QueryParam("customer"))
+	vm := []struct {
+		EquipmentCode string `json:"EquipmentCode" gorm:"column:EquipmentCode"`
+		Description   string `json:"Description" gorm:"column:Description"`
+		EquipmentType string `json:"EquipmentType" gorm:"column:EquipmentType"`
+		ObjectID      string `json:"ObjectID" gorm:"column:ObjectID"`
+		xValue        string `json:"xValue" gorm:"column:xValue"`
+	}{}
+	if err := dbEquip.Ctx().Raw(` SELECT master_equipment.EquipmentCode
+				,[Description]
+				,[EquipmentType]
+				,master_equipment.ObjectID
+				,master_equipment_properties.xValue
+			FROM [ITSM_UK].[dbo].[master_equipment]
+			JOIN [ITSM_UK].[dbo].[master_equipment_properties] ON master_equipment_properties.ObjectID = master_equipment.ObjectID
+			JOIN [ITSM_UK].[dbo].[master_equipment_owner_assignment] ON master_equipment_owner_assignment.EquipmentCode = master_equipment.EquipmentCode
+			WHERE master_equipment.EquipmentType = 'LVMG'
+			AND master_equipment_properties.PropertiesCode = '004'
+			AND master_equipment_owner_assignment.OwnerCode = ? `, Customer).Scan(&vm).Error; err != nil {
+		log.Errorln(pkgName, err, "Select vm error")
+		return echo.ErrInternalServerError
+	}
+	dataRaw := map[string]interface{}{
+		"vm":      vm,
+		"summary": len(vm),
+	}
+	return c.JSON(http.StatusOK, dataRaw)
+}
