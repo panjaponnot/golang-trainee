@@ -100,6 +100,7 @@ func InitApiRouter(g *echo.Group) error {
 	summary.GET("/all", GetSummaryPendingSOEndPoint)
 	summary.GET("/contract", GetContractEndPoint)
 	summary.GET("/teams", GetTeamsEndPoint)
+	summary.GET("/teams/department", GetTeamsDepartmentEndPoint)
 
 	summary.GET("/vm", GetVmSummaryEndPoint)
 	summary.GET("/vm/v2", GetVmSummaryV2EndPoint)

@@ -580,15 +580,85 @@ func GetTeamsEndPoint(c echo.Context) error {
 	// CheckFalse := 0
 	var DataTeam []PendingDataSum
 	// var DataCheckFalse []PendingDataSum
-	if err := dbSale.Ctx().Raw(` SELECT T1.sale_team,sum(T1.sum) as sum ,COUNT(T1.sonumber) as CountSO
-		FROM (SELECT so_mssql.sonumber,so_mssql.sale_team,SUM(so_mssql.TotalContractAmount) as sum from so_mssql
-					join check_expire on check_expire.sonumber = so_mssql.sonumber
-					 AND YEAR(ContractEndDate) = ?
-					 AND MONTH(ContractEndDate) = ?
-					 AND check_expire.status != '1'
-					 AND check_expire.remark IS NULL
-					 GROUP BY so_mssql.sale_team,so_mssql.sonumber) AS T1
-		GROUP BY T1.sale_team`, year, month).Scan(&DataTeam).Error; err != nil {
+	// if err := dbSale.Ctx().Raw(` SELECT T1.sale_team,sum(T1.sum) as sum ,COUNT(T1.sonumber) as CountSO
+	// 	FROM (SELECT so_mssql.sonumber,so_mssql.sale_team,SUM(so_mssql.TotalContractAmount) as sum from so_mssql
+	// 				join check_expire on check_expire.sonumber = so_mssql.sonumber
+	// 				 AND YEAR(ContractEndDate) = ?
+	// 				 AND MONTH(ContractEndDate) = ?
+	// 				 AND check_expire.status != '1'
+	// 				 AND check_expire.remark IS NULL
+	// 				 GROUP BY so_mssql.sale_team,so_mssql.sonumber) AS T1
+	// 	GROUP BY T1.sale_team`, year, month).Scan(&DataTeam).Error; err != nil {
+	if err := dbSale.Ctx().Raw(` SELECT T1.department as sale_team,sum(T1.sum) as sum ,COUNT(T1.sonumber) as CountSO
+		FROM 
+		(
+		 SELECT so_mssql.sonumber,department,SUM(so_mssql.TotalContractAmount) as sum 
+		 from so_mssql
+		 left join check_expire on check_expire.sonumber = so_mssql.sonumber
+		 left join staff_info on so_mssql.sale_code = staff_info.staff_id
+		 WHERE YEAR(ContractEndDate) = ? AND MONTH(ContractEndDate) = ?
+		 GROUP BY so_mssql.sale_team,so_mssql.sonumber
+		) AS T1
+		GROUP BY T1.department`, year, month).Scan(&DataTeam).Error; err != nil {
+		log.Errorln(pkgName, err, "Select DataTeam error")
+		// return echo.ErrInternalServerError
+	}
+	// if len(DataTeam) > 0 {
+	// 	for _, d := range DataTeam {
+	// 		CheckTrue += d.TotalContractAmount
+	// 	}
+	// }
+	return c.JSON(http.StatusOK, DataTeam)
+}
+
+func GetTeamsDepartmentEndPoint(c echo.Context) error {
+	if strings.TrimSpace(c.QueryParam("department")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	}
+	year := strings.TrimSpace(c.QueryParam("year"))
+	month := strings.TrimSpace(c.QueryParam("month"))
+	// search := strings.TrimSpace(c.QueryParam("search"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		year = strconv.Itoa(yearDefault.Year())
+	}
+	if strings.TrimSpace(c.QueryParam("month")) == "" {
+		monthDefault := time.Now()
+		month = strconv.Itoa(int(monthDefault.Month()))
+	}
+	department := strings.TrimSpace(c.QueryParam("department"))
+
+	type PendingDataSum struct {
+		Fname     string  `json:"fname" gorm:"column:fname"`
+		Lname     string  `json:"lname" gorm:"column:lname"`
+		Sum       float64 `json:"sum" gorm:"column:sum"`
+		CountSO   string  `json:"CountSO" gorm:"column:CountSO"`
+		NotUpdate string  `json:"notupdate" gorm:"column:notupdate"`
+	}
+
+	// CheckTrue := 0
+	// CheckFalse := 0
+	var DataTeam []PendingDataSum
+	// var DataCheckFalse []PendingDataSum
+	// if err := dbSale.Ctx().Raw(` SELECT T1.sale_team,sum(T1.sum) as sum ,COUNT(T1.sonumber) as CountSO
+	// 	FROM (SELECT so_mssql.sonumber,so_mssql.sale_team,SUM(so_mssql.TotalContractAmount) as sum from so_mssql
+	// 				join check_expire on check_expire.sonumber = so_mssql.sonumber
+	// 				 AND YEAR(ContractEndDate) = ?
+	// 				 AND MONTH(ContractEndDate) = ?
+	// 				 AND check_expire.status != '1'
+	// 				 AND check_expire.remark IS NULL
+	// 				 GROUP BY so_mssql.sale_team,so_mssql.sonumber) AS T1
+	// 	GROUP BY T1.sale_team`, year, month).Scan(&DataTeam).Error; err != nil {
+	if err := dbSale.Ctx().Raw(` SELECT T1.fname,T1.lname,sum(T1.sum) as sum ,COUNT(T1.sonumber) as CountSO,SUM(T1.remark IS NULL AND T1.status IS NULL) as notupdate
+	FROM 
+	(SELECT so_mssql.sonumber,department,SUM(so_mssql.TotalContractAmount) as sum ,staff_info.one_id,staff_info.staff_id,staff_info.prefix,staff_info.fname,staff_info.lname,check_expire.remark,check_expire.status
+	 from so_mssql
+	 left join check_expire on check_expire.sonumber = so_mssql.sonumber
+	 left join staff_info on so_mssql.sale_code = staff_info.staff_id
+	 WHERE YEAR(ContractEndDate) = ? AND MONTH(ContractEndDate) = ?
+	 AND department = ?
+	 GROUP BY staff_info.staff_id,so_mssql.sonumber) AS T1
+	GROUP BY T1.staff_id`, year, month, department).Scan(&DataTeam).Error; err != nil {
 		log.Errorln(pkgName, err, "Select DataTeam error")
 		// return echo.ErrInternalServerError
 	}
