@@ -1620,7 +1620,7 @@ func GetRankingBaseSale2(c echo.Context) error {
 	if strings.TrimSpace(c.QueryParam(("staff_id"))) == "" || strings.TrimSpace(c.QueryParam("quarter")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Message: "invalid staff id or quarter"})
 	}
-	listStaffId, err := CheckPermissionBaseSale(strings.TrimSpace(c.QueryParam(("staff_id"))), finalFilter)
+	listStaffId, err := CheckPermissionBaseSale2(strings.TrimSpace(c.QueryParam(("staff_id"))), finalFilter)
 	if err != nil {
 		log.Errorln(pkgName, err, "func check permission error :-")
 		return c.JSON(http.StatusInternalServerError, m.Result{Error: "check permission error"})
