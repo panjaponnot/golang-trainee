@@ -284,9 +284,9 @@ func sumEF(input []model.SummaryCustomer) float64 {
 }
 
 func GetSummaryPendingSOEndPoint(c echo.Context) error {
-	if strings.TrimSpace(c.Param("id")) == "" {
-		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
-	}
+	// if strings.TrimSpace(c.Param("id")) == "" {
+	// 	return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	// }
 	year := strings.TrimSpace(c.QueryParam("year"))
 	month := strings.TrimSpace(c.QueryParam("month"))
 	// search := strings.TrimSpace(c.QueryParam("search"))
@@ -299,7 +299,7 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 		monthDefault := time.Now()
 		month = strconv.Itoa(int(monthDefault.Month()))
 	}
-	oneId := strings.TrimSpace(c.Param("id"))
+	// oneId := strings.TrimSpace(c.Param("id"))
 	// staff := []struct {
 	// 	ContractEndDate string `json:"ContractEndDate" gorm:"column:ContractEndDate"`
 	// 	Status          string `json:"status" gorm:"column:status"`
@@ -342,22 +342,31 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 		TotalContractAmount int     `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
 	}
 
+	type PendingDataSumV2 struct {
+		TotalContractAmount int `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+	}
+
 	Active := 0
 	Update := 0
 	NotUpdate := 0
-	var DataActive []PendingDataSum
-	var DataUpdate []PendingDataSum
-	var DataNotUpdate []PendingDataSum
+	var DataActive []PendingDataSumV2
+	var DataUpdate []PendingDataSumV2
+	var DataNotUpdate []PendingDataSumV2
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 	go func() {
-		if err := dbSale.Ctx().Raw(` SELECT * from staff_info
-			join so_mssql on so_mssql.sale_code = staff_info.staff_id
+		// if err := dbSale.Ctx().Raw(` SELECT * from staff_info
+		// 	join so_mssql on so_mssql.sale_code = staff_info.staff_id
+		// 	left join check_expire on check_expire.sonumber = so_mssql.sonumber
+		// 	 WHERE staff_info.one_id = ?
+		// 	 AND YEAR(ContractEndDate) >= ?
+		// 	 AND MONTH(ContractEndDate) > ?
+		// 	 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataActive).Error; err != nil {
+		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
 			left join check_expire on check_expire.sonumber = so_mssql.sonumber
-			 WHERE staff_info.one_id = ? 
-			 AND YEAR(ContractEndDate) >= ?
+			WHERE YEAR(ContractEndDate) >= ?
 			 AND MONTH(ContractEndDate) > ?
-			 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataActive).Error; err != nil {
+			 GROUP BY so_mssql.sonumber`, year, month).Scan(&DataActive).Error; err != nil {
 			log.Errorln(pkgName, err, "Select DataActive error")
 			// return echo.ErrInternalServerError
 		}
@@ -369,15 +378,22 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		if err := dbSale.Ctx().Raw(` SELECT * from staff_info
-			join so_mssql on so_mssql.sale_code = staff_info.staff_id
+		// if err := dbSale.Ctx().Raw(` SELECT * from staff_info
+		// 	join so_mssql on so_mssql.sale_code = staff_info.staff_id
+		// 	left join check_expire on check_expire.sonumber = so_mssql.sonumber
+		// 	 WHERE staff_info.one_id = ?
+		// 	 AND YEAR(ContractEndDate) = ?
+		// 	 AND MONTH(ContractEndDate) = ?
+		// 	 AND check_expire.remark IS NOT NULL
+		// 	 AND check_expire.status IS NOT NULL
+		// 	 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataUpdate).Error; err != nil {
+		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
 			left join check_expire on check_expire.sonumber = so_mssql.sonumber
-			 WHERE staff_info.one_id = ? 
-			 AND YEAR(ContractEndDate) = ?
+			WHERE YEAR(ContractEndDate) = ?
 			 AND MONTH(ContractEndDate) = ?
 			 AND check_expire.remark IS NOT NULL
 			 AND check_expire.status IS NOT NULL
-			 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataUpdate).Error; err != nil {
+			 GROUP BY so_mssql.sonumber`, year, month).Scan(&DataUpdate).Error; err != nil {
 			log.Errorln(pkgName, err, "Select DataUpdate error")
 			// return echo.ErrInternalServerError
 		}
@@ -389,15 +405,13 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		if err := dbSale.Ctx().Raw(` SELECT * from staff_info
-			join so_mssql on so_mssql.sale_code = staff_info.staff_id
+		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
 			left join check_expire on check_expire.sonumber = so_mssql.sonumber
-			 WHERE staff_info.one_id = ? 
-			 AND YEAR(ContractEndDate) = ?
+			WHERE YEAR(ContractEndDate) = ?
 			 AND MONTH(ContractEndDate) = ?
 			 AND check_expire.remark IS NULL
 			 AND check_expire.status IS NULL
-			 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataNotUpdate).Error; err != nil {
+			 GROUP BY so_mssql.sonumber`, year, month).Scan(&DataNotUpdate).Error; err != nil {
 			log.Errorln(pkgName, err, "Select DataNotUpdate error")
 			// return echo.ErrInternalServerError
 		}
@@ -431,9 +445,9 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 }
 
 func GetContractEndPoint(c echo.Context) error {
-	if strings.TrimSpace(c.Param("id")) == "" {
-		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
-	}
+	// if strings.TrimSpace(c.Param("id")) == "" {
+	// 	return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	// }
 	year := strings.TrimSpace(c.QueryParam("year"))
 	month := strings.TrimSpace(c.QueryParam("month"))
 	// search := strings.TrimSpace(c.QueryParam("search"))
@@ -446,7 +460,7 @@ func GetContractEndPoint(c echo.Context) error {
 		monthDefault := time.Now()
 		month = strconv.Itoa(int(monthDefault.Month()))
 	}
-	oneId := strings.TrimSpace(c.Param("id"))
+	// oneId := strings.TrimSpace(c.Param("id"))
 	type PendingDataSum struct {
 		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
 		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
@@ -476,21 +490,23 @@ func GetContractEndPoint(c echo.Context) error {
 		TotalContractAmount int     `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
 	}
 
+	type PendingDataSumV2 struct {
+		TotalContractAmount int `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+	}
+
 	CheckTrue := 0
 	CheckFalse := 0
-	var DataCheckTrue []PendingDataSum
-	var DataCheckFalse []PendingDataSum
+	var DataCheckTrue []PendingDataSumV2
+	var DataCheckFalse []PendingDataSumV2
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		if err := dbSale.Ctx().Raw(` SELECT * from staff_info
-			join so_mssql on so_mssql.sale_code = staff_info.staff_id
+		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
 			left join check_expire on check_expire.sonumber = so_mssql.sonumber
-			 WHERE staff_info.one_id = ? 
-			 AND YEAR(ContractEndDate) = ?
+			 WHERE YEAR(ContractEndDate) = ?
 			 AND MONTH(ContractEndDate) = ?
 			 AND check_expire.status = '1'
-			 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataCheckTrue).Error; err != nil {
+			 GROUP BY so_mssql.sonumber`, year, month).Scan(&DataCheckTrue).Error; err != nil {
 			log.Errorln(pkgName, err, "Select CheckTrue error")
 			// AND check_expire.remark IS NOT NULL
 			// return echo.ErrInternalServerError
@@ -503,14 +519,12 @@ func GetContractEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		if err := dbSale.Ctx().Raw(` SELECT * from staff_info
-			join so_mssql on so_mssql.sale_code = staff_info.staff_id
+		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
 			left join check_expire on check_expire.sonumber = so_mssql.sonumber
-			 WHERE staff_info.one_id = ? 
-			 AND YEAR(ContractEndDate) = ?
+			 WHERE YEAR(ContractEndDate) = ?
 			 AND MONTH(ContractEndDate) = ?
 			 AND check_expire.status = '0'
-			 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataCheckFalse).Error; err != nil {
+			 GROUP BY so_mssql.sonumber`, year, month).Scan(&DataCheckFalse).Error; err != nil {
 			log.Errorln(pkgName, err, "Select CheckFalse error")
 			// AND check_expire.remark IS NULL
 			// return echo.ErrInternalServerError
@@ -572,6 +586,7 @@ func GetTeamsEndPoint(c echo.Context) error {
 					 AND YEAR(ContractEndDate) = ?
 					 AND MONTH(ContractEndDate) = ?
 					 AND check_expire.status != '1'
+					 AND check_expire.remark IS NULL
 					 GROUP BY so_mssql.sale_team,so_mssql.sonumber) AS T1
 		GROUP BY T1.sale_team`, year, month).Scan(&DataTeam).Error; err != nil {
 		log.Errorln(pkgName, err, "Select DataTeam error")
