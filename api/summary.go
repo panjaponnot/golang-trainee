@@ -339,16 +339,19 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 		Department          string  `json:"department"`
 		Status              string  `json:"status"`
 		Remark              string  `json:"remark"`
-		TotalContractAmount int     `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
 	}
 
 	type PendingDataSumV2 struct {
-		TotalContractAmount int `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
 	}
 
-	Active := 0
-	Update := 0
-	NotUpdate := 0
+	Active := 0.0
+	// var Active int64
+	// var Update int64
+	// var NotUpdate int64
+	Update := 0.0
+	NotUpdate := 0.0
 	var DataActive []PendingDataSumV2
 	var DataUpdate []PendingDataSumV2
 	var DataNotUpdate []PendingDataSumV2
@@ -362,11 +365,11 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 		// 	 AND YEAR(ContractEndDate) >= ?
 		// 	 AND MONTH(ContractEndDate) > ?
 		// 	 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataActive).Error; err != nil {
+		DateStr := fmt.Sprintf(`%s-%s-01`, year, month)
 		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
 			left join check_expire on check_expire.sonumber = so_mssql.sonumber
-			WHERE YEAR(ContractEndDate) >= ?
-			 AND MONTH(ContractEndDate) > ?
-			 GROUP BY so_mssql.sonumber`, year, month).Scan(&DataActive).Error; err != nil {
+			WHERE ContractEndDate > ?
+			 GROUP BY so_mssql.sonumber`, DateStr).Scan(&DataActive).Error; err != nil {
 			log.Errorln(pkgName, err, "Select DataActive error")
 			// return echo.ErrInternalServerError
 		}
@@ -487,15 +490,15 @@ func GetContractEndPoint(c echo.Context) error {
 		Department          string  `json:"department"`
 		Status              string  `json:"status"`
 		Remark              string  `json:"remark"`
-		TotalContractAmount int     `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
 	}
 
 	type PendingDataSumV2 struct {
-		TotalContractAmount int `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
 	}
 
-	CheckTrue := 0
-	CheckFalse := 0
+	CheckTrue := 0.0
+	CheckFalse := 0.0
 	var DataCheckTrue []PendingDataSumV2
 	var DataCheckFalse []PendingDataSumV2
 	wg := sync.WaitGroup{}
