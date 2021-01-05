@@ -122,7 +122,6 @@ func InitApiRouter(g *echo.Group) error {
 	
 	tracking := g.Group("/tracking")
 	tracking.GET("/all", TrackingEndPoint)
-	tracking.GET("/summary/:date_start/:date_end", TrackingSummary)
 	
 	return nil
 }
