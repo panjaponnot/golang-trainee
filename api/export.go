@@ -3,8 +3,10 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"sale_ranking/model"
 	m "sale_ranking/model"
 	"sale_ranking/pkg/log"
+	"sale_ranking/pkg/server"
 	"sale_ranking/pkg/util"
 	"strconv"
 	"strings"
@@ -519,6 +521,356 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 	if err != nil {
 		log.Errorln("XLSX export error ->", err)
 		return c.JSON(http.StatusInternalServerError, m.Result{Error: "export error"})
+	}
+	return c.Blob(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buff.Bytes())
+
+}
+
+func GetReportExcelTrackingEndPoint(c echo.Context) error {
+
+	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+	// b, e := strconv.ParseBool(strings.TrimSpace(c.QueryParam("check_amount")))
+	// if e != nil {
+	// 	return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid check amount"})
+	// }
+
+	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
+	search := strings.TrimSpace(c.QueryParam("search"))
+	status := strings.TrimSpace(c.QueryParam("status"))
+	// fmt.Println("====> filter", search)
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("end_date")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	startRange := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	endRange := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+	dateFrom := startRange.Format("2006-01-02")
+	dateTo := endRange.Format("2006-01-02")
+	m := endRange.Sub(startRange)
+	if m < 0 {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid date"})
+	}
+
+	//// get staff id ////
+	var user []model.UserInfo
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, saleId).Scan(&user).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user) != 0 {
+		var staffAll []model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.StaffId)
+		}
+	} else {
+		var staffAll model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, saleId).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.StaffChild != "" {
+			data := strings.Split(staffAll.StaffChild, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.StaffId)
+	}
+
+	sql := `Select * From  ( SELECT DISTINCT Customer_ID as Customer_ID, Customer_Name, sum(sonumber) as total_so, sum(csnumber) as total_cs,sum(invnumber) as total_inv, sum(rcnumber) as total_rc, sum(cnnumber) as total_cn,
+	sum(so_amount) as so_amount, sum(inv_amount) as inv_amount, sum(cs_amount) as cs_amount, sum(rc_amount) as rc_amount, sum(cn_amount) as cn_amount, sum(amount) as amount, AVG(in_factor) as in_factor,
+	sum(in_factor) as sum_if, sum(inv_amount) - sum(rc_amount) as outstainding_amount,sale_code,sale_name,AVG(ex_factor) as ex_factor,sum(ex_factor) as sum_ef, department, nname,
+	(CASE
+		WHEN sum(inv_amount) = 0 THEN 'ยังไม่ออกใบแจ้งหนี้'
+		WHEN sum(inv_amount) = sum(cn_amount) THEN 'ลดหนี้'
+		WHEN sum(inv_amount) - sum(cn_amount) <= sum(rc_amount) AND sum(rc_amount) <> 0 THEN 'ชำระแล้ว'
+		WHEN sum(inv_amount) - sum(cn_amount) > sum(rc_amount) AND sum(rc_amount) <> 0 THEN 'ชำระไม่ครบ'
+		ELSE 'ค้างชำระ' END
+	) as status,
+	sum((CASE
+		WHEN inv_amount = rc_amount THEN inv_amount
+		ELSE inv_amount - cn_amount END
+	)) as inv_amount_cal,
+	(sum(amount)/sum(amount_engcost)) as sale_factor,
+	sonumber_all
+	from (
+		SELECT
+			count(DISTINCT sonumber) as sonumber,
+			count(sonumber) as sonumber_all,
+			Customer_ID as Customer_ID,
+			Customer_Name as Customer_Name,
+			count(DISTINCT(CASE WHEN SDPropertyCS28 !='' THEN SDPropertyCS28 END)) as csnumber,
+			count(DISTINCT(CASE WHEN BLSCDocNo !='' THEN BLSCDocNo END)) as invnumber,
+			count(DISTINCT(CASE WHEN INCSCDocNo !='' THEN INCSCDocNo END)) as rcnumber,
+			count(DISTINCT(CASE WHEN GetCN !='' THEN GetCN END)) as cnnumber,
+			sum(so_amount) as so_amount,
+			sum(CASE WHEN BLSCDocNo !='' THEN so_amount ELSE 0 END) as inv_amount,
+			sum(CASE WHEN SDPropertyCS28 !='' THEN so_amount ELSE 0 END) as cs_amount,
+			sum(CASE WHEN INCSCDocNo !='' THEN so_amount ELSE 0 END) as rc_amount,
+			sum(CASE WHEN GetCN !='' THEN so_amount ELSE 0 END) as cn_amount,
+			sum(PeriodAmount) as amount,
+			sum(eng_cost) as amount_engcost,
+			sale_factor,
+			in_factor,sale_code,sale_name,ex_factor
+			FROM (
+				SELECT
+					SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
+					sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
+					(case
+						when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
+						else 0 end
+					) as eng_cost,
+					(CASE
+						WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+						THEN 0
+						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+						THEN PeriodAmount
+						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate = ?
+						THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+						ELSE 0 END
+					) as so_amount
+				FROM (
+					SELECT * FROM so_mssql
+					WHERE Active_Inactive = 'Active'
+					and PeriodStartDate <= ? and PeriodEndDate >= ?
+					and PeriodStartDate <= PeriodEndDate
+					and sale_code in (?)
+				) sub_data
+			) so_group
+			WHERE so_amount <> 0 group by sonumber
+		) cust_group
+		LEFT JOIN staff_info ON cust_group.sale_code = staff_info.staff_id
+		group by Customer_ID ) as a
+		where INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code, nname, department), ?) AND INSTR(CONCAT_WS('|', status), ?);`
+	var sum []model.SummaryCustomer
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, status).Scan(&sum).Error; err != nil {
+		if gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+		}
+		return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+	}
+
+	// // *******check amount*********** // //
+	// if b {
+	// 	sqlAmount := `SELECT
+	// 	count(DISTINCT sonumber) as total_so,
+	// 	count(DISTINCT(CASE WHEN SDPropertyCS28 !='' THEN SDPropertyCS28 END)) as total_cs,
+	// 	count(DISTINCT(CASE WHEN BLSCDocNo !='' THEN BLSCDocNo END)) as total_inv,
+	// 	count(DISTINCT(CASE WHEN INCSCDocNo !='' THEN INCSCDocNo END)) as total_rc,
+	// 	count(DISTINCT(CASE WHEN GetCN !='' THEN GetCN END)) as total_cn,
+	// 	sum(so_amount) as so_amount,
+	// 	sum(CASE WHEN BLSCDocNo !='' THEN so_amount ELSE 0 END) as inv_amount,
+	// 	sum(CASE WHEN SDPropertyCS28 !='' THEN so_amount ELSE 0 END) as cs_amount,
+	// 	sum(CASE WHEN INCSCDocNo !='' THEN so_amount ELSE 0 END) as rc_amount,
+	// 	sum(CASE WHEN GetCN !='' THEN so_amount ELSE 0 END) as cn_amount,
+	// 	sum(PeriodAmount) as amount,
+	// 	sum(eng_cost) as amount_engcost,
+	// 	(sum(PeriodAmount)/sum(eng_cost)) as sale_factor,
+	// 	sum(CASE WHEN BLSCDocNo !='' THEN so_amount ELSE 0 END) - sum(CASE WHEN INCSCDocNo !='' THEN so_amount ELSE 0 END) as outstanding_total,
+	// 	count(sonumber) as total_all_so,
+	// 	sum(CASE WHEN status_so = 'ยังไม่ออกใบแจ้งหนี้' THEN 1 ELSE 0 END) as total_status_noinv,
+	// 	sum(CASE WHEN status_so = 'ออกใบแจ้งหนี้' THEN 1 ELSE 0 END) as total_status_haveinv,
+	// 	sum(CASE WHEN status_so = 'ลดหนี้' THEN 1 ELSE 0 END) as total_status_havecn,
+	// 	sum(CASE WHEN status_so = 'ยังไม่ออกใบแจ้งหนี้' THEN so_amount ELSE 0 END) as amount_status_noinv,
+	// 	sum(CASE WHEN status_so = 'ออกใบแจ้งหนี้' THEN so_amount ELSE 0 END) as amount_status_haveinv,
+	// 	sum(CASE WHEN status_so = 'ลดหนี้' THEN so_amount ELSE 0 END) as amount_status_havecn,
+	// 	sum(CASE WHEN status_incoome = 'ค้างชำระ' THEN 1 ELSE 0 END) as total_status_norc,
+	// 	sum(CASE WHEN status_incoome = 'ชำระแล้ว' THEN 1 ELSE 0 END) as total_status_haverc,
+	// 	sum(CASE WHEN status_incoome = 'ค้างชำระ' THEN so_amount ELSE 0 END) as amount_status_norc,
+	// 	sum(CASE WHEN status_incoome = 'ชำระแล้ว' THEN so_amount ELSE 0 END) as amount_status_haverc
+	// 	,nname, department
+	// 	FROM (
+	// 		SELECT
+	// 			SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
+	// 			sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor,
+	// 			(case
+	// 				when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
+	// 				else 0 end
+	// 			) as eng_cost,
+	// 			staff_info.nname, staff_info.department,
+	// 			(CASE
+	// 				WHEN sonumber <> '' AND BLSCDocNo = '' THEN 'ยังไม่ออกใบแจ้งหนี้'
+	// 				WHEN sonumber <> '' AND BLSCDocNo <> '' AND GetCN = '' THEN 'ออกใบแจ้งหนี้'
+	// 				WHEN sonumber <> '' AND BLSCDocNo <> '' AND GetCN <> '' AND INCSCDocNo = '' THEN 'ลดหนี้'
+	// 				ELSE 'ออกใบแจ้งหนี้' END
+	// 			) as status_so,
+	// 			(CASE
+	// 				WHEN sonumber <> '' AND BLSCDocNo <> '' AND GetCN = '' AND INCSCDocNo = '' THEN 'ค้างชำระ'
+	// 				WHEN sonumber <> '' AND BLSCDocNo <> '' AND INCSCDocNo <> '' THEN 'ชำระแล้ว'
+	// 				ELSE '' END
+	// 			) as status_incoome,
+	// 			(CASE
+	// 				WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+	// 				THEN 0
+	// 				WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+	// 				THEN PeriodAmount
+	// 				WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
+	// 				THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+	// 				WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
+	// 				THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+	// 				WHEN PeriodStartDate < ? AND PeriodEndDate = ?
+	// 				THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+	// 				WHEN PeriodStartDate < ? AND PeriodEndDate > ?
+	// 				THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+	// 				ELSE 0 END
+	// 			) as so_amount
+	// 		FROM (
+	// 			SELECT * FROM so_mssql
+	// 			WHERE Active_Inactive = 'Active'
+	// 			and PeriodStartDate <= ? and PeriodEndDate >= ?
+	// 			and PeriodStartDate <= PeriodEndDate
+	// 			and sale_code in (?)
+	// 		) sub_data LEFT JOIN staff_info ON sub_data.sale_code = staff_info.staff_id
+	// 	) so_group
+	// 	WHERE so_amount <> 0 AND INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code, nname, department), ?) `
+	// 	var sumAmount model.SummaryCustomer
+	// 	if err := dbSale.Ctx().Raw(sqlAmount, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search).Scan(&sumAmount).Error; err != nil {
+	// 		if gorm.IsRecordNotFoundError(err) {
+	// 			return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+	// 		}
+	// 		return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+	// 	}
+	// 	sumInFac := 0.0
+	// 	sumExFac := 0.0
+
+	// 	if sumAmount.TotalSo != 0 {
+	// 		sumInFac = sumIF(sum) / sumAmount.TotalSo
+	// 		sumExFac = sumEF(sum) / sumAmount.TotalSo
+	// 	}
+
+	// 	dataMap := map[string]interface{}{
+	// 		"data":           sumAmount,
+	// 		"customer_total": len(sum),
+	// 		"in_factor":      sumInFac,
+	// 		"ex_factor":      sumExFac,
+	// 		"detail":         sum,
+	// 	}
+
+	// return c.JSON(http.StatusOK, dataMap)
+	// }
+
+	// // *******check amount*********** // //
+
+	// return c.JSON(http.StatusOK, sum)
+
+	log.Infoln(pkgName, "====  create excel ====")
+	f := excelize.NewFile()
+	// Create a new sheet.
+	mode := "tracking"
+	index := f.NewSheet(mode)
+	// Set value of a cell.
+
+	f.SetCellValue(mode, "A1", "Customer ID")
+	f.SetCellValue(mode, "B1", "Customer Name")
+	f.SetCellValue(mode, "C1", "Total So")
+	f.SetCellValue(mode, "D1", "Total Cs")
+	f.SetCellValue(mode, "E1", "Total Inv")
+	f.SetCellValue(mode, "F1", "Total Rc")
+	f.SetCellValue(mode, "G1", "Total Cn")
+	f.SetCellValue(mode, "H1", "So Amount")
+	f.SetCellValue(mode, "I1", "Inv Amount")
+	f.SetCellValue(mode, "J1", "Cs Amount")
+	f.SetCellValue(mode, "K1", "Rc Amount")
+	f.SetCellValue(mode, "L1", "Cn Amount")
+	f.SetCellValue(mode, "M1", "Amount")
+	f.SetCellValue(mode, "N1", "In Factor")
+	f.SetCellValue(mode, "O1", "Sum If")
+	f.SetCellValue(mode, "P1", "Outstanding Amount")
+	f.SetCellValue(mode, "Q1", "Sale Code")
+	f.SetCellValue(mode, "R1", "Sale Name")
+	f.SetCellValue(mode, "S1", "Ex Factor")
+	f.SetCellValue(mode, "T1", "Sum Ef")
+	f.SetCellValue(mode, "U1", "Department")
+	f.SetCellValue(mode, "V1", "Inv Amount Cal")
+	f.SetCellValue(mode, "W1", "Nname")
+	f.SetCellValue(mode, "X1", "Status")
+	f.SetCellValue(mode, "Y1", "Sale Factor")
+	f.SetCellValue(mode, "Z1", "Sonumber All")
+
+	colCustomerID := "A"
+	colCustomerName := "B"
+	colTotalSo := "C"
+	colTotalCs := "D"
+	colSoAmountTotalInv := "E"
+	colTotalRc := "F"
+	colTotalCn := "G"
+	colSoAmount := "H"
+	colInvAmount := "I"
+	colCsAmount := "J"
+	colRcAmount := "K"
+	colCnAmount := "L"
+	colAmount := "M"
+	colInFactor := "N"
+	colSumIf := "O"
+	colSaleCode := "Q"
+	colSaleName := "R"
+	colExFactor := "S"
+	colSumEf := "T"
+	colDepartment := "U"
+	colInvAmountCal := "V"
+	colNname := "W"
+	colStatus := "X"
+	colSaleFactor := "Y"
+	colSoNumberAll := "Z"
+
+	for k, v := range sum {
+		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
+		f.SetCellValue(mode, fmt.Sprint(colCustomerID, k+2), v.CustomerID)
+		f.SetCellValue(mode, fmt.Sprint(colCustomerName, k+2), v.CustomerName)
+		f.SetCellValue(mode, fmt.Sprint(colTotalSo, k+2), v.TotalSo)
+		f.SetCellValue(mode, fmt.Sprint(colTotalCs, k+2), v.TotalCs)
+		f.SetCellValue(mode, fmt.Sprint(colSoAmountTotalInv, k+2), v.SoAmountTotalInv)
+		f.SetCellValue(mode, fmt.Sprint(colTotalRc, k+2), v.TotalRc)
+		f.SetCellValue(mode, fmt.Sprint(colTotalCn, k+2), v.TotalCn)
+		f.SetCellValue(mode, fmt.Sprint(colSoAmount, k+2), v.SoAmount)
+		f.SetCellValue(mode, fmt.Sprint(colInvAmount, k+2), v.InvAmount)
+		f.SetCellValue(mode, fmt.Sprint(colCsAmount, k+2), v.CsAmount)
+		f.SetCellValue(mode, fmt.Sprint(colRcAmount, k+2), v.RcAmount)
+		f.SetCellValue(mode, fmt.Sprint(colCnAmount, k+2), v.CnAmount)
+
+		f.SetCellValue(mode, fmt.Sprint(colAmount, k+2), v.Amount)
+		f.SetCellValue(mode, fmt.Sprint(colInFactor, k+2), v.InFactor)
+		f.SetCellValue(mode, fmt.Sprint(colSumIf, k+2), v.SumIf)
+		f.SetCellValue(mode, fmt.Sprint(colSaleCode, k+2), v.SaleCode)
+		f.SetCellValue(mode, fmt.Sprint(colSaleName, k+2), v.SaleName)
+		f.SetCellValue(mode, fmt.Sprint(colExFactor, k+2), v.ExFactor)
+		f.SetCellValue(mode, fmt.Sprint(colSumEf, k+2), v.SumEf)
+		f.SetCellValue(mode, fmt.Sprint(colDepartment, k+2), v.Department)
+		f.SetCellValue(mode, fmt.Sprint(colInvAmountCal, k+2), v.InvAmountCal)
+		f.SetCellValue(mode, fmt.Sprint(colNname, k+2), v.Nname)
+		f.SetCellValue(mode, fmt.Sprint(colStatus, k+2), v.Status)
+		f.SetCellValue(mode, fmt.Sprint(colSaleFactor, k+2), v.SaleFactor)
+		f.SetCellValue(mode, fmt.Sprint(colSoNumberAll, k+2), v.SoNumberAll)
+	}
+
+	f.SetActiveSheet(index)
+	f.DeleteSheet("Sheet1")
+
+	buff, err := f.WriteToBuffer()
+	if err != nil {
+		log.Errorln("XLSX export error ->", err)
+		return c.JSON(http.StatusInternalServerError, model.Result{Error: "export error"})
 	}
 	return c.Blob(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buff.Bytes())
 
