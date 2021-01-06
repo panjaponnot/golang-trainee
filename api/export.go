@@ -823,6 +823,7 @@ func GetReportExcelTrackingEndPoint(c echo.Context) error {
 	colAmount := "M"
 	colInFactor := "N"
 	colSumIf := "O"
+	colOutStandingAmount := "P"
 	colSaleCode := "Q"
 	colSaleName := "R"
 	colExFactor := "S"
@@ -852,6 +853,7 @@ func GetReportExcelTrackingEndPoint(c echo.Context) error {
 		f.SetCellValue(mode, fmt.Sprint(colAmount, k+2), v.Amount)
 		f.SetCellValue(mode, fmt.Sprint(colInFactor, k+2), v.InFactor)
 		f.SetCellValue(mode, fmt.Sprint(colSumIf, k+2), v.SumIf)
+		f.SetCellValue(mode, fmt.Sprint(colOutStandingAmount, k+2), v.OutStandingAmount)
 		f.SetCellValue(mode, fmt.Sprint(colSaleCode, k+2), v.SaleCode)
 		f.SetCellValue(mode, fmt.Sprint(colSaleName, k+2), v.SaleName)
 		f.SetCellValue(mode, fmt.Sprint(colExFactor, k+2), v.ExFactor)
@@ -862,6 +864,232 @@ func GetReportExcelTrackingEndPoint(c echo.Context) error {
 		f.SetCellValue(mode, fmt.Sprint(colStatus, k+2), v.Status)
 		f.SetCellValue(mode, fmt.Sprint(colSaleFactor, k+2), v.SaleFactor)
 		f.SetCellValue(mode, fmt.Sprint(colSoNumberAll, k+2), v.SoNumberAll)
+	}
+
+	f.SetActiveSheet(index)
+	f.DeleteSheet("Sheet1")
+
+	buff, err := f.WriteToBuffer()
+	if err != nil {
+		log.Errorln("XLSX export error ->", err)
+		return c.JSON(http.StatusInternalServerError, model.Result{Error: "export error"})
+	}
+	return c.Blob(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buff.Bytes())
+
+}
+
+func GetReportExcelQuotationEndPoint(c echo.Context) error {
+
+	type QuotationJoin struct {
+		DocNumberEform  string    `json:"doc_number_eform"`
+		Service         string    `json:"service"`
+		EmployeeCode    string    `json:"employee_code"`
+		SaleName        string    `json:"sale_name" gorm:"column:salename"`
+		CompanyName     string    `json:"company_name"`
+		Team            string    `json:"team"`
+		Total           float64   `json:"total" `
+		TotalDiscount   float64   `json:"total_discount"`
+		TotalPrice      float64   `json:"total_price"`
+		StartDate       time.Time `json:"start_date"`
+		EndDate         time.Time `json:"end_date"`
+		RefQuotation    string    `json:"ref_quotation"`
+		RefSO           string    `json:"ref_so" gorm:"column:refSO"`
+		DateTime        string    `json:"datetime" gorm:"column:datetime"`
+		ServicePlatform string    `json:"service_platform"`
+		Reason          string    `json:"reason"`
+		Status          string    `json:"status" gorm:"column:status_sale"`
+		Remark          string    `json:"remark" gorm:"column:remark"`
+	}
+
+	year := strings.TrimSpace(c.QueryParam("year"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("year")), 10); err == nil {
+			yearDefault = time.Unix(util.ConvertTimeStamp(f), 0)
+		}
+		years, _, _ := yearDefault.Date()
+		year = strconv.Itoa(years)
+	}
+
+	if strings.TrimSpace(c.QueryParam("id")) == "" {
+		return echo.ErrBadRequest
+	}
+
+	id := strings.TrimSpace(c.QueryParam("id"))
+	var quarter string
+	var month string
+	var search string
+	page, _ := strconv.Atoi(strings.TrimSpace(c.QueryParam("page")))
+	if strings.TrimSpace(c.QueryParam("page")) == "" {
+		page = 1
+	}
+	if strings.TrimSpace(c.QueryParam("quarter")) != "" {
+		quarter = fmt.Sprintf("AND quarter(start_date) = %s", strings.TrimSpace(c.QueryParam("quarter")))
+	}
+	if strings.TrimSpace(c.QueryParam("month")) != "" {
+		month = fmt.Sprintf("AND MONTH(start_date) = %s", strings.TrimSpace(c.QueryParam("month")))
+	}
+	if strings.TrimSpace(c.QueryParam("search")) != "" {
+		search = fmt.Sprintf("AND INSTR(CONCAT_WS('|', company_name, service, employee_code, salename, team,quatation_th.doc_number_eform), '%s')", strings.TrimSpace(c.QueryParam("search")))
+	}
+
+	dataResult := struct {
+		Total  interface{} `json:"total"`
+		Detail interface{} `json:"detail"`
+	}{}
+	dataCount := struct {
+		Count        int
+		Total        int
+		Work         int
+		NotWork      int
+		Win          int
+		Lost         int
+		Resend       int
+		ReasonWin    interface{}
+		ReasonResend interface{}
+		ReasonLost   interface{}
+		CountService interface{}
+		CountCompany interface{}
+		CountType    interface{}
+		CountTeam    interface{}
+	}{}
+
+	var user []m.UserInfo
+	if err := dbSale.Ctx().Raw(` SELECT * FROM user_info WHERE role = 'admin' AND one_id = ? `, id).Scan(&user).Error; err != nil {
+		log.Errorln(pkgName, err, "User Not Found")
+		if !gorm.IsRecordNotFoundError(err) {
+			log.Errorln(pkgName, err, "Select user Error")
+			return echo.ErrInternalServerError
+		}
+	}
+	textStaffId := ""
+	var listStaffId []string
+
+	if len(user) == 0 {
+		staff := struct {
+			StaffId    string `json:"staff_id"`
+			StaffChild string `json:"staff_child"`
+		}{}
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info where one_id = ?`, id).Scan(&staff).Error; err != nil {
+			log.Errorln(pkgName, err, "Select data error")
+			return c.JSON(http.StatusNotFound, m.Result{Message: "Staff Not Found"})
+		}
+
+		if strings.TrimSpace(staff.StaffChild) != "" {
+			raw := strings.Split(staff.StaffChild, ",")
+			for _, id := range raw {
+				listStaffId = append(listStaffId, id)
+			}
+			listStaffId = append(listStaffId, staff.StaffId)
+		} else {
+			listStaffId = append(listStaffId, staff.StaffId)
+		}
+		textStaffId = fmt.Sprintf("AND employee_code IN (%s)", strings.Join(listStaffId, ","))
+	}
+	log.Infoln(textStaffId)
+
+	hasErr := 0
+	// total all
+	var dataRaw []QuotationJoin
+	var dataRawRes []QuotationJoin
+	sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th 
+		LEFT JOIN (SELECT doc_number_eform,reason,remark,status as status_sale FROM sales_approve WHERE status IN ('Win','Lost','Resend/Revised','Cancel')) as sales_approve 
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL)
+		AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
+	if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
+		hasErr += 1
+	}
+	if len(dataRaw) > (page * 20) {
+		start := (page - 1) * 20
+		end := (page * 20)
+		dataResult.Detail = map[string]interface{}{
+			"data":  dataRaw[start:end],
+			"count": len(dataRaw[start:end]),
+		}
+		dataRawRes = dataRaw[start:end]
+	} else {
+		start := (page * 20) - (20)
+		dataResult.Detail = map[string]interface{}{
+			"data":  dataRaw[start:],
+			"count": len(dataRaw[start:]),
+		}
+		dataRawRes = dataRaw[start:]
+	}
+	dataCount.Total = len(dataRaw)
+
+	if hasErr != 0 {
+		return echo.ErrInternalServerError
+	}
+
+	// return c.JSON(http.StatusOK, dataResult)
+
+	log.Infoln(pkgName, "====  create excel ====")
+	f := excelize.NewFile()
+	// Create a new sheet.
+	mode := "quotation"
+	index := f.NewSheet(mode)
+	// Set value of a cell.
+
+	f.SetCellValue(mode, "A1", "DocNumber Eform")
+	f.SetCellValue(mode, "B1", "Service")
+	f.SetCellValue(mode, "C1", "Employee Code")
+	f.SetCellValue(mode, "D1", "Sale Name")
+	f.SetCellValue(mode, "E1", "Company Name")
+	f.SetCellValue(mode, "F1", "Team")
+	f.SetCellValue(mode, "G1", "Total")
+	f.SetCellValue(mode, "H1", "Total Discount")
+	f.SetCellValue(mode, "I1", "Total Price")
+	f.SetCellValue(mode, "J1", "Start Date")
+	f.SetCellValue(mode, "K1", "End Date")
+	f.SetCellValue(mode, "L1", "Ref Quotation")
+	f.SetCellValue(mode, "M1", "Ref SO")
+	f.SetCellValue(mode, "N1", "Date Time")
+	f.SetCellValue(mode, "O1", "Service Platform")
+	f.SetCellValue(mode, "P1", "Reason")
+	f.SetCellValue(mode, "Q1", "Status")
+	f.SetCellValue(mode, "R1", "Remark")
+
+	colDocNumberEform := "A"
+	colService := "B"
+	colEmployeeCode := "C"
+	colSaleName := "D"
+	colCompanyName := "E"
+	colTeam := "F"
+	colTotal := "G"
+	colTotalDiscount := "H"
+	colTotalPrice := "I"
+	colStartDate := "J"
+	colEndDate := "K"
+	colRefQuotation := "L"
+	colRefSO := "M"
+	colDateTime := "N"
+	colServicePlatform := "O"
+	colReason := "P"
+	colStatus := "Q"
+	colRemark := "R"
+
+	for k, v := range dataRawRes {
+		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
+		f.SetCellValue(mode, fmt.Sprint(colDocNumberEform, k+2), v.DocNumberEform)
+		f.SetCellValue(mode, fmt.Sprint(colService, k+2), v.Service)
+		f.SetCellValue(mode, fmt.Sprint(colEmployeeCode, k+2), v.EmployeeCode)
+		f.SetCellValue(mode, fmt.Sprint(colSaleName, k+2), v.SaleName)
+		f.SetCellValue(mode, fmt.Sprint(colCompanyName, k+2), v.CompanyName)
+		f.SetCellValue(mode, fmt.Sprint(colTeam, k+2), v.Team)
+		f.SetCellValue(mode, fmt.Sprint(colTotal, k+2), v.Total)
+		f.SetCellValue(mode, fmt.Sprint(colTotalDiscount, k+2), v.TotalDiscount)
+		f.SetCellValue(mode, fmt.Sprint(colTotalPrice, k+2), v.TotalPrice)
+		f.SetCellValue(mode, fmt.Sprint(colStartDate, k+2), v.StartDate)
+		f.SetCellValue(mode, fmt.Sprint(colEndDate, k+2), v.EndDate)
+		f.SetCellValue(mode, fmt.Sprint(colRefQuotation, k+2), v.RefQuotation)
+
+		f.SetCellValue(mode, fmt.Sprint(colRefSO, k+2), v.RefSO)
+		f.SetCellValue(mode, fmt.Sprint(colDateTime, k+2), v.DateTime)
+		f.SetCellValue(mode, fmt.Sprint(colServicePlatform, k+2), v.ServicePlatform)
+		f.SetCellValue(mode, fmt.Sprint(colReason, k+2), v.Reason)
+		f.SetCellValue(mode, fmt.Sprint(colStatus, k+2), v.Status)
+		f.SetCellValue(mode, fmt.Sprint(colRemark, k+2), v.Remark)
 	}
 
 	f.SetActiveSheet(index)
