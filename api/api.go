@@ -73,6 +73,9 @@ func InitApiRouter(g *echo.Group) error {
 	export.GET("/so", GetReportExcelSOEndPoint)
 	export.GET("/tracking", GetReportExcelTrackingEndPoint)
 	export.GET("/quotation", GetReportExcelQuotationEndPoint)
+	export.GET("/ranking/base", GettReportExcelRankBaseSaleEndPoint)
+	export.GET("/ranking/key", GettReportExcelRankKeyAccEndPoint)
+	export.GET("/ranking/recovery", GettReportExcelRankRecoveEndPoint)
 
 	report := g.Group("/report")
 	report.GET("/org", GetDataOrgChartEndPoint)
