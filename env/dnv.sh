@@ -21,3 +21,7 @@ export DB_MSSQL_EQUIP_HOST=203.151.236.21
 export DB_MSSQL_EQUIP_USERNAME=ols_readonly
 export DB_MSSQL_EQUIP_NAME=ITSM_UK
 export DB_MSSQL_EQUIP_PASSWORD='Demo@1234'
+export CONDITION_BASE_SALE='recovery','key account','up&cross','retention','JV'
+export CONDITION_GOV_KEY_SALE='key','account'
+export CONDITION_GOV_RECOVER_SALE='recovery'
+export ACCOUNT_NOT_SALE='61073','62125','62273','57030','60265','61025','62186','19007','62268'
