@@ -287,6 +287,7 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 	// if strings.TrimSpace(c.Param("id")) == "" {
 	// 	return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	// }
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
 	year := strings.TrimSpace(c.QueryParam("year"))
 	month := strings.TrimSpace(c.QueryParam("month"))
 	// search := strings.TrimSpace(c.QueryParam("search"))
@@ -369,7 +370,8 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
 			left join check_expire on check_expire.sonumber = so_mssql.sonumber
 			WHERE ContractEndDate > ?
-			 GROUP BY so_mssql.sonumber`, DateStr).Scan(&DataActive).Error; err != nil {
+			AND INSTR(CONCAT_WS('|', sale_code), ?) 
+			 GROUP BY so_mssql.sonumber`, DateStr, StaffId).Scan(&DataActive).Error; err != nil {
 			log.Errorln(pkgName, err, "Select DataActive error")
 			// return echo.ErrInternalServerError
 		}
@@ -396,7 +398,8 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 			 AND MONTH(ContractEndDate) = ?
 			 AND check_expire.remark IS NOT NULL
 			 AND check_expire.status IS NOT NULL
-			 GROUP BY so_mssql.sonumber`, year, month).Scan(&DataUpdate).Error; err != nil {
+			 AND INSTR(CONCAT_WS('|', sale_code), ?) 
+			 GROUP BY so_mssql.sonumber`, year, month, StaffId).Scan(&DataUpdate).Error; err != nil {
 			log.Errorln(pkgName, err, "Select DataUpdate error")
 			// return echo.ErrInternalServerError
 		}
@@ -414,7 +417,8 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 			 AND MONTH(ContractEndDate) = ?
 			 AND check_expire.remark IS NULL
 			 AND check_expire.status IS NULL
-			 GROUP BY so_mssql.sonumber`, year, month).Scan(&DataNotUpdate).Error; err != nil {
+			 AND INSTR(CONCAT_WS('|', sale_code), ?) 
+			 GROUP BY so_mssql.sonumber`, year, month, StaffId).Scan(&DataNotUpdate).Error; err != nil {
 			log.Errorln(pkgName, err, "Select DataNotUpdate error")
 			// return echo.ErrInternalServerError
 		}
@@ -451,6 +455,7 @@ func GetContractEndPoint(c echo.Context) error {
 	// if strings.TrimSpace(c.Param("id")) == "" {
 	// 	return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	// }
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
 	year := strings.TrimSpace(c.QueryParam("year"))
 	month := strings.TrimSpace(c.QueryParam("month"))
 	// search := strings.TrimSpace(c.QueryParam("search"))
@@ -509,7 +514,8 @@ func GetContractEndPoint(c echo.Context) error {
 			 WHERE YEAR(ContractEndDate) = ?
 			 AND MONTH(ContractEndDate) = ?
 			 AND check_expire.status = '1'
-			 GROUP BY so_mssql.sonumber`, year, month).Scan(&DataCheckTrue).Error; err != nil {
+			 AND INSTR(CONCAT_WS('|', sale_code), ?) 
+			 GROUP BY so_mssql.sonumber`, year, month, StaffId).Scan(&DataCheckTrue).Error; err != nil {
 			log.Errorln(pkgName, err, "Select CheckTrue error")
 			// AND check_expire.remark IS NOT NULL
 			// return echo.ErrInternalServerError
@@ -527,7 +533,8 @@ func GetContractEndPoint(c echo.Context) error {
 			 WHERE YEAR(ContractEndDate) = ?
 			 AND MONTH(ContractEndDate) = ?
 			 AND check_expire.status = '0'
-			 GROUP BY so_mssql.sonumber`, year, month).Scan(&DataCheckFalse).Error; err != nil {
+			 AND INSTR(CONCAT_WS('|', sale_code), ?) 
+			 GROUP BY so_mssql.sonumber`, year, month, StaffId).Scan(&DataCheckFalse).Error; err != nil {
 			log.Errorln(pkgName, err, "Select CheckFalse error")
 			// AND check_expire.remark IS NULL
 			// return echo.ErrInternalServerError
@@ -560,6 +567,7 @@ func GetTeamsEndPoint(c echo.Context) error {
 	// if strings.TrimSpace(c.Param("id")) == "" {
 	// 	return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	// }
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
 	year := strings.TrimSpace(c.QueryParam("year"))
 	month := strings.TrimSpace(c.QueryParam("month"))
 	// search := strings.TrimSpace(c.QueryParam("search"))
@@ -600,9 +608,10 @@ func GetTeamsEndPoint(c echo.Context) error {
 		 left join check_expire on check_expire.sonumber = so_mssql.sonumber
 		 left join staff_info on so_mssql.sale_code = staff_info.staff_id
 		 WHERE YEAR(ContractEndDate) = ? AND MONTH(ContractEndDate) = ?
+		 AND INSTR(CONCAT_WS('|', sale_code), ?) 
 		 GROUP BY so_mssql.sale_team,so_mssql.sonumber
 		) AS T1
-		GROUP BY T1.department`, year, month).Scan(&DataTeam).Error; err != nil {
+		GROUP BY T1.department`, year, month, StaffId).Scan(&DataTeam).Error; err != nil {
 		log.Errorln(pkgName, err, "Select DataTeam error")
 		// return echo.ErrInternalServerError
 	}
@@ -615,6 +624,7 @@ func GetTeamsEndPoint(c echo.Context) error {
 }
 
 func GetTeamsDepartmentEndPoint(c echo.Context) error {
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
 	if strings.TrimSpace(c.QueryParam("department")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	}
@@ -660,8 +670,9 @@ func GetTeamsDepartmentEndPoint(c echo.Context) error {
 	 left join staff_info on so_mssql.sale_code = staff_info.staff_id
 	 WHERE YEAR(ContractEndDate) = ? AND MONTH(ContractEndDate) = ?
 	 AND department = ?
+	 AND INSTR(CONCAT_WS('|', sale_code), ?) 
 	 GROUP BY staff_info.staff_id,so_mssql.sonumber) AS T1
-	GROUP BY T1.staff_id`, year, month, department).Scan(&DataTeam).Error; err != nil {
+	GROUP BY T1.staff_id`, year, month, department, StaffId).Scan(&DataTeam).Error; err != nil {
 		log.Errorln(pkgName, err, "Select DataTeam error")
 		// return echo.ErrInternalServerError
 	}
