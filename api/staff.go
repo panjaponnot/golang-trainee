@@ -1941,3 +1941,48 @@ func GetRankingBaseSale2(c echo.Context) error {
 	// result.Total = len(dataResult)
 	return c.JSON(http.StatusOK, dataResult)
 }
+
+func DepartmentStaffV2EndPoint(c echo.Context) error {
+	type Department struct {
+		Dept string `json:"department" gorm:"column:department"`
+	}
+
+	if strings.TrimSpace(c.Param("id")) == "" {
+		return echo.ErrBadRequest
+	}
+	id := strings.TrimSpace(c.Param("id"))
+	type DeptStaff struct {
+		Dept Department `json:"department" gorm:"column:department"`
+	}
+
+	var Dept Department
+	if err := dbSale.Ctx().Raw(`SELECT distinct department FROM staff_info WHERE staff_id = ?;`, id).Scan(&Dept).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+
+	return c.JSON(http.StatusOK, Dept)
+}
+
+func GetTeamsDeptStaffEndPoint(c echo.Context) error {
+	if strings.TrimSpace(c.QueryParam("department")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	}
+	dept := strings.TrimSpace(c.QueryParam("department"))
+
+	type StaffProfile struct {
+		OneId    string `json:"one_id" gorm:"column:one_id"`
+		StaffId  string `json:"staff_id" gorm:"column:staff_id"`
+		Prefix   string `json:"prefix" gorm:"column:prefix"`
+		Fname    string `json:"fname" gorm:"column:fname"`
+		Lname    string `json:"lname" gorm:"column:lname"`
+		Nname    string `json:"nname" gorm:"column:nname"`
+		Position string `json:"position" gorm:"column:position"`
+	}
+
+	var Staff []StaffProfile
+	if err := dbSale.Ctx().Raw(`SELECT *  FROM staff_info where department = ?;`, dept).Scan(&Staff).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+
+	return c.JSON(http.StatusOK, Staff)
+}
