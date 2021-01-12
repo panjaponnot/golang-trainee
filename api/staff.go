@@ -1947,12 +1947,23 @@ func DepartmentStaffV2EndPoint(c echo.Context) error {
 		Dept string `json:"department" gorm:"column:department"`
 	}
 
+	type StaffProfile struct {
+		OneId    string `json:"one_id" gorm:"column:one_id"`
+		StaffId  string `json:"staff_id" gorm:"column:staff_id"`
+		Prefix   string `json:"prefix" gorm:"column:prefix"`
+		Fname    string `json:"fname" gorm:"column:fname"`
+		Lname    string `json:"lname" gorm:"column:lname"`
+		Nname    string `json:"nname" gorm:"column:nname"`
+		Position string `json:"position" gorm:"column:position"`
+	}
+
 	if strings.TrimSpace(c.Param("id")) == "" {
 		return echo.ErrBadRequest
 	}
 	id := strings.TrimSpace(c.Param("id"))
 	type DeptStaff struct {
-		Dept Department `json:"department" gorm:"column:department"`
+		Dept  Department     `json:"department" gorm:"column:department"`
+		Staff []StaffProfile `json:"staff_id" gorm:"column:staff_id"`
 	}
 
 	var Dept Department
@@ -1960,7 +1971,16 @@ func DepartmentStaffV2EndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "Select data error")
 	}
 
-	return c.JSON(http.StatusOK, Dept)
+	var Staff []StaffProfile
+	if err := dbSale.Ctx().Raw(`SELECT *  FROM staff_info where department = ?;`, Dept.Dept).Scan(&Staff).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+	data := DeptStaff{
+		Dept:  Dept,
+		Staff: Staff,
+	}
+
+	return c.JSON(http.StatusOK, data)
 }
 
 func GetTeamsDeptStaffEndPoint(c echo.Context) error {
