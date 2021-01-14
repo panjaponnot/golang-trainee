@@ -725,7 +725,7 @@ func GetVmSummaryEndPoint(c echo.Context) error {
 				JOIN [ITSM_UK].[dbo].[master_equipment_properties] ON master_equipment_properties.ObjectID = master_equipment.ObjectID
 				where master_equipment_properties.ObjectID in
 				(
-					select ObjectID from master_equipment_properties where xValue ='SO02-20200700332'
+					select ObjectID from master_equipment_properties where xValue =?
 				)
 			) tb_real GROUP BY EquipmentCode
 			 `, so, so).Scan(&vm).Error; err != nil {
