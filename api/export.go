@@ -48,7 +48,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 
 	log.Infoln(pkgName, year)
 	log.Infoln(" query staff ")
-	if err := dbSale.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ? 
+	if err := dbSale.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ?
 	union
 	SELECT staff_id, "normal" as role, staff_child from staff_info where one_id = ? `, oneId, oneId).Scan(&staff).Error; err != nil {
 		log.Errorln(pkgName, err, "Select staff error")
@@ -70,6 +70,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 					for _, id := range staffs {
 						listStaffId = append(listStaffId, id.StaffId)
 					}
+					break
 				}
 			} else {
 				if strings.TrimSpace(v.StaffChild) != "" {
@@ -130,14 +131,14 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 							left join
 							(
 								select staff_id, prefix, fname, lname, nname, position, department from staff_info
-							
+
 							) tb_sale on s.sale_code = tb_sale.staff_id
-							WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ? 
+							WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ?
 							group by sonumber
 			) as tb_so_number
 			left join
 			(
-			 select 
+			 select
 			 	(case
 					when pay_type is null then ''
 					else pay_type end
@@ -146,10 +147,10 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 				(case
 					when so_type is null then ''
 					else so_type end
-				) as so_type 
+				) as so_type
 			from check_so
 			) tb_check on tb_so_number.sonumber = tb_check.so_check
-		
+
 		) as tb_ch_so
 		left join
 		(
@@ -161,7 +162,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		  	(case
 				when remark is null then ''
 				else remark end
-			) as remark 
+			) as remark
 			from check_expire
 		  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
           group by tb_ch_so.sonumber
@@ -994,9 +995,9 @@ func GetReportExcelQuotationEndPoint(c echo.Context) error {
 	// total all
 	var dataRaw []QuotationJoin
 	var dataRawRes []QuotationJoin
-	sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,remark,status as status_sale FROM sales_approve WHERE status IN ('Win','Lost','Resend/Revised','Cancel')) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+	sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,remark,status as status_sale FROM sales_approve WHERE status IN ('Win','Lost','Resend/Revised','Cancel')) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
 		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 	if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
