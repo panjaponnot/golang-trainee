@@ -454,7 +454,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 		Role       string `json:"role"`
 		StaffChild string `json:"staff_child"`
 	}{}
-	if err := dbSale.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ? 
+	if err := dbSale.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ?
 	union
 	SELECT staff_id, "normal" as role, staff_child from staff_info where one_id = ? `, oneId, oneId).Scan(&staff).Error; err != nil {
 		log.Errorln(pkgName, err, "Select staff error")
@@ -476,6 +476,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 					for _, id := range staffs {
 						listStaffId = append(listStaffId, id.StaffId)
 					}
+					break
 				}
 			} else {
 				if strings.TrimSpace(v.StaffChild) != "" {
@@ -514,7 +515,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
                                                         WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ?
                                                         group by sonumber
                         ) as tb_so_number
-                        
+
                 ) as tb_ch_so
                 left join
                 (
@@ -526,7 +527,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
                         (case
                                 when remark is null then ''
                                 else remark end
-                        ) as remark 
+                        ) as remark
                         from check_expire
 				  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
 				  WHERE INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,Customer_ID,Customer_Name,tb_ch_so.sonumber), ?)
@@ -573,7 +574,7 @@ func GetReportSOPendingTypeEndPoint(c echo.Context) error {
 		Role       string `json:"role"`
 		StaffChild string `json:"staff_child"`
 	}{}
-	if err := dbSale.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ? 
+	if err := dbSale.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ?
 	union
 	SELECT staff_id, "normal" as role, staff_child from staff_info where one_id = ? `, oneId, oneId).Scan(&staff).Error; err != nil {
 		log.Errorln(pkgName, err, "Select staff error")
@@ -634,7 +635,7 @@ func GetReportSOPendingTypeEndPoint(c echo.Context) error {
                                                         WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ?
                                                         group by sonumber
                         ) as tb_so_number
-                        
+
                 ) as tb_ch_so
                 left join
                 (
@@ -646,7 +647,7 @@ func GetReportSOPendingTypeEndPoint(c echo.Context) error {
                         (case
                                 when remark is null then ''
                                 else remark end
-                        ) as remark 
+                        ) as remark
                         from check_expire
 				  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
 				  WHERE INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,Customer_ID,Customer_Name,tb_ch_so.sonumber), ?)
