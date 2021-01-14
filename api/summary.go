@@ -690,11 +690,11 @@ func GetVmSummaryEndPoint(c echo.Context) error {
 	}
 	so := strings.TrimSpace(c.QueryParam("so"))
 	vm := []struct {
-		EquipmentCode      string `json:"EquipmentCode" gorm:"column:EquipmentCode"`
-		cpu string `json:"cpu" gorm:"column:cpu"`
-		ram   string `json:"ram" gorm:"column:ram"`
-		disk_storage string `json:"disk_storage" gorm:"column:disk_storage"`
-		sonumber      string `json:"sonumber" gorm:"column:sonumber"`
+		EquipmentCode      	string `json:"EquipmentCode" gorm:"column:EquipmentCode"`
+		Cpu 								string `json:"cpu" gorm:"column:cpu"`
+		Ram   							string `json:"ram" gorm:"column:ram"`
+		DiskStorage 				string `json:"disk_storage" gorm:"column:disk_storage"`
+		SOnumber      			string `json:"sonumber" gorm:"column:sonumber"`
 	}{}
 	if err := dbEquip.Ctx().Raw(`  select
 				EquipmentCode,
