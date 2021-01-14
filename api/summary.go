@@ -370,7 +370,7 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
 			left join check_expire on check_expire.sonumber = so_mssql.sonumber
 			WHERE ContractEndDate > ?
-			AND INSTR(CONCAT_WS('|', sale_code), ?) 
+			AND INSTR(CONCAT_WS('|', sale_code), ?)
 			 GROUP BY so_mssql.sonumber`, DateStr, StaffId).Scan(&DataActive).Error; err != nil {
 			log.Errorln(pkgName, err, "Select DataActive error")
 			// return echo.ErrInternalServerError
@@ -398,7 +398,7 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 			 AND MONTH(ContractEndDate) = ?
 			 AND check_expire.remark IS NOT NULL
 			 AND check_expire.status IS NOT NULL
-			 AND INSTR(CONCAT_WS('|', sale_code), ?) 
+			 AND INSTR(CONCAT_WS('|', sale_code), ?)
 			 GROUP BY so_mssql.sonumber`, year, month, StaffId).Scan(&DataUpdate).Error; err != nil {
 			log.Errorln(pkgName, err, "Select DataUpdate error")
 			// return echo.ErrInternalServerError
@@ -417,7 +417,7 @@ func GetSummaryPendingSOEndPoint(c echo.Context) error {
 			 AND MONTH(ContractEndDate) = ?
 			 AND check_expire.remark IS NULL
 			 AND check_expire.status IS NULL
-			 AND INSTR(CONCAT_WS('|', sale_code), ?) 
+			 AND INSTR(CONCAT_WS('|', sale_code), ?)
 			 GROUP BY so_mssql.sonumber`, year, month, StaffId).Scan(&DataNotUpdate).Error; err != nil {
 			log.Errorln(pkgName, err, "Select DataNotUpdate error")
 			// return echo.ErrInternalServerError
@@ -514,7 +514,7 @@ func GetContractEndPoint(c echo.Context) error {
 			 WHERE YEAR(ContractEndDate) = ?
 			 AND MONTH(ContractEndDate) = ?
 			 AND check_expire.status = '1'
-			 AND INSTR(CONCAT_WS('|', sale_code), ?) 
+			 AND INSTR(CONCAT_WS('|', sale_code), ?)
 			 GROUP BY so_mssql.sonumber`, year, month, StaffId).Scan(&DataCheckTrue).Error; err != nil {
 			log.Errorln(pkgName, err, "Select CheckTrue error")
 			// AND check_expire.remark IS NOT NULL
@@ -533,7 +533,7 @@ func GetContractEndPoint(c echo.Context) error {
 			 WHERE YEAR(ContractEndDate) = ?
 			 AND MONTH(ContractEndDate) = ?
 			 AND check_expire.status = '0'
-			 AND INSTR(CONCAT_WS('|', sale_code), ?) 
+			 AND INSTR(CONCAT_WS('|', sale_code), ?)
 			 GROUP BY so_mssql.sonumber`, year, month, StaffId).Scan(&DataCheckFalse).Error; err != nil {
 			log.Errorln(pkgName, err, "Select CheckFalse error")
 			// AND check_expire.remark IS NULL
@@ -601,14 +601,14 @@ func GetTeamsEndPoint(c echo.Context) error {
 	// 				 GROUP BY so_mssql.sale_team,so_mssql.sonumber) AS T1
 	// 	GROUP BY T1.sale_team`, year, month).Scan(&DataTeam).Error; err != nil {
 	if err := dbSale.Ctx().Raw(` SELECT T1.department as sale_team,sum(T1.sum) as sum ,COUNT(T1.sonumber) as CountSO
-		FROM 
+		FROM
 		(
-		 SELECT so_mssql.sonumber,department,SUM(so_mssql.TotalContractAmount) as sum 
+		 SELECT so_mssql.sonumber,department,SUM(so_mssql.TotalContractAmount) as sum
 		 from so_mssql
 		 left join check_expire on check_expire.sonumber = so_mssql.sonumber
 		 left join staff_info on so_mssql.sale_code = staff_info.staff_id
 		 WHERE YEAR(ContractEndDate) = ? AND MONTH(ContractEndDate) = ?
-		 AND INSTR(CONCAT_WS('|', sale_code), ?) 
+		 AND INSTR(CONCAT_WS('|', sale_code), ?)
 		 GROUP BY so_mssql.sale_team,so_mssql.sonumber
 		) AS T1
 		GROUP BY T1.department`, year, month, StaffId).Scan(&DataTeam).Error; err != nil {
@@ -663,14 +663,14 @@ func GetTeamsDepartmentEndPoint(c echo.Context) error {
 	// 				 GROUP BY so_mssql.sale_team,so_mssql.sonumber) AS T1
 	// 	GROUP BY T1.sale_team`, year, month).Scan(&DataTeam).Error; err != nil {
 	if err := dbSale.Ctx().Raw(` SELECT T1.fname,T1.lname,sum(T1.sum) as sum ,COUNT(T1.sonumber) as CountSO,SUM(T1.remark IS NULL AND T1.status IS NULL) as notupdate
-	FROM 
+	FROM
 	(SELECT so_mssql.sonumber,department,SUM(so_mssql.TotalContractAmount) as sum ,staff_info.one_id,staff_info.staff_id,staff_info.prefix,staff_info.fname,staff_info.lname,check_expire.remark,check_expire.status
 	 from so_mssql
 	 left join check_expire on check_expire.sonumber = so_mssql.sonumber
 	 left join staff_info on so_mssql.sale_code = staff_info.staff_id
 	 WHERE YEAR(ContractEndDate) = ? AND MONTH(ContractEndDate) = ?
 	 AND department = ?
-	 AND INSTR(CONCAT_WS('|', sale_code), ?) 
+	 AND INSTR(CONCAT_WS('|', sale_code), ?)
 	 GROUP BY staff_info.staff_id,so_mssql.sonumber) AS T1
 	GROUP BY T1.staff_id`, year, month, department, StaffId).Scan(&DataTeam).Error; err != nil {
 		log.Errorln(pkgName, err, "Select DataTeam error")
@@ -690,19 +690,45 @@ func GetVmSummaryEndPoint(c echo.Context) error {
 	}
 	so := strings.TrimSpace(c.QueryParam("so"))
 	vm := []struct {
-		EquipmentCode string `json:"EquipmentCode" gorm:"column:EquipmentCode"`
-		Description   string `json:"Description" gorm:"column:Description"`
-		EquipmentType string `json:"EquipmentType" gorm:"column:EquipmentType"`
-		ObjectID      string `json:"ObjectID" gorm:"column:ObjectID"`
+		EquipmentCode      string `json:"EquipmentCode" gorm:"column:EquipmentCode"`
+		cpu string `json:"cpu" gorm:"column:cpu"`
+		ram   string `json:"ram" gorm:"column:ram"`
+		disk_storage string `json:"disk_storage" gorm:"column:disk_storage"`
+		sonumber      string `json:"sonumber" gorm:"column:sonumber"`
 	}{}
-	if err := dbEquip.Ctx().Raw(` SELECT [EquipmentCode]
-				,[Description]
-				,[EquipmentType]
-				,master_equipment.ObjectID
-			FROM [ITSM_UK].[dbo].[master_equipment]
-			JOIN [ITSM_UK].[dbo].[master_equipment_properties] ON master_equipment_properties.ObjectID = master_equipment.ObjectID
-			WHERE master_equipment.EquipmentType = 'LVMG'
-			AND master_equipment_properties.xValue = ? `, so).Scan(&vm).Error; err != nil {
+	if err := dbEquip.Ctx().Raw(`  select
+				EquipmentCode,
+				sum(cast(cpu as integer)) as cpu,
+				sum(cast(ram as integer)) as ram,
+				sum(cast(disk_storage as integer)) as disk_storage,
+				? as sonumber
+			from
+			(
+				SELECT [EquipmentCode],
+				(case
+					when PropertiesCode = '001' then xValue
+					else '0' end
+				) as cpu,
+				(case
+					when PropertiesCode = '002' then xValue
+					else '0' end
+				) as ram,
+				(case
+					when PropertiesCode = '003' then xValue
+					else '0' end
+				) as disk_storage,
+				(case
+					when PropertiesCode = '004' then xValue
+					else '0' end
+				) as sonumber
+				FROM [ITSM_UK].[dbo].[master_equipment]
+				JOIN [ITSM_UK].[dbo].[master_equipment_properties] ON master_equipment_properties.ObjectID = master_equipment.ObjectID
+				where master_equipment_properties.ObjectID in
+				(
+					select ObjectID from master_equipment_properties where xValue ='SO02-20200700332'
+				)
+			) tb_real GROUP BY EquipmentCode
+			 `, so, so).Scan(&vm).Error; err != nil {
 		log.Errorln(pkgName, err, "Select vm error")
 		return echo.ErrInternalServerError
 	}
