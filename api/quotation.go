@@ -19,24 +19,26 @@ import (
 func GetSummaryQuotationEndPoint(c echo.Context) error {
 
 	type QuotationJoin struct {
-		DocNumberEform  string    `json:"doc_number_eform"`
-		Service         string    `json:"service"`
-		EmployeeCode    string    `json:"employee_code"`
-		SaleName        string    `json:"sale_name" gorm:"column:salename"`
-		CompanyName     string    `json:"company_name"`
-		Team            string    `json:"team"`
-		Total           float64   `json:"total" `
-		TotalDiscount   float64   `json:"total_discount"`
-		TotalPrice      float64   `json:"total_price"`
-		StartDate       time.Time `json:"start_date"`
-		EndDate         time.Time `json:"end_date"`
-		RefQuotation    string    `json:"ref_quotation"`
-		RefSO           string    `json:"ref_so" gorm:"column:refSO"`
-		DateTime        string    `json:"datetime" gorm:"column:datetime"`
-		ServicePlatform string    `json:"service_platform"`
-		Reason          string    `json:"reason"`
-		Status          string    `json:"status" gorm:"column:status_sale"`
-		Remark          string    `json:"remark" gorm:"column:remark"`
+		DocNumberEform  	string    `json:"doc_number_eform"`
+		Service         	string    `json:"service"`
+		EmployeeCode    	string    `json:"employee_code"`
+		SaleName        	string    `json:"sale_name" gorm:"column:salename"`
+		CompanyName     	string    `json:"company_name"`
+		Team            	string    `json:"team"`
+		Total           	float64   `json:"total" `
+		TotalDiscount   	float64   `json:"total_discount"`
+		TotalPrice      	float64   `json:"total_price"`
+		TotalPriceMonth   string   `json:"total_price_month"`
+		StartDate       	time.Time `json:"start_date"`
+		EndDate         	time.Time `json:"end_date"`
+		RefQuotation    	string    `json:"ref_quotation"`
+		RefSO           	string    `json:"ref_so" gorm:"column:refSO"`
+		DateTime        	string    `json:"datetime" gorm:"column:datetime"`
+		ServicePlatform 	string    `json:"service_platform"`
+		Reason          	string    `json:"reason"`
+		Status          	string    `json:"status" gorm:"column:status_sale"`
+		Remark          	string    `json:"remark" gorm:"column:remark"`
+
 	}
 
 	year := strings.TrimSpace(c.QueryParam("year"))
@@ -132,11 +134,11 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 	go func() {
 		// work
 		var dataRaw []QuotationJoin
-		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
 		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale IS NOT NULL
-		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL 
+		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
 		AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
@@ -148,9 +150,10 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 	go func() {
 		// total all
 		var dataRaw []QuotationJoin
-		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,remark,status as status_sale FROM sales_approve WHERE status IN ('Win','Lost','Resend/Revised','Cancel')) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL or total = '' THEN total_discount ELSE total end) as total_price,
+		Total_perunit as total_price_month FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,remark,status as status_sale FROM sales_approve WHERE status IN ('Win','Lost','Resend/Revised','Cancel')) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
 		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
@@ -176,11 +179,11 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 	go func() {
 		// not work
 		var dataRaw []QuotationJoin
-		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
-WHERE quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL 
-AND (total IS NOT NULL OR total_discount IS NOT NULL) AND sales_approve.status_sale IS NULL 
+		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
+WHERE quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
+AND (total IS NOT NULL OR total_discount IS NOT NULL) AND sales_approve.status_sale IS NULL
 AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
@@ -191,11 +194,11 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 	go func() {
 		// win
 		var dataRaw []QuotationJoin
-		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
 		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'win'
-		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL 
+		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
 		AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
@@ -208,11 +211,11 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 	go func() {
 		// lost
 		var dataRaw []QuotationJoin
-		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
 		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'lost'
-		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL 
+		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
 		AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
@@ -227,11 +230,11 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 			TotalReason int    `json:"total_reason_win" gorm:"column:total_reason_win"`
 			Reason      string `json:"reason"`
 		}
-		sql := fmt.Sprintf(`SELECT sales_approve.reason,COUNT(sales_approve.reason) as total_reason_win FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		sql := fmt.Sprintf(`SELECT sales_approve.reason,COUNT(sales_approve.reason) as total_reason_win FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
 		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'win'
-		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL 
+		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
 		AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s  GROUP BY sales_approve.reason`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
@@ -246,11 +249,11 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 			TotalReason int    `json:"total_reason_lost" gorm:"column:total_reason_lost"`
 			Reason      string `json:"reason"`
 		}
-		sql := fmt.Sprintf(`SELECT sales_approve.reason,COUNT(sales_approve.reason) as total_reason_lost FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		sql := fmt.Sprintf(`SELECT sales_approve.reason,COUNT(sales_approve.reason) as total_reason_lost FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
 		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'lost'
-		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL 
+		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
 		AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s  GROUP BY sales_approve.reason`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
@@ -266,10 +269,10 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 			TotalService int     `json:"total_service"`
 			Service      string  `json:"service"`
 		}
-		sql := fmt.Sprintf(`SELECT SUM(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price,COUNT(service) as total_service,service FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
-		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL) 
+		sql := fmt.Sprintf(`SELECT SUM(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price,COUNT(service) as total_service,service FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
+		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s  GROUP BY service`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
@@ -284,10 +287,10 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 			TotalCompany int     `json:"total_company"`
 			CompanyName  string  `json:"company_name"`
 		}
-		sql := fmt.Sprintf(`SELECT SUM(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price,COUNT(company_name) as total_company,company_name FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
-		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL) 
+		sql := fmt.Sprintf(`SELECT SUM(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price,COUNT(company_name) as total_company,company_name FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
+		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s  GROUP BY company_name`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
@@ -302,10 +305,10 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 			TotalType  int     `json:"total_type"`
 			Type       string  `json:"type"`
 		}
-		sql := fmt.Sprintf(`SELECT SUM(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price,COUNT(type) as total_type,type FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
-		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL) 
+		sql := fmt.Sprintf(`SELECT SUM(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price,COUNT(type) as total_type,type FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
+		WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s  GROUP BY type`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
@@ -323,10 +326,10 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		sql := fmt.Sprintf(`SELECT SUM(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price,COUNT(team) as total_team,team ,(CASE
 			WHEN team = '' THEN 'no name'
 			ELSE team END
-			) as teams FROM quatation_th 
-			LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
-			ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
-			WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL) 
+			) as teams FROM quatation_th
+			LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+			ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
+			WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL)
 			AND YEAR(start_date) = ? %s %s %s %s  GROUP BY team`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
@@ -337,11 +340,11 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 	go func() {
 		// re send
 		var dataRaw []QuotationJoin
-		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
 		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'Resend/Revised'
-		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL 
+		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
 		AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
@@ -357,11 +360,11 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 			TotalReason int    `json:"total_reason_resend" gorm:"column:total_reason_resend"`
 			Reason      string `json:"reason"`
 		}
-		sql := fmt.Sprintf(`SELECT sales_approve.reason,COUNT(sales_approve.reason) as total_reason_resend FROM quatation_th 
-		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve 
-		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform 
+		sql := fmt.Sprintf(`SELECT sales_approve.reason,COUNT(sales_approve.reason) as total_reason_resend FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
 		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'Resend/Revised'
-		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL 
+		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
 		AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s  GROUP BY sales_approve.reason`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
