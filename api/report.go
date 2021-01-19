@@ -497,6 +497,10 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
                 when status is null then 0
                 else status end
         ) as status,
+				(case
+								when tb_expire.reason is null then ''
+								else tb_expire.reason end
+				) as reason,
           (case
                 when tb_expire.remark is null then ''
                 else tb_expire.remark end
@@ -524,6 +528,10 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
                                 when status is null then 0
                                 else status end
                         ) as status,
+												(case
+                                when reason is null then ''
+                                else reason end
+                        ) as reason,
                         (case
                                 when remark is null then ''
                                 else remark end
@@ -1096,5 +1104,6 @@ type PendingData struct {
 	Position          string  `json:"position"`
 	Department        string  `json:"department"`
 	Status            string  `json:"status"`
+	Reason            string  `json:"reason"`
 	Remark            string  `json:"remark"`
 }
