@@ -109,15 +109,25 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		Position          string  `json:"position"`
 		Department        string  `json:"department"`
 		Status            string  `json:"status"`
+		PayTypeChange    	string  `json:"pay_type_change"`
+		SoTypeChange      string  `json:"so_type_change"`
+		Reason            string  `json:"reason"`
 		Remark            string  `json:"remark"`
 	}{}
 
 	if err := dbSale.Ctx().Raw(`
-	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount, SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,
+	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,
+	DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days,
+	month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount, SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,
+	department,so_type_change,pay_type_change,
 	(case
 		when status is null then 0
 		else status end
 	) as status,
+	(case
+					when tb_expire.reason is null then ''
+					else tb_expire.reason end
+	) as reason,
 	  (case
 		when tb_expire.remark is null then ''
 		else tb_expire.remark end
@@ -159,10 +169,16 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 				when status is null then 0
 				else status end
 			) as status,
+			(case
+							when reason is null then ''
+							else reason end
+			) as reason,
 		  	(case
 				when remark is null then ''
 				else remark end
-			) as remark
+			) as remark,
+			pay_type as pay_type_change,
+			so_type as so_type_change
 			from check_expire
 		  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
           group by tb_ch_so.sonumber
