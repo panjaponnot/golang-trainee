@@ -216,8 +216,11 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 	f.SetCellValue(mode, "T1", "SO Web Status")
 	f.SetCellValue(mode, "U1", "Pay Type")
 	f.SetCellValue(mode, "V1", "SO Type")
-	f.SetCellValue(mode, "W1", "Status")
-	f.SetCellValue(mode, "X1", "Remark")
+	f.SetCellValue(mode, "W1", "Pay Type Sale Update")
+	f.SetCellValue(mode, "X1", "SO Type Sale Update")
+	f.SetCellValue(mode, "Y1", "Status")
+	f.SetCellValue(mode, "Z1", "Reason")
+	f.SetCellValue(mode, "AA1", "Remark")
 
 	colSoNumber := "A"
 	colCustomerId := "B"
@@ -241,8 +244,11 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 	colSoWebStatus := "T"
 	colPayType := "U"
 	colSoType := "V"
-	colStatus := "W"
-	colRemark := "X"
+	colPayTypeChange := "W"
+	colSoTypeChange := "X"
+	colStatus := "Y"
+	colReason := "Z"
+	colRemark := "AA"
 
 	for k, v := range rawData {
 
@@ -269,7 +275,10 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		f.SetCellValue(mode, fmt.Sprint(colSoWebStatus, k+2), v.SOWebStatus)
 		f.SetCellValue(mode, fmt.Sprint(colPayType, k+2), v.PayType)
 		f.SetCellValue(mode, fmt.Sprint(colSoType, k+2), v.SoType)
+		f.SetCellValue(mode, fmt.Sprint(colPayTypeChange, k+2), v.PayTypeChange)
+		f.SetCellValue(mode, fmt.Sprint(colSoTypeChange, k+2), v.SoTypeChange)
 		f.SetCellValue(mode, fmt.Sprint(colStatus, k+2), v.Status)
+		f.SetCellValue(mode, fmt.Sprint(colReason, k+2), v.Reason)
 		f.SetCellValue(mode, fmt.Sprint(colRemark, k+2), v.Remark)
 	}
 

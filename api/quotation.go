@@ -124,7 +124,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		} else {
 			listStaffId = append(listStaffId, staff.StaffId)
 		}
-		textStaffId = fmt.Sprintf("AND employee_code IN (%s)", strings.Join(listStaffId, ","))
+		textStaffId = fmt.Sprintf("AND employee_code IN ('%s')", strings.Join(listStaffId, "','"))
 	}
 	log.Infoln(textStaffId)
 
