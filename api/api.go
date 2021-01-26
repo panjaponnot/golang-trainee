@@ -144,6 +144,12 @@ func InitApiRouter(g *echo.Group) error {
 	bot := g.Group("/bot")
 	bot.GET("/userone", GetUserOneThEndPoint)
 
+	alert := g.Group("/alert")
+	alert.POST("/bot", AlertSoToBotEndPoint)
+	alert.POST("/terminate/success", AlertTerminateRunSuccessEndPoint)
+	alert.POST("/terminate/fail", AlertTerminateRunFailEndPoint)
+	alert.POST("/terminate/credit", AlertTerminateCreditNoteEndPoint)
+
 	bill := g.Group("/bill")
 	bill.GET("", GetBillingEndPoint)
 
