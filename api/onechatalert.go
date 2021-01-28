@@ -68,8 +68,8 @@ func AlertSoToBotEndPoint(c echo.Context) error {
 		Message            string `json:"message"`
 		CustomNotification string `json:"custom_notification"`
 	}{
-		To: "198008320896",
-		// To:                 staff.OneId,
+		// To: "198008320896",
+		To:                 staff.OneId,
 		BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
 		Type:               "text",
 		Message:            TextMessage,
@@ -139,8 +139,8 @@ func AlertTerminateRunSuccessEndPoint(c echo.Context) error {
 		Message            string `json:"message"`
 		CustomNotification string `json:"custom_notification"`
 	}{
-		To: "198008320896",
-		// To:                 staff.OneId,
+		// To: "198008320896",
+		To:                 staff.OneId,
 		BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
 		Type:               "text",
 		Message:            TextMessage,
@@ -214,8 +214,8 @@ func AlertTerminateRunFailEndPoint(c echo.Context) error {
 		Message            string `json:"message"`
 		CustomNotification string `json:"custom_notification"`
 	}{
-		To: "198008320896",
-		// To:                 staff.OneId,
+		// To: "198008320896",
+		To:                 staff.OneId,
 		BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
 		Type:               "text",
 		Message:            TextMessage,
@@ -282,8 +282,8 @@ func AlertTerminateCreditNoteEndPoint(c echo.Context) error {
 		Message            string `json:"message"`
 		CustomNotification string `json:"custom_notification"`
 	}{
-		To: "198008320896",
-		// To:                 staff.OneId,
+		// To: "198008320896",
+		To:                 staff.OneId,
 		BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
 		Type:               "text",
 		Message:            TextMessage,
