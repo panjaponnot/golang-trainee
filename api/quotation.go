@@ -19,26 +19,25 @@ import (
 func GetSummaryQuotationEndPoint(c echo.Context) error {
 
 	type QuotationJoin struct {
-		DocNumberEform  	string    `json:"doc_number_eform"`
-		Service         	string    `json:"service"`
-		EmployeeCode    	string    `json:"employee_code"`
-		SaleName        	string    `json:"sale_name" gorm:"column:salename"`
-		CompanyName     	string    `json:"company_name"`
-		Team            	string    `json:"team"`
-		Total           	float64   `json:"total" `
-		TotalDiscount   	float64   `json:"total_discount"`
-		TotalPrice      	float64   `json:"total_price"`
-		TotalPriceMonth   string   `json:"total_price_month"`
-		StartDate       	time.Time `json:"start_date"`
-		EndDate         	time.Time `json:"end_date"`
-		RefQuotation    	string    `json:"ref_quotation"`
-		RefSO           	string    `json:"ref_so" gorm:"column:refSO"`
-		DateTime        	string    `json:"datetime" gorm:"column:datetime"`
-		ServicePlatform 	string    `json:"service_platform"`
-		Reason          	string    `json:"reason"`
-		Status          	string    `json:"status" gorm:"column:status_sale"`
-		Remark          	string    `json:"remark" gorm:"column:remark"`
-
+		DocNumberEform  string    `json:"doc_number_eform"`
+		Service         string    `json:"service"`
+		EmployeeCode    string    `json:"employee_code"`
+		SaleName        string    `json:"sale_name" gorm:"column:salename"`
+		CompanyName     string    `json:"company_name"`
+		Team            string    `json:"team"`
+		Total           float64   `json:"total" `
+		TotalDiscount   float64   `json:"total_discount"`
+		TotalPrice      float64   `json:"total_price"`
+		TotalPriceMonth string    `json:"total_price_month"`
+		StartDate       time.Time `json:"start_date"`
+		EndDate         time.Time `json:"end_date"`
+		RefQuotation    string    `json:"ref_quotation"`
+		RefSO           string    `json:"ref_so" gorm:"column:refSO"`
+		DateTime        string    `json:"datetime" gorm:"column:datetime"`
+		ServicePlatform string    `json:"service_platform"`
+		Reason          string    `json:"reason"`
+		Status          string    `json:"status" gorm:"column:status_sale"`
+		Remark          string    `json:"remark" gorm:"column:remark"`
 	}
 
 	year := strings.TrimSpace(c.QueryParam("year"))
@@ -80,11 +79,11 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 	dataCount := struct {
 		Count        int
 		Total        int
-		Work         int
-		NotWork      int
-		Win          int
-		Lost         int
-		Resend       int
+		Work         interface{}
+		NotWork      interface{}
+		Win          interface{}
+		Lost         interface{}
+		Resend       interface{}
 		ReasonWin    interface{}
 		ReasonResend interface{}
 		ReasonLost   interface{}
@@ -144,7 +143,31 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
-		dataCount.Work = len(dataRaw)
+
+		if len(dataRaw) > (page * 20) {
+			start := (page - 1) * 20
+			end := (page * 20)
+			TotalPrice := float64(0)
+			for _, v := range dataRaw[start:end] {
+				TotalPrice += v.TotalPrice
+			}
+			dataCount.Work = map[string]interface{}{
+				"total_price": TotalPrice,
+				"count":       len(dataRaw[start:end]),
+			}
+		} else {
+			start := (page * 20) - (20)
+			TotalPrice := float64(0)
+			for _, v := range dataRaw[start:] {
+				TotalPrice += v.TotalPrice
+			}
+			dataCount.Work = map[string]interface{}{
+				"total_price": TotalPrice,
+				"count":       len(dataRaw[start:]),
+			}
+		}
+
+		// dataCount.Work = len(dataRaw)
 		wg.Done()
 	}()
 	go func() {
@@ -188,7 +211,31 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
-		dataCount.NotWork = len(dataRaw)
+
+		if len(dataRaw) > (page * 20) {
+			start := (page - 1) * 20
+			end := (page * 20)
+			TotalPrice := float64(0)
+			for _, v := range dataRaw[start:end] {
+				TotalPrice += v.TotalPrice
+			}
+			dataCount.NotWork = map[string]interface{}{
+				"total_price": TotalPrice,
+				"count":       len(dataRaw[start:end]),
+			}
+		} else {
+			start := (page * 20) - (20)
+			TotalPrice := float64(0)
+			for _, v := range dataRaw[start:] {
+				TotalPrice += v.TotalPrice
+			}
+			dataCount.NotWork = map[string]interface{}{
+				"total_price": TotalPrice,
+				"count":       len(dataRaw[start:]),
+			}
+		}
+
+		// dataCount.NotWork = len(dataRaw)
 		wg.Done()
 	}()
 	go func() {
@@ -205,7 +252,30 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 			hasErr += 1
 		}
 
-		dataCount.Win = len(dataRaw)
+		if len(dataRaw) > (page * 20) {
+			start := (page - 1) * 20
+			end := (page * 20)
+			TotalPrice := float64(0)
+			for _, v := range dataRaw[start:end] {
+				TotalPrice += v.TotalPrice
+			}
+			dataCount.Win = map[string]interface{}{
+				"total_price": TotalPrice,
+				"count":       len(dataRaw[start:end]),
+			}
+		} else {
+			start := (page * 20) - (20)
+			TotalPrice := float64(0)
+			for _, v := range dataRaw[start:] {
+				TotalPrice += v.TotalPrice
+			}
+			dataCount.Win = map[string]interface{}{
+				"total_price": TotalPrice,
+				"count":       len(dataRaw[start:]),
+			}
+		}
+
+		// dataCount.Win = len(dataRaw)
 		wg.Done()
 	}()
 	go func() {
@@ -221,7 +291,31 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
-		dataCount.Lost = len(dataRaw)
+
+		if len(dataRaw) > (page * 20) {
+			start := (page - 1) * 20
+			end := (page * 20)
+			TotalPrice := float64(0)
+			for _, v := range dataRaw[start:end] {
+				TotalPrice += v.TotalPrice
+			}
+			dataCount.Lost = map[string]interface{}{
+				"total_price": TotalPrice,
+				"count":       len(dataRaw[start:end]),
+			}
+		} else {
+			start := (page * 20) - (20)
+			TotalPrice := float64(0)
+			for _, v := range dataRaw[start:] {
+				TotalPrice += v.TotalPrice
+			}
+			dataCount.Lost = map[string]interface{}{
+				"total_price": TotalPrice,
+				"count":       len(dataRaw[start:]),
+			}
+		}
+
+		// dataCount.Lost = len(dataRaw)
 		wg.Done()
 	}()
 	go func() {
@@ -351,7 +445,30 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 			hasErr += 1
 		}
 
-		dataCount.Resend = len(dataRaw)
+		if len(dataRaw) > (page * 20) {
+			start := (page - 1) * 20
+			end := (page * 20)
+			TotalPrice := float64(0)
+			for _, v := range dataRaw[start:end] {
+				TotalPrice += v.TotalPrice
+			}
+			dataCount.Resend = map[string]interface{}{
+				"total_price": TotalPrice,
+				"count":       len(dataRaw[start:end]),
+			}
+		} else {
+			start := (page * 20) - (20)
+			TotalPrice := float64(0)
+			for _, v := range dataRaw[start:] {
+				TotalPrice += v.TotalPrice
+			}
+			dataCount.Resend = map[string]interface{}{
+				"total_price": TotalPrice,
+				"count":       len(dataRaw[start:]),
+			}
+		}
+
+		// dataCount.Resend = len(dataRaw)
 		wg.Done()
 	}()
 	go func() {
@@ -381,12 +498,17 @@ AND YEAR(start_date) = ? %s %s %s %s`, textStaffId, quarter, month, search)
 
 	dataResult.Total = map[string]interface{}{
 		"total_all": dataCount.Total,
-		"total_work": map[string]int{
+		"total_work": map[string]interface{}{
 			"all":       dataCount.Work,
 			"win":       dataCount.Win,
 			"lost":      dataCount.Lost,
 			"not_check": dataCount.NotWork,
 			"resend":    dataCount.Resend,
+			// "total_all":    dataCount.Resend,
+			// "total_win":    dataCount.Resend,
+			// "total_lost":    dataCount.Resend,
+			// "total_not_check":    dataCount.Resend,
+			// "total_resend":    dataCount.Resend,
 		},
 		"reason_resend": dataCount.ReasonResend,
 		"reason_win":    dataCount.ReasonWin,
