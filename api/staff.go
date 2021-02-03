@@ -2017,6 +2017,10 @@ func DepartmentStaffAllEndPoint(c echo.Context) error {
 		StaffChild string `json:"staff_child"`
 	}
 
+	type role struct {
+		Role string `json:"role"`
+	}
+
 	type StaffProfile struct {
 		OneId    string `json:"one_id" gorm:"column:one_id"`
 		StaffId  string `json:"staff_id" gorm:"column:staff_id"`
@@ -2045,6 +2049,20 @@ func DepartmentStaffAllEndPoint(c echo.Context) error {
 	if err := dbSale.Ctx().Raw(`SELECT distinct staff_id,staff_child FROM staff_info WHERE staff_id = ?;`, id).Scan(&StaffChild).Error; err != nil {
 		log.Errorln(pkgName, err, "Select data error")
 	}
+
+	var Role role
+	if err := dbSale.Ctx().Raw(`SELECT distinct role FROM user_info WHERE staff_id = ?;`, id).Scan(&Role).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+	if Role.Role == "admin" {
+		var DeptAdmin []Department
+		if err := dbSale.Ctx().Raw(`SELECT distinct department FROM staff_info;`).Scan(&DeptAdmin).Error; err != nil {
+			log.Errorln(pkgName, err, "Select data error")
+		}
+		// log.Infoln("aaaaaa")
+		return c.JSON(http.StatusOK, DeptAdmin)
+	}
+
 	var data []string
 	log.Infoln("--->", StaffChild)
 	if strings.TrimSpace(StaffChild.StaffChild) != "" {
@@ -2110,27 +2128,6 @@ func GetGroupChildDepart(c echo.Context, group []string) []string {
 	var Result []string
 	var Result2 []string
 	var em []DepartmentChild
-	// for _, g := range group {
-	// 	if err := dbSale.Ctx().Raw(`SELECT distinct department,staff_child FROM staff_info WHERE staff_id = ?;`, g).Scan(&Dept).Error; err != nil {
-	// 		log.Errorln(pkgName, err, "Select data error")
-	// 	}
-	// 	// log.Infoln("==---++>", InsResult)
-	// 	if Dept.StaffChild == "" {
-	// 		log.Infoln("==--->staa", Dept.StaffChild)
-	// 		Dept = em
-	// 	} else {
-	// 		InsResult = strings.Split(Dept.StaffChild, ",")
-	// 	}
-	// 	Result = GetGroupChildDepart(c, InsResult)
-	// 	for _, r := range InsResult {
-	// 		Result = append(Result, r)
-	// 	}
-	// 	// Result = append(Result, g)
-	// 	Result2 = Result
-	// 	log.Infoln("==--->resulll", Result2)
-	// }
-	// // log.Infoln("==--Result2--++>", Result2)
-	// return Result2
 	var StaffChildStr string
 	for n, s := range group {
 		if n == 0 {
@@ -2140,15 +2137,11 @@ func GetGroupChildDepart(c echo.Context, group []string) []string {
 		} else {
 			StaffChildStr += fmt.Sprintf("'%s',", s)
 		}
-
 	}
-
 	str := fmt.Sprintf(`SELECT distinct department,staff_child FROM staff_info WHERE staff_id in (%s);`, StaffChildStr)
 	if err := dbSale.Ctx().Raw(str).Scan(&Dept).Error; err != nil {
 		log.Errorln("GetSoExpireLead Select Staff error :-", err)
 	}
-	// for _, g := range group {
-
 	for _, v := range Dept {
 		if v.StaffChild == "" {
 			// log.Infoln("==--->staa", v.StaffChild)
@@ -2163,7 +2156,5 @@ func GetGroupChildDepart(c echo.Context, group []string) []string {
 		Result2 = Result
 		// log.Infoln("==--->resulll", Result2)
 	}
-
 	return Result2
-
 }
