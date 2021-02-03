@@ -2046,33 +2046,37 @@ func DepartmentStaffAllEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "Select data error")
 	}
 	var data []string
-	// var Staff []StaffProfile
-	// if err := dbSale.Ctx().Raw(`SELECT *  FROM staff_info where department = ?;`, Dept.Dept).Scan(&Staff).Error; err != nil {
-	// 	log.Errorln(pkgName, err, "Select data error")
-	// }
-
 	log.Infoln("--->", StaffChild)
 	if strings.TrimSpace(StaffChild.StaffChild) != "" {
-		log.Infoln("dscddcsdc")
+		// log.Infoln("dscddcsdc")
 		raw := strings.Split(StaffChild.StaffChild, ",")
 		data = GetGroupChildDepart(c, raw)
 		for _, r := range raw {
 			data = append(data, r)
 		}
 
-		var datares []Department
-		for _, d := range data {
-			var Deptname Department
-			if err := dbSale.Ctx().Raw(`SELECT distinct department FROM staff_info WHERE staff_id = ?;`, d).Scan(&Deptname).Error; err != nil {
-				log.Errorln(pkgName, err, "Select data error")
+		var Deptname []Department
+		var StaffChildStr string
+		for n, s := range data {
+			if n == 0 {
+				StaffChildStr += fmt.Sprintf("'%s',", s)
+			} else if n+1 == len(data) {
+				StaffChildStr += fmt.Sprintf("'%s'", s)
+			} else {
+				StaffChildStr += fmt.Sprintf("'%s',", s)
 			}
-			datares = append(datares, Deptname)
+
+		}
+
+		str := fmt.Sprintf(`SELECT distinct department FROM staff_info WHERE staff_id in (%s);`, StaffChildStr)
+		if err := dbSale.Ctx().Raw(str).Scan(&Deptname).Error; err != nil {
+			log.Errorln("GetSoExpireLead Select Staff error :-", err)
 		}
 
 		//duplicate
 		keys := make(map[string]bool)
 		var list []Department
-		for _, entry := range datares {
+		for _, entry := range Deptname {
 			if entry.Dept != "" {
 				if _, value := keys[entry.Dept]; !value {
 					keys[entry.Dept] = true
@@ -2101,30 +2105,65 @@ type DepartmentChild struct {
 
 func GetGroupChildDepart(c echo.Context, group []string) []string {
 	log.Infoln("==--->", group)
-	var Dept DepartmentChild
+	var Dept []DepartmentChild
 	var InsResult []string
 	var Result []string
 	var Result2 []string
-	var em DepartmentChild
-	for _, g := range group {
-		if err := dbSale.Ctx().Raw(`SELECT distinct department,staff_child FROM staff_info WHERE staff_id = ?;`, g).Scan(&Dept).Error; err != nil {
-			log.Errorln(pkgName, err, "Select data error")
+	var em []DepartmentChild
+	// for _, g := range group {
+	// 	if err := dbSale.Ctx().Raw(`SELECT distinct department,staff_child FROM staff_info WHERE staff_id = ?;`, g).Scan(&Dept).Error; err != nil {
+	// 		log.Errorln(pkgName, err, "Select data error")
+	// 	}
+	// 	// log.Infoln("==---++>", InsResult)
+	// 	if Dept.StaffChild == "" {
+	// 		log.Infoln("==--->staa", Dept.StaffChild)
+	// 		Dept = em
+	// 	} else {
+	// 		InsResult = strings.Split(Dept.StaffChild, ",")
+	// 	}
+	// 	Result = GetGroupChildDepart(c, InsResult)
+	// 	for _, r := range InsResult {
+	// 		Result = append(Result, r)
+	// 	}
+	// 	// Result = append(Result, g)
+	// 	Result2 = Result
+	// 	log.Infoln("==--->resulll", Result2)
+	// }
+	// // log.Infoln("==--Result2--++>", Result2)
+	// return Result2
+	var StaffChildStr string
+	for n, s := range group {
+		if n == 0 {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
+		} else if n+1 == len(group) {
+			StaffChildStr += fmt.Sprintf("'%s'", s)
+		} else {
+			StaffChildStr += fmt.Sprintf("'%s',", s)
 		}
-		// log.Infoln("==---++>", InsResult)
-		if Dept.StaffChild == "" {
-			log.Infoln("==--->staa", Dept.StaffChild)
+
+	}
+
+	str := fmt.Sprintf(`SELECT distinct department,staff_child FROM staff_info WHERE staff_id in (%s);`, StaffChildStr)
+	if err := dbSale.Ctx().Raw(str).Scan(&Dept).Error; err != nil {
+		log.Errorln("GetSoExpireLead Select Staff error :-", err)
+	}
+	// for _, g := range group {
+
+	for _, v := range Dept {
+		if v.StaffChild == "" {
+			// log.Infoln("==--->staa", v.StaffChild)
 			Dept = em
 		} else {
-			InsResult = strings.Split(Dept.StaffChild, ",")
+			InsResult = strings.Split(v.StaffChild, ",")
 		}
 		Result = GetGroupChildDepart(c, InsResult)
 		for _, r := range InsResult {
 			Result = append(Result, r)
 		}
-		// Result = append(Result, g)
 		Result2 = Result
-		log.Infoln("==--->resulll", Result2)
+		// log.Infoln("==--->resulll", Result2)
 	}
-	// log.Infoln("==--Result2--++>", Result2)
+
 	return Result2
+
 }
