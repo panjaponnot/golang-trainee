@@ -2158,3 +2158,56 @@ func GetGroupChildDepart(c echo.Context, group []string) []string {
 	}
 	return Result2
 }
+
+func StaffChildAllEndPoint(c echo.Context) error {
+
+	type Staff struct {
+		StaffId    string `json:"staff_id"`
+		StaffChild string `json:"staff_child"`
+	}
+	type StaffProfile struct {
+		OneId   string `json:"one_id" gorm:"column:one_id"`
+		StaffId string `json:"staff_id" gorm:"column:staff_id"`
+		Fname   string `json:"fname" gorm:"column:fname"`
+		Lname   string `json:"lname" gorm:"column:lname"`
+		Nname   string `json:"nname" gorm:"column:nname"`
+	}
+
+	if strings.TrimSpace(c.Param("id")) == "" {
+		return echo.ErrBadRequest
+	}
+	id := strings.TrimSpace(c.Param("id"))
+	type DeptStaff struct {
+		Dept  Department     `json:"department" gorm:"column:department"`
+		Staff []StaffProfile `json:"staff_id" gorm:"column:staff_id"`
+	}
+
+	var StaffChild Staff
+	if err := dbSale.Ctx().Raw(`SELECT distinct staff_id,staff_child FROM staff_info WHERE staff_id = ?;`, id).Scan(&StaffChild).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+	var StaffChildStr string
+	var StaffProf []StaffProfile
+	if StaffChild.StaffChild != "" {
+		raw := strings.Split(StaffChild.StaffChild, ",")
+		for n, s := range raw {
+			if n == 0 {
+				StaffChildStr += fmt.Sprintf("'%s',", s)
+			} else if n+1 == len(raw) {
+				StaffChildStr += fmt.Sprintf("'%s'", s)
+			} else {
+				StaffChildStr += fmt.Sprintf("'%s',", s)
+			}
+		}
+
+		str := fmt.Sprintf(`SELECT distinct one_id,staff_id,fname,lname,nname FROM staff_info WHERE staff_id in (%s);`, StaffChildStr)
+		if err := dbSale.Ctx().Raw(str).Scan(&StaffProf).Error; err != nil {
+			log.Errorln("GetSoExpireLead Select Staff error :-", err)
+		}
+
+		return c.JSON(http.StatusOK, StaffProf)
+	} else {
+		return c.JSON(http.StatusOK, StaffProf)
+	}
+
+}
