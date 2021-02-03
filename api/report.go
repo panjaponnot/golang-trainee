@@ -437,6 +437,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 	search := strings.TrimSpace(c.QueryParam("search"))
 	// searchSO := strings.TrimSpace(c.QueryParam("searchSO"))
 	oneId := strings.TrimSpace(c.QueryParam("one_id"))
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
 	year := strings.TrimSpace(c.QueryParam("year"))
 	if strings.TrimSpace(c.QueryParam("year")) == "" {
 		yearDefault := time.Now()
@@ -541,8 +542,10 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
                         from check_expire
 				  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
 				  WHERE INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,Customer_ID,Customer_Name,tb_ch_so.sonumber), ?)
+
+				  AND INSTR(CONCAT_WS('|', staff_id), ?)
                   group by tb_ch_so.sonumber
-		  `, listStaffId, year, search).Scan(&rawData).Error; err != nil {
+		  `, listStaffId, year, search, StaffId).Scan(&rawData).Error; err != nil {
 		log.Errorln(pkgName, err, "Select data error")
 	}
 
@@ -1105,7 +1108,7 @@ type PendingData struct {
 	Position          string  `json:"position"`
 	Department        string  `json:"department"`
 	Status            string  `json:"status"`
-	PayTypeChange    	string  `json:"pay_type_change"`
+	PayTypeChange     string  `json:"pay_type_change"`
 	SoTypeChange      string  `json:"so_type_change"`
 	Reason            string  `json:"reason"`
 	Remark            string  `json:"remark"`
