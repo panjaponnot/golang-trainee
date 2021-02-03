@@ -2006,3 +2006,125 @@ func GetTeamsDeptStaffEndPoint(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, Staff)
 }
+
+func DepartmentStaffAllEndPoint(c echo.Context) error {
+	type Department struct {
+		Dept string `json:"department" gorm:"column:department"`
+	}
+
+	type Staff struct {
+		StaffId    string `json:"staff_id"`
+		StaffChild string `json:"staff_child"`
+	}
+
+	type StaffProfile struct {
+		OneId    string `json:"one_id" gorm:"column:one_id"`
+		StaffId  string `json:"staff_id" gorm:"column:staff_id"`
+		Prefix   string `json:"prefix" gorm:"column:prefix"`
+		Fname    string `json:"fname" gorm:"column:fname"`
+		Lname    string `json:"lname" gorm:"column:lname"`
+		Nname    string `json:"nname" gorm:"column:nname"`
+		Position string `json:"position" gorm:"column:position"`
+	}
+
+	if strings.TrimSpace(c.Param("id")) == "" {
+		return echo.ErrBadRequest
+	}
+	id := strings.TrimSpace(c.Param("id"))
+	type DeptStaff struct {
+		Dept  Department     `json:"department" gorm:"column:department"`
+		Staff []StaffProfile `json:"staff_id" gorm:"column:staff_id"`
+	}
+
+	var Dept Department
+	if err := dbSale.Ctx().Raw(`SELECT distinct department FROM staff_info WHERE staff_id = ?;`, id).Scan(&Dept).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+
+	var StaffChild Staff
+	if err := dbSale.Ctx().Raw(`SELECT distinct staff_id,staff_child FROM staff_info WHERE staff_id = ?;`, id).Scan(&StaffChild).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+	var data []string
+	// var Staff []StaffProfile
+	// if err := dbSale.Ctx().Raw(`SELECT *  FROM staff_info where department = ?;`, Dept.Dept).Scan(&Staff).Error; err != nil {
+	// 	log.Errorln(pkgName, err, "Select data error")
+	// }
+
+	log.Infoln("--->", StaffChild)
+	if strings.TrimSpace(StaffChild.StaffChild) != "" {
+		log.Infoln("dscddcsdc")
+		raw := strings.Split(StaffChild.StaffChild, ",")
+		data = GetGroupChildDepart(c, raw)
+		for _, r := range raw {
+			data = append(data, r)
+		}
+
+		var datares []Department
+		for _, d := range data {
+			var Deptname Department
+			if err := dbSale.Ctx().Raw(`SELECT distinct department FROM staff_info WHERE staff_id = ?;`, d).Scan(&Deptname).Error; err != nil {
+				log.Errorln(pkgName, err, "Select data error")
+			}
+			datares = append(datares, Deptname)
+		}
+
+		//duplicate
+		keys := make(map[string]bool)
+		var list []Department
+		for _, entry := range datares {
+			if entry.Dept != "" {
+				if _, value := keys[entry.Dept]; !value {
+					keys[entry.Dept] = true
+					list = append(list, entry)
+				}
+			}
+
+		}
+		return c.JSON(http.StatusOK, list)
+	} else {
+		// data = append(data, Dept.Dept)
+		return c.JSON(http.StatusOK, Dept)
+	}
+
+	// return c.JSON(http.StatusOK, data)
+}
+
+type Department struct {
+	Dept string `json:"department" gorm:"column:department"`
+}
+
+type DepartmentChild struct {
+	Dept       string `json:"department" gorm:"column:department"`
+	StaffChild string `json:"staff_child" gorm:"column:staff_child"`
+}
+
+func GetGroupChildDepart(c echo.Context, group []string) []string {
+	log.Infoln("==--->", group)
+	var Dept DepartmentChild
+	var InsResult []string
+	var Result []string
+	var Result2 []string
+	var em DepartmentChild
+	for _, g := range group {
+		if err := dbSale.Ctx().Raw(`SELECT distinct department,staff_child FROM staff_info WHERE staff_id = ?;`, g).Scan(&Dept).Error; err != nil {
+			log.Errorln(pkgName, err, "Select data error")
+		}
+		// log.Infoln("==---++>", InsResult)
+		if Dept.StaffChild == "" {
+			log.Infoln("==--->staa", Dept.StaffChild)
+			Dept = em
+		} else {
+			InsResult = strings.Split(Dept.StaffChild, ",")
+		}
+		Result = GetGroupChildDepart(c, InsResult)
+		for _, r := range InsResult {
+			Result = append(Result, r)
+		}
+		// Result = append(Result, g)
+		Result2 = Result
+		log.Infoln("==--->resulll", Result2)
+	}
+	// log.Infoln("==--Result2--++>", Result2)
+	return Result2
+}
