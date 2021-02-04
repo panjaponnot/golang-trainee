@@ -1379,7 +1379,7 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 		return echo.ErrInternalServerError
 	}
 	var dataResult []m.OrgChart
-	for _, r := range report {
+	for index, r := range report {
 		for _, i := range invBefore {
 			if i.StaffID == r.StaffId {
 				r.InvAmountOld = i.InvAmount
@@ -1428,20 +1428,21 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
-
+		report[index] = r
+		}
+		if len(report) > 1 {
+		sort.SliceStable(report, func(i, j int) bool { return report[i].ScoreAll > report[j].ScoreAll })
+		}
+		for i, r := range report {
+		report[i].Order = i + 1
 		if len(staffInfo) != 0 {
 			for _, st := range staffInfo {
 				if st.StaffId == r.StaffId {
-					dataResult = append(dataResult, r)
+					dataResult = append(dataResult, report[i] )
 				}
 			}
 		}
-	}
-
-	if len(dataResult) > 1 {
-		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
-	}
-
+		}
 	var dataResultEx []m.OrgChart
 	var result m.Result
 	// if len(dataResult) > (page * 10) {
@@ -1471,68 +1472,71 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 	index := f.NewSheet(mode)
 	// Set value of a cell.
 
-	f.SetCellValue(mode, "A1", "StaffId")
-	f.SetCellValue(mode, "B1", "First Name")
-	f.SetCellValue(mode, "C1", "Last Name")
-	f.SetCellValue(mode, "D1", "Nick Name")
-	f.SetCellValue(mode, "E1", "Position")
-	f.SetCellValue(mode, "F1", "Department")
-	f.SetCellValue(mode, "G1", "Staff Child")
-	f.SetCellValue(mode, "H1", "Inv Amount")
-	f.SetCellValue(mode, "I1", "Inv Amount Old")
-	f.SetCellValue(mode, "J1", "Goal Total")
-	f.SetCellValue(mode, "K1", "Score Target")
-	f.SetCellValue(mode, "L1", "Score Sf")
-	f.SetCellValue(mode, "M1", "Sale Factor")
-	f.SetCellValue(mode, "N1", "Total So")
-	f.SetCellValue(mode, "O1", "If Factor")
-	f.SetCellValue(mode, "P1", "Eng Cost")
-	f.SetCellValue(mode, "Q1", "Revenue")
-	f.SetCellValue(mode, "R1", "Score If")
-	f.SetCellValue(mode, "S1", "In Factor")
-	f.SetCellValue(mode, "T1", "One Id")
-	f.SetCellValue(mode, "U1", "Image")
-	f.SetCellValue(mode, "V1", "File Name")
-	f.SetCellValue(mode, "W1", "Growth Rate")
-	f.SetCellValue(mode, "X1", "Score Growth")
-	f.SetCellValue(mode, "Y1", "Score All")
-	f.SetCellValue(mode, "Z1", "Quarter")
-	f.SetCellValue(mode, "AA1", "Year")
-	f.SetCellValue(mode, "AB1", "Job Months")
-	f.SetCellValue(mode, "AC1", "Commission")
+	f.SetCellValue(mode, "A1", "Order")
+	f.SetCellValue(mode, "B1", "StaffId")
+	f.SetCellValue(mode, "C1", "First Name")
+	f.SetCellValue(mode, "D1", "Last Name")
+	f.SetCellValue(mode, "E1", "Nick Name")
+	f.SetCellValue(mode, "F1", "Position")
+	f.SetCellValue(mode, "G1", "Department")
+	f.SetCellValue(mode, "H1", "Staff Child")
+	f.SetCellValue(mode, "I1", "Inv Amount")
+	f.SetCellValue(mode, "J1", "Inv Amount Old")
+	f.SetCellValue(mode, "K1", "Goal Total")
+	f.SetCellValue(mode, "L1", "Score Target")
+	f.SetCellValue(mode, "M1", "Score Sf")
+	f.SetCellValue(mode, "N1", "Sale Factor")
+	f.SetCellValue(mode, "O1", "Total So")
+	f.SetCellValue(mode, "P1", "If Factor")
+	f.SetCellValue(mode, "Q1", "Eng Cost")
+	f.SetCellValue(mode, "R1", "Revenue")
+	f.SetCellValue(mode, "S1", "Score If")
+	f.SetCellValue(mode, "T1", "In Factor")
+	f.SetCellValue(mode, "U1", "One Id")
+	f.SetCellValue(mode, "V1", "Image")
+	f.SetCellValue(mode, "W1", "File Name")
+	f.SetCellValue(mode, "X1", "Growth Rate")
+	f.SetCellValue(mode, "Y1", "Score Growth")
+	f.SetCellValue(mode, "Z1", "Score All")
+	f.SetCellValue(mode, "AA1", "Quarter")
+	f.SetCellValue(mode, "AB1", "Year")
+	f.SetCellValue(mode, "AC1", "Job Months")
+	f.SetCellValue(mode, "AD1", "Commission")
 
-	colStaffId := "A"
-	colFname := "B"
-	colLname := "C"
-	colNname := "D"
-	colPosition := "E"
-	colDepartment := "F"
-	colStaffChild := "G"
-	colInvAmount := "H"
-	colInvAmountOld := "I"
-	colGoalTotal := "J"
-	colScoreTarget := "K"
-	colScoreSf := "L"
-	colSaleFactor := "M"
-	colTotalSo := "N"
-	colIfFactor := "O"
-	colEngCost := "P"
-	colRevenue := "Q"
-	colScoreIf := "R"
-	colInFactor := "S"
-	colOneId := "T"
-	colImage := "U"
-	colFileName := "V"
-	colGrowthRate := "W"
-	colScoreGrowth := "X"
-	colScoreAll := "Y"
-	colQuarter := "Z"
-	colYear := "AA"
-	colJobMonths := "AB"
-	colCommission := "AC"
+	colOrder := "A"
+	colStaffId := "B"
+	colFname := "C"
+	colLname := "D"
+	colNname := "E"
+	colPosition := "F"
+	colDepartment := "G"
+	colStaffChild := "H"
+	colInvAmount := "I"
+	colInvAmountOld := "J"
+	colGoalTotal := "K"
+	colScoreTarget := "L"
+	colScoreSf := "M"
+	colSaleFactor := "N"
+	colTotalSo := "O"
+	colIfFactor := "P"
+	colEngCost := "Q"
+	colRevenue := "R"
+	colScoreIf := "S"
+	colInFactor := "T"
+	colOneId := "U"
+	colImage := "V"
+	colFileName := "W"
+	colGrowthRate := "X"
+	colScoreGrowth := "Y"
+	colScoreAll := "Z"
+	colQuarter := "AA"
+	colYear := "AB"
+	colJobMonths := "AC"
+	colCommission := "AD"
 
 	for k, v := range dataResultEx {
 		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
+		f.SetCellValue(mode, fmt.Sprint(colOrder, k+2), v.Order)
 		f.SetCellValue(mode, fmt.Sprint(colStaffId, k+2), v.StaffId)
 		f.SetCellValue(mode, fmt.Sprint(colFname, k+2), v.Fname)
 		f.SetCellValue(mode, fmt.Sprint(colLname, k+2), v.Lname)
@@ -1837,7 +1841,7 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 		return echo.ErrInternalServerError
 	}
 	var dataResult []m.OrgChart
-	for _, r := range report {
+	for index, r := range report {
 		for _, i := range invBefore {
 			if i.StaffID == r.StaffId {
 				r.InvAmountOld = i.InvAmount
@@ -1877,18 +1881,21 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
+		report[index] = r
+	}
+	if len(report) > 1 {
+		sort.SliceStable(report, func(i, j int) bool { return report[i].ScoreAll > report[j].ScoreAll })
+	}
+	for i, r := range report {
+		report[i].Order = i + 1
 		if len(staffInfo) != 0 {
 			for _, st := range staffInfo {
 				if st.StaffId == r.StaffId {
-					dataResult = append(dataResult, r)
+					dataResult = append(dataResult, report[i] )
 				}
 			}
 		}
 	}
-	if len(dataResult) > 1 {
-		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
-	}
-
 	var dataResultEx []m.OrgChart
 	var result m.Result
 	// if len(dataResult) > (page * 10) {
@@ -1917,68 +1924,71 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 	index := f.NewSheet(mode)
 	// Set value of a cell.
 
-	f.SetCellValue(mode, "A1", "StaffId")
-	f.SetCellValue(mode, "B1", "First Name")
-	f.SetCellValue(mode, "C1", "Last Name")
-	f.SetCellValue(mode, "D1", "Nick Name")
-	f.SetCellValue(mode, "E1", "Position")
-	f.SetCellValue(mode, "F1", "Department")
-	f.SetCellValue(mode, "G1", "Staff Child")
-	f.SetCellValue(mode, "H1", "Inv Amount")
-	f.SetCellValue(mode, "I1", "Inv Amount Old")
-	f.SetCellValue(mode, "J1", "Goal Total")
-	f.SetCellValue(mode, "K1", "Score Target")
-	f.SetCellValue(mode, "L1", "Score Sf")
-	f.SetCellValue(mode, "M1", "Sale Factor")
-	f.SetCellValue(mode, "N1", "Total So")
-	f.SetCellValue(mode, "O1", "If Factor")
-	f.SetCellValue(mode, "P1", "Eng Cost")
-	f.SetCellValue(mode, "Q1", "Revenue")
-	f.SetCellValue(mode, "R1", "Score If")
-	f.SetCellValue(mode, "S1", "In Factor")
-	f.SetCellValue(mode, "T1", "One Id")
-	f.SetCellValue(mode, "U1", "Image")
-	f.SetCellValue(mode, "V1", "File Name")
-	f.SetCellValue(mode, "W1", "Growth Rate")
-	f.SetCellValue(mode, "X1", "Score Growth")
-	f.SetCellValue(mode, "Y1", "Score All")
-	f.SetCellValue(mode, "Z1", "Quarter")
-	f.SetCellValue(mode, "AA1", "Year")
-	f.SetCellValue(mode, "AB1", "Job Months")
-	f.SetCellValue(mode, "AC1", "Commission")
+	f.SetCellValue(mode, "A1", "Order")
+	f.SetCellValue(mode, "B1", "StaffId")
+	f.SetCellValue(mode, "C1", "First Name")
+	f.SetCellValue(mode, "D1", "Last Name")
+	f.SetCellValue(mode, "E1", "Nick Name")
+	f.SetCellValue(mode, "F1", "Position")
+	f.SetCellValue(mode, "G1", "Department")
+	f.SetCellValue(mode, "H1", "Staff Child")
+	f.SetCellValue(mode, "I1", "Inv Amount")
+	f.SetCellValue(mode, "J1", "Inv Amount Old")
+	f.SetCellValue(mode, "K1", "Goal Total")
+	f.SetCellValue(mode, "L1", "Score Target")
+	f.SetCellValue(mode, "M1", "Score Sf")
+	f.SetCellValue(mode, "N1", "Sale Factor")
+	f.SetCellValue(mode, "O1", "Total So")
+	f.SetCellValue(mode, "P1", "If Factor")
+	f.SetCellValue(mode, "Q1", "Eng Cost")
+	f.SetCellValue(mode, "R1", "Revenue")
+	f.SetCellValue(mode, "S1", "Score If")
+	f.SetCellValue(mode, "T1", "In Factor")
+	f.SetCellValue(mode, "U1", "One Id")
+	f.SetCellValue(mode, "V1", "Image")
+	f.SetCellValue(mode, "W1", "File Name")
+	f.SetCellValue(mode, "X1", "Growth Rate")
+	f.SetCellValue(mode, "Y1", "Score Growth")
+	f.SetCellValue(mode, "Z1", "Score All")
+	f.SetCellValue(mode, "AA1", "Quarter")
+	f.SetCellValue(mode, "AB1", "Year")
+	f.SetCellValue(mode, "AC1", "Job Months")
+	f.SetCellValue(mode, "AD1", "Commission")
 
-	colStaffId := "A"
-	colFname := "B"
-	colLname := "C"
-	colNname := "D"
-	colPosition := "E"
-	colDepartment := "F"
-	colStaffChild := "G"
-	colInvAmount := "H"
-	colInvAmountOld := "I"
-	colGoalTotal := "J"
-	colScoreTarget := "K"
-	colScoreSf := "L"
-	colSaleFactor := "M"
-	colTotalSo := "N"
-	colIfFactor := "O"
-	colEngCost := "P"
-	colRevenue := "Q"
-	colScoreIf := "R"
-	colInFactor := "S"
-	colOneId := "T"
-	colImage := "U"
-	colFileName := "V"
-	colGrowthRate := "W"
-	colScoreGrowth := "X"
-	colScoreAll := "Y"
-	colQuarter := "Z"
-	colYear := "AA"
-	colJobMonths := "AB"
-	colCommission := "AC"
+	colOrder := "A"
+	colStaffId := "B"
+	colFname := "C"
+	colLname := "D"
+	colNname := "E"
+	colPosition := "F"
+	colDepartment := "G"
+	colStaffChild := "H"
+	colInvAmount := "I"
+	colInvAmountOld := "J"
+	colGoalTotal := "K"
+	colScoreTarget := "L"
+	colScoreSf := "M"
+	colSaleFactor := "N"
+	colTotalSo := "O"
+	colIfFactor := "P"
+	colEngCost := "Q"
+	colRevenue := "R"
+	colScoreIf := "S"
+	colInFactor := "T"
+	colOneId := "U"
+	colImage := "V"
+	colFileName := "W"
+	colGrowthRate := "X"
+	colScoreGrowth := "Y"
+	colScoreAll := "Z"
+	colQuarter := "AA"
+	colYear := "AB"
+	colJobMonths := "AC"
+	colCommission := "AD"
 
 	for k, v := range dataResultEx {
 		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
+		f.SetCellValue(mode, fmt.Sprint(colOrder, k+2), v.Order)
 		f.SetCellValue(mode, fmt.Sprint(colStaffId, k+2), v.StaffId)
 		f.SetCellValue(mode, fmt.Sprint(colFname, k+2), v.Fname)
 		f.SetCellValue(mode, fmt.Sprint(colLname, k+2), v.Lname)
@@ -2281,7 +2291,7 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 		return echo.ErrInternalServerError
 	}
 	var dataResult []m.OrgChart
-	for _, r := range report {
+	for index, r := range report {
 		for _, i := range invBefore {
 			if i.StaffID == r.StaffId {
 				r.InvAmountOld = i.InvAmount
@@ -2321,18 +2331,21 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
+		report[index] = r
+	}
+	if len(report) > 1 {
+		sort.SliceStable(report, func(i, j int) bool { return report[i].ScoreAll > report[j].ScoreAll })
+	}
+	for i, r := range report {
+		report[i].Order = i + 1
 		if len(staffInfo) != 0 {
 			for _, st := range staffInfo {
 				if st.StaffId == r.StaffId {
-					dataResult = append(dataResult, r)
+					dataResult = append(dataResult, report[i] )
 				}
 			}
 		}
 	}
-	if len(dataResult) != 0 {
-		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
-	}
-
 	var dataResultEx []m.OrgChart
 	var result m.Result
 	// if len(dataResult) > (page * 10) {
@@ -2362,68 +2375,71 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 	index := f.NewSheet(mode)
 	// Set value of a cell.
 
-	f.SetCellValue(mode, "A1", "StaffId")
-	f.SetCellValue(mode, "B1", "First Name")
-	f.SetCellValue(mode, "C1", "Last Name")
-	f.SetCellValue(mode, "D1", "Nick Name")
-	f.SetCellValue(mode, "E1", "Position")
-	f.SetCellValue(mode, "F1", "Department")
-	f.SetCellValue(mode, "G1", "Staff Child")
-	f.SetCellValue(mode, "H1", "Inv Amount")
-	f.SetCellValue(mode, "I1", "Inv Amount Old")
-	f.SetCellValue(mode, "J1", "Goal Total")
-	f.SetCellValue(mode, "K1", "Score Target")
-	f.SetCellValue(mode, "L1", "Score Sf")
-	f.SetCellValue(mode, "M1", "Sale Factor")
-	f.SetCellValue(mode, "N1", "Total So")
-	f.SetCellValue(mode, "O1", "If Factor")
-	f.SetCellValue(mode, "P1", "Eng Cost")
-	f.SetCellValue(mode, "Q1", "Revenue")
-	f.SetCellValue(mode, "R1", "Score If")
-	f.SetCellValue(mode, "S1", "In Factor")
-	f.SetCellValue(mode, "T1", "One Id")
-	f.SetCellValue(mode, "U1", "Image")
-	f.SetCellValue(mode, "V1", "File Name")
-	f.SetCellValue(mode, "W1", "Growth Rate")
-	f.SetCellValue(mode, "X1", "Score Growth")
-	f.SetCellValue(mode, "Y1", "Score All")
-	f.SetCellValue(mode, "Z1", "Quarter")
-	f.SetCellValue(mode, "AA1", "Year")
-	f.SetCellValue(mode, "AB1", "Job Months")
-	f.SetCellValue(mode, "AC1", "Commission")
+	f.SetCellValue(mode, "A1", "Order")
+	f.SetCellValue(mode, "B1", "StaffId")
+	f.SetCellValue(mode, "C1", "First Name")
+	f.SetCellValue(mode, "D1", "Last Name")
+	f.SetCellValue(mode, "E1", "Nick Name")
+	f.SetCellValue(mode, "F1", "Position")
+	f.SetCellValue(mode, "G1", "Department")
+	f.SetCellValue(mode, "H1", "Staff Child")
+	f.SetCellValue(mode, "I1", "Inv Amount")
+	f.SetCellValue(mode, "J1", "Inv Amount Old")
+	f.SetCellValue(mode, "K1", "Goal Total")
+	f.SetCellValue(mode, "L1", "Score Target")
+	f.SetCellValue(mode, "M1", "Score Sf")
+	f.SetCellValue(mode, "N1", "Sale Factor")
+	f.SetCellValue(mode, "O1", "Total So")
+	f.SetCellValue(mode, "P1", "If Factor")
+	f.SetCellValue(mode, "Q1", "Eng Cost")
+	f.SetCellValue(mode, "R1", "Revenue")
+	f.SetCellValue(mode, "S1", "Score If")
+	f.SetCellValue(mode, "T1", "In Factor")
+	f.SetCellValue(mode, "U1", "One Id")
+	f.SetCellValue(mode, "V1", "Image")
+	f.SetCellValue(mode, "W1", "File Name")
+	f.SetCellValue(mode, "X1", "Growth Rate")
+	f.SetCellValue(mode, "Y1", "Score Growth")
+	f.SetCellValue(mode, "Z1", "Score All")
+	f.SetCellValue(mode, "AA1", "Quarter")
+	f.SetCellValue(mode, "AB1", "Year")
+	f.SetCellValue(mode, "AC1", "Job Months")
+	f.SetCellValue(mode, "AD1", "Commission")
 
-	colStaffId := "A"
-	colFname := "B"
-	colLname := "C"
-	colNname := "D"
-	colPosition := "E"
-	colDepartment := "F"
-	colStaffChild := "G"
-	colInvAmount := "H"
-	colInvAmountOld := "I"
-	colGoalTotal := "J"
-	colScoreTarget := "K"
-	colScoreSf := "L"
-	colSaleFactor := "M"
-	colTotalSo := "N"
-	colIfFactor := "O"
-	colEngCost := "P"
-	colRevenue := "Q"
-	colScoreIf := "R"
-	colInFactor := "S"
-	colOneId := "T"
-	colImage := "U"
-	colFileName := "V"
-	colGrowthRate := "W"
-	colScoreGrowth := "X"
-	colScoreAll := "Y"
-	colQuarter := "Z"
-	colYear := "AA"
-	colJobMonths := "AB"
-	colCommission := "AC"
+	colOrder := "A"
+	colStaffId := "B"
+	colFname := "C"
+	colLname := "D"
+	colNname := "E"
+	colPosition := "F"
+	colDepartment := "G"
+	colStaffChild := "H"
+	colInvAmount := "I"
+	colInvAmountOld := "J"
+	colGoalTotal := "K"
+	colScoreTarget := "L"
+	colScoreSf := "M"
+	colSaleFactor := "N"
+	colTotalSo := "O"
+	colIfFactor := "P"
+	colEngCost := "Q"
+	colRevenue := "R"
+	colScoreIf := "S"
+	colInFactor := "T"
+	colOneId := "U"
+	colImage := "V"
+	colFileName := "W"
+	colGrowthRate := "X"
+	colScoreGrowth := "Y"
+	colScoreAll := "Z"
+	colQuarter := "AA"
+	colYear := "AB"
+	colJobMonths := "AC"
+	colCommission := "AD"
 
 	for k, v := range dataResultEx {
 		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
+		f.SetCellValue(mode, fmt.Sprint(colOrder, k+2), v.Order)
 		f.SetCellValue(mode, fmt.Sprint(colStaffId, k+2), v.StaffId)
 		f.SetCellValue(mode, fmt.Sprint(colFname, k+2), v.Fname)
 		f.SetCellValue(mode, fmt.Sprint(colLname, k+2), v.Lname)
@@ -2711,7 +2727,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_lead
 			where staff_id is not null and staff_id <> ''
 		) all_ranking LEFT JOIN staff_images ON all_ranking.one_id = staff_images.one_id
-		WHERE staff_id in (?) 
+		WHERE staff_id in (?)
 		group by staff_id;`
 
 	sqlBefore := `select staff_id,count(staff_id) as checkdata,sum(inv_amount) as inv_amount
@@ -2801,7 +2817,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 		return echo.ErrInternalServerError
 	}
 	var dataResult []m.OrgChart
-	for _, r := range report {
+	for index, r := range report {
 		for _, i := range invBefore {
 			if i.StaffID == r.StaffId {
 				r.InvAmountOld = i.InvAmount
@@ -2841,18 +2857,20 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
-		// dataResult = append(dataResult, r)
+		report[index] = r
+	}
+	if len(report) > 1 {
+		sort.SliceStable(report, func(i, j int) bool { return report[i].ScoreAll > report[j].ScoreAll })
+	}
+	for i, r := range report {
+		report[i].Order = i + 1
 		if len(staffInfo) != 0 {
 			for _, st := range staffInfo {
-				child := strings.Split(st.StaffChild, ",")
-				if st.StaffId == r.StaffId && len(child) < 10 {
-					dataResult = append(dataResult, r)
+				if st.StaffId == r.StaffId {
+					dataResult = append(dataResult, report[i] )
 				}
 			}
 		}
-	}
-	if len(dataResult) != 0 {
-		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
 	}
 	var result m.Result
 	// if len(dataResult) > (page * 10) {
@@ -2881,68 +2899,71 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 	index := f.NewSheet(mode)
 	// Set value of a cell.
 
-	f.SetCellValue(mode, "A1", "StaffId")
-	f.SetCellValue(mode, "B1", "First Name")
-	f.SetCellValue(mode, "C1", "Last Name")
-	f.SetCellValue(mode, "D1", "Nick Name")
-	f.SetCellValue(mode, "E1", "Position")
-	f.SetCellValue(mode, "F1", "Department")
-	f.SetCellValue(mode, "G1", "Staff Child")
-	f.SetCellValue(mode, "H1", "Inv Amount")
-	f.SetCellValue(mode, "I1", "Inv Amount Old")
-	f.SetCellValue(mode, "J1", "Goal Total")
-	f.SetCellValue(mode, "K1", "Score Target")
-	f.SetCellValue(mode, "L1", "Score Sf")
-	f.SetCellValue(mode, "M1", "Sale Factor")
-	f.SetCellValue(mode, "N1", "Total So")
-	f.SetCellValue(mode, "O1", "If Factor")
-	f.SetCellValue(mode, "P1", "Eng Cost")
-	f.SetCellValue(mode, "Q1", "Revenue")
-	f.SetCellValue(mode, "R1", "Score If")
-	f.SetCellValue(mode, "S1", "In Factor")
-	f.SetCellValue(mode, "T1", "One Id")
-	f.SetCellValue(mode, "U1", "Image")
-	f.SetCellValue(mode, "V1", "File Name")
-	f.SetCellValue(mode, "W1", "Growth Rate")
-	f.SetCellValue(mode, "X1", "Score Growth")
-	f.SetCellValue(mode, "Y1", "Score All")
-	f.SetCellValue(mode, "Z1", "Quarter")
-	f.SetCellValue(mode, "AA1", "Year")
-	f.SetCellValue(mode, "AB1", "Job Months")
-	f.SetCellValue(mode, "AC1", "Commission")
+	f.SetCellValue(mode, "A1", "Order")
+	f.SetCellValue(mode, "B1", "StaffId")
+	f.SetCellValue(mode, "C1", "First Name")
+	f.SetCellValue(mode, "D1", "Last Name")
+	f.SetCellValue(mode, "E1", "Nick Name")
+	f.SetCellValue(mode, "F1", "Position")
+	f.SetCellValue(mode, "G1", "Department")
+	f.SetCellValue(mode, "H1", "Staff Child")
+	f.SetCellValue(mode, "I1", "Inv Amount")
+	f.SetCellValue(mode, "J1", "Inv Amount Old")
+	f.SetCellValue(mode, "K1", "Goal Total")
+	f.SetCellValue(mode, "L1", "Score Target")
+	f.SetCellValue(mode, "M1", "Score Sf")
+	f.SetCellValue(mode, "N1", "Sale Factor")
+	f.SetCellValue(mode, "O1", "Total So")
+	f.SetCellValue(mode, "P1", "If Factor")
+	f.SetCellValue(mode, "Q1", "Eng Cost")
+	f.SetCellValue(mode, "R1", "Revenue")
+	f.SetCellValue(mode, "S1", "Score If")
+	f.SetCellValue(mode, "T1", "In Factor")
+	f.SetCellValue(mode, "U1", "One Id")
+	f.SetCellValue(mode, "V1", "Image")
+	f.SetCellValue(mode, "W1", "File Name")
+	f.SetCellValue(mode, "X1", "Growth Rate")
+	f.SetCellValue(mode, "Y1", "Score Growth")
+	f.SetCellValue(mode, "Z1", "Score All")
+	f.SetCellValue(mode, "AA1", "Quarter")
+	f.SetCellValue(mode, "AB1", "Year")
+	f.SetCellValue(mode, "AC1", "Job Months")
+	f.SetCellValue(mode, "AD1", "Commission")
 
-	colStaffId := "A"
-	colFname := "B"
-	colLname := "C"
-	colNname := "D"
-	colPosition := "E"
-	colDepartment := "F"
-	colStaffChild := "G"
-	colInvAmount := "H"
-	colInvAmountOld := "I"
-	colGoalTotal := "J"
-	colScoreTarget := "K"
-	colScoreSf := "L"
-	colSaleFactor := "M"
-	colTotalSo := "N"
-	colIfFactor := "O"
-	colEngCost := "P"
-	colRevenue := "Q"
-	colScoreIf := "R"
-	colInFactor := "S"
-	colOneId := "T"
-	colImage := "U"
-	colFileName := "V"
-	colGrowthRate := "W"
-	colScoreGrowth := "X"
-	colScoreAll := "Y"
-	colQuarter := "Z"
-	colYear := "AA"
-	colJobMonths := "AB"
-	colCommission := "AC"
+	colOrder := "A"
+	colStaffId := "B"
+	colFname := "C"
+	colLname := "D"
+	colNname := "E"
+	colPosition := "F"
+	colDepartment := "G"
+	colStaffChild := "H"
+	colInvAmount := "I"
+	colInvAmountOld := "J"
+	colGoalTotal := "K"
+	colScoreTarget := "L"
+	colScoreSf := "M"
+	colSaleFactor := "N"
+	colTotalSo := "O"
+	colIfFactor := "P"
+	colEngCost := "Q"
+	colRevenue := "R"
+	colScoreIf := "S"
+	colInFactor := "T"
+	colOneId := "U"
+	colImage := "V"
+	colFileName := "W"
+	colGrowthRate := "X"
+	colScoreGrowth := "Y"
+	colScoreAll := "Z"
+	colQuarter := "AA"
+	colYear := "AB"
+	colJobMonths := "AC"
+	colCommission := "AD"
 
 	for k, v := range dataResultEx {
 		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
+		f.SetCellValue(mode, fmt.Sprint(colOrder, k+2), v.Order)
 		f.SetCellValue(mode, fmt.Sprint(colStaffId, k+2), v.StaffId)
 		f.SetCellValue(mode, fmt.Sprint(colFname, k+2), v.Fname)
 		f.SetCellValue(mode, fmt.Sprint(colLname, k+2), v.Lname)

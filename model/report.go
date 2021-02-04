@@ -3,6 +3,7 @@ package model
 import "time"
 
 type OrgChart struct {
+	Order      	 int  	 `json:"order"`
 	StaffId      string  `json:"staff_id"`
 	Fname        string  `json:"fname" gorm:"column:fname"`
 	Lname        string  `json:"lname"`

@@ -271,12 +271,11 @@ func GetRankingBaseSale(c echo.Context) error {
 		return echo.ErrInternalServerError
 	}
 	var dataResult []m.OrgChart
-	for _, r := range report {
+	for index, r := range report {
 		for _, i := range invBefore {
 			if i.StaffID == r.StaffId {
 				r.InvAmountOld = i.InvAmount
 				r.GrowthRate = ((r.InvAmount - i.InvAmount) / i.InvAmount) * 100
-
 				if r.GrowthRate >= 80 {
 					r.ScoreGrowth = 50
 				} else if r.GrowthRate >= 60 {
@@ -309,31 +308,29 @@ func GetRankingBaseSale(c echo.Context) error {
 					if len(mapCnStaff[r.StaffId]) > 0 {
 						x = (i * 1000) + ((i - 1) * 1000)
 					}
-
 					baseCal := r.InvAmountOld * 0.003
 					growthCal := (r.InvAmount - r.InvAmountOld) * 0.03
 					saleFactor := (baseCal + growthCal) * (r.SaleFactor * r.SaleFactor)
 					r.Commission = (saleFactor * (r.InFactor / 0.7)) - float64(x)
-
-					log.Infoln("SO", "=====>", len(mapCnStaff[r.StaffId]), " === comission not cal== ", int(r.Commission), "  == aging =", x)
 				}
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
-
+		report[index] = r
+	}
+	if len(report) > 1 {
+		sort.SliceStable(report, func(i, j int) bool { return report[i].ScoreAll > report[j].ScoreAll })
+	}
+	for i, r := range report {
+		report[i].Order = i + 1
 		if len(staffInfo) != 0 {
 			for _, st := range staffInfo {
 				if st.StaffId == r.StaffId {
-					dataResult = append(dataResult, r)
+					dataResult = append(dataResult, report[i] )
 				}
 			}
 		}
 	}
-
-	if len(dataResult) > 1 {
-		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
-	}
-
 	var result m.Result
 	if len(dataResult) > (page * 10) {
 		start := (page - 1) * 10
@@ -606,7 +603,7 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 		return echo.ErrInternalServerError
 	}
 	var dataResult []m.OrgChart
-	for _, r := range report {
+	for index, r := range report {
 		for _, i := range invBefore {
 			if i.StaffID == r.StaffId {
 				r.InvAmountOld = i.InvAmount
@@ -646,16 +643,20 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
+		report[index] = r
+	}
+	if len(report) > 1 {
+		sort.SliceStable(report, func(i, j int) bool { return report[i].ScoreAll > report[j].ScoreAll })
+	}
+	for i, r := range report {
+		report[i].Order = i + 1
 		if len(staffInfo) != 0 {
 			for _, st := range staffInfo {
 				if st.StaffId == r.StaffId {
-					dataResult = append(dataResult, r)
+					dataResult = append(dataResult, report[i] )
 				}
 			}
 		}
-	}
-	if len(dataResult) > 1 {
-		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
 	}
 	var result m.Result
 	if len(dataResult) > (page * 10) {
@@ -929,7 +930,7 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 		return echo.ErrInternalServerError
 	}
 	var dataResult []m.OrgChart
-	for _, r := range report {
+	for index, r := range report {
 		for _, i := range invBefore {
 			if i.StaffID == r.StaffId {
 				r.InvAmountOld = i.InvAmount
@@ -969,16 +970,20 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
+		report[index] = r
+	}
+	if len(report) > 1 {
+		sort.SliceStable(report, func(i, j int) bool { return report[i].ScoreAll > report[j].ScoreAll })
+	}
+	for i, r := range report {
+		report[i].Order = i + 1
 		if len(staffInfo) != 0 {
 			for _, st := range staffInfo {
 				if st.StaffId == r.StaffId {
-					dataResult = append(dataResult, r)
+					dataResult = append(dataResult, report[i] )
 				}
 			}
 		}
-	}
-	if len(dataResult) != 0 {
-		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
 	}
 	var result m.Result
 	if len(dataResult) > (page * 10) {
@@ -1237,7 +1242,7 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_lead
 			where staff_id is not null and staff_id <> ''
 		) all_ranking LEFT JOIN staff_images ON all_ranking.one_id = staff_images.one_id
-		WHERE staff_id in (?) 
+		WHERE staff_id in (?)
 		group by staff_id;`
 
 	sqlBefore := `select staff_id,count(staff_id) as checkdata,sum(inv_amount) as inv_amount
@@ -1327,7 +1332,7 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 		return echo.ErrInternalServerError
 	}
 	var dataResult []m.OrgChart
-	for _, r := range report {
+	for index, r := range report {
 		for _, i := range invBefore {
 			if i.StaffID == r.StaffId {
 				r.InvAmountOld = i.InvAmount
@@ -1367,18 +1372,20 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 			}
 		}
 		r.ScoreAll += r.ScoreSf + r.ScoreIf + r.ScoreGrowth
-		// dataResult = append(dataResult, r)
+		report[index] = r
+	}
+	if len(report) > 1 {
+		sort.SliceStable(report, func(i, j int) bool { return report[i].ScoreAll > report[j].ScoreAll })
+	}
+	for i, r := range report {
+		report[i].Order = i + 1
 		if len(staffInfo) != 0 {
 			for _, st := range staffInfo {
-				child := strings.Split(st.StaffChild, ",")
-				if st.StaffId == r.StaffId && len(child) < 10 {
-					dataResult = append(dataResult, r)
+				if st.StaffId == r.StaffId {
+					dataResult = append(dataResult, report[i] )
 				}
 			}
 		}
-	}
-	if len(dataResult) != 0 {
-		sort.SliceStable(dataResult, func(i, j int) bool { return dataResult[i].ScoreAll > dataResult[j].ScoreAll })
 	}
 	var result m.Result
 	if len(dataResult) > (page * 10) {
