@@ -83,7 +83,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 	dataCount := struct {
 		Count        int
 		Total        interface{}
-		Work         interface{}
+		Cancel       interface{}
 		NotWork      interface{}
 		Win          interface{}
 		Lost         interface{}
@@ -135,12 +135,12 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 	wg := sync.WaitGroup{}
 	wg.Add(13)
 	go func() {
-		// work
+		// cancle
 		var dataRaw []QuotationJoin
 		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th
 		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
 		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
-		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale IS NOT NULL
+		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'Cancel'
 		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
 		AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, StaffId)
@@ -155,7 +155,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		for _, v := range dataRaw {
 			TotalPrice += v.TotalPrice
 		}
-		dataCount.Work = map[string]interface{}{
+		dataCount.Cancel = map[string]interface{}{
 			"total_price": TotalPrice,
 			"count":       len(dataRaw),
 		}
@@ -298,7 +298,7 @@ AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, S
 		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th
 		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
 		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
-		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'lost'
+		WHERE sales_approve.reason IS NOT NULL AND sales_approve.status_sale = 'Lost'
 		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
 		AND (total IS NOT NULL OR total_discount IS NOT NULL)
 		AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, StaffId)
@@ -513,7 +513,7 @@ AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, S
 	dataResult.Total = map[string]interface{}{
 		"total_all": dataCount.Total,
 		"total_work": map[string]interface{}{
-			"work":      dataCount.Work,
+			"cancel":    dataCount.Cancel,
 			"win":       dataCount.Win,
 			"lost":      dataCount.Lost,
 			"not_check": dataCount.NotWork,

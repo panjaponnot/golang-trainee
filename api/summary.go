@@ -851,11 +851,11 @@ func GetSOCustomerEndPoint(c echo.Context) error {
 		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
 		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
 		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
-		SoType              string  `json:"so_type" gorm:"column:so_type"`
+		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
 	}
 
-	sql := `SELECT * FROM so_mssql
+	sql := `SELECT sonumber,ContractStartDate,ContractEndDate,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail FROM so_mssql
 					WHERE Active_Inactive = 'Active'
 					and PeriodStartDate <= ? and PeriodEndDate >= ?
 					and PeriodStartDate <= PeriodEndDate
