@@ -836,9 +836,11 @@ func GetSOCustomerEndPoint(c echo.Context) error {
 	}
 
 	type SOCus struct {
-		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
-		ContractStartDate   string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
-		ContractEndDate     string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SOnumber          string `json:"so_number" gorm:"column:sonumber"`
+		ContractStartDate string `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate   string `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		// PeriodStartDate     string  `json:"PeriodStartDate" gorm:"column:PeriodStartDate"`
+		// PeriodEndDate       string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
 		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
 		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
 		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
@@ -855,7 +857,9 @@ func GetSOCustomerEndPoint(c echo.Context) error {
 		Detail              string  `json:"detail" gorm:"column:detail"`
 	}
 
-	sql := `SELECT sonumber,ContractStartDate,ContractEndDate,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail FROM so_mssql
+	sql := `SELECT sonumber,ContractStartDate,ContractEndDate,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,
+		sale_name,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail
+		FROM so_mssql
 					WHERE Active_Inactive = 'Active'
 					and PeriodStartDate <= ? and PeriodEndDate >= ?
 					and PeriodStartDate <= PeriodEndDate
