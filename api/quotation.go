@@ -82,7 +82,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 	}{}
 	dataCount := struct {
 		Count        int
-		Total        int
+		Total        interface{}
 		Work         interface{}
 		NotWork      interface{}
 		Win          interface{}
@@ -148,28 +148,28 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 			hasErr += 1
 		}
 
-		if len(dataRaw) > (page * 20) {
-			start := (page - 1) * 20
-			end := (page * 20)
-			TotalPrice := float64(0)
-			for _, v := range dataRaw[start:end] {
-				TotalPrice += v.TotalPrice
-			}
-			dataCount.Work = map[string]interface{}{
-				"total_price": TotalPrice,
-				"count":       len(dataRaw[start:end]),
-			}
-		} else {
-			start := (page * 20) - (20)
-			TotalPrice := float64(0)
-			for _, v := range dataRaw[start:] {
-				TotalPrice += v.TotalPrice
-			}
-			dataCount.Work = map[string]interface{}{
-				"total_price": TotalPrice,
-				"count":       len(dataRaw[start:]),
-			}
+		// if len(dataRaw) > (page * 20) {
+		// 	start := (page - 1) * 20
+		// 	end := (page * 20)
+		TotalPrice := float64(0)
+		for _, v := range dataRaw {
+			TotalPrice += v.TotalPrice
 		}
+		dataCount.Work = map[string]interface{}{
+			"total_price": TotalPrice,
+			"count":       len(dataRaw),
+		}
+		// } else {
+		// 	start := (page * 20) - (20)
+		// 	TotalPrice := float64(0)
+		// 	for _, v := range dataRaw[start:] {
+		// 		TotalPrice += v.TotalPrice
+		// 	}
+		// 	dataCount.Work = map[string]interface{}{
+		// 		"total_price": TotalPrice,
+		// 		"count":       len(dataRaw),
+		// 	}
+		// }
 
 		// dataCount.Work = len(dataRaw)
 		wg.Done()
@@ -191,16 +191,26 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 			end := (page * 20)
 			dataResult.Detail = map[string]interface{}{
 				"data":  dataRaw[start:end],
-				"count": len(dataRaw[start:end]),
+				"count": len(dataRaw),
 			}
 		} else {
 			start := (page * 20) - (20)
 			dataResult.Detail = map[string]interface{}{
 				"data":  dataRaw[start:],
-				"count": len(dataRaw[start:]),
+				"count": len(dataRaw),
 			}
 		}
-		dataCount.Total = len(dataRaw)
+
+		TotalPrice := float64(0)
+		for _, v := range dataRaw {
+			TotalPrice += v.TotalPrice
+		}
+		dataCount.Total = map[string]interface{}{
+			"total_price": TotalPrice,
+			"count":       len(dataRaw),
+		}
+		// dataCount.Total = len(dataRaw)
+
 		wg.Done()
 	}()
 	go func() {
@@ -216,28 +226,28 @@ AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, S
 			hasErr += 1
 		}
 
-		if len(dataRaw) > (page * 20) {
-			start := (page - 1) * 20
-			end := (page * 20)
-			TotalPrice := float64(0)
-			for _, v := range dataRaw[start:end] {
-				TotalPrice += v.TotalPrice
-			}
-			dataCount.NotWork = map[string]interface{}{
-				"total_price": TotalPrice,
-				"count":       len(dataRaw[start:end]),
-			}
-		} else {
-			start := (page * 20) - (20)
-			TotalPrice := float64(0)
-			for _, v := range dataRaw[start:] {
-				TotalPrice += v.TotalPrice
-			}
-			dataCount.NotWork = map[string]interface{}{
-				"total_price": TotalPrice,
-				"count":       len(dataRaw[start:]),
-			}
+		// if len(dataRaw) > (page * 20) {
+		// 	start := (page - 1) * 20
+		// 	end := (page * 20)
+		TotalPrice := float64(0)
+		for _, v := range dataRaw {
+			TotalPrice += v.TotalPrice
 		}
+		dataCount.NotWork = map[string]interface{}{
+			"total_price": TotalPrice,
+			"count":       len(dataRaw),
+		}
+		// } else {
+		// 	start := (page * 20) - (20)
+		// 	TotalPrice := float64(0)
+		// 	for _, v := range dataRaw[start:] {
+		// 		TotalPrice += v.TotalPrice
+		// 	}
+		// 	dataCount.NotWork = map[string]interface{}{
+		// 		"total_price": TotalPrice,
+		// 		"count":       len(dataRaw),
+		// 	}
+		// }
 
 		// dataCount.NotWork = len(dataRaw)
 		wg.Done()
@@ -256,28 +266,28 @@ AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, S
 			hasErr += 1
 		}
 
-		if len(dataRaw) > (page * 20) {
-			start := (page - 1) * 20
-			end := (page * 20)
-			TotalPrice := float64(0)
-			for _, v := range dataRaw[start:end] {
-				TotalPrice += v.TotalPrice
-			}
-			dataCount.Win = map[string]interface{}{
-				"total_price": TotalPrice,
-				"count":       len(dataRaw[start:end]),
-			}
-		} else {
-			start := (page * 20) - (20)
-			TotalPrice := float64(0)
-			for _, v := range dataRaw[start:] {
-				TotalPrice += v.TotalPrice
-			}
-			dataCount.Win = map[string]interface{}{
-				"total_price": TotalPrice,
-				"count":       len(dataRaw[start:]),
-			}
+		// if len(dataRaw) > (page * 20) {
+		// 	start := (page - 1) * 20
+		// 	end := (page * 20)
+		TotalPrice := float64(0)
+		for _, v := range dataRaw {
+			TotalPrice += v.TotalPrice
 		}
+		dataCount.Win = map[string]interface{}{
+			"total_price": TotalPrice,
+			"count":       len(dataRaw),
+		}
+		// } else {
+		// 	start := (page * 20) - (20)
+		// 	TotalPrice := float64(0)
+		// 	for _, v := range dataRaw[start:] {
+		// 		TotalPrice += v.TotalPrice
+		// 	}
+		// 	dataCount.Win = map[string]interface{}{
+		// 		"total_price": TotalPrice,
+		// 		"count":       len(dataRaw),
+		// 	}
+		// }
 
 		// dataCount.Win = len(dataRaw)
 		wg.Done()
@@ -296,28 +306,28 @@ AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, S
 			hasErr += 1
 		}
 
-		if len(dataRaw) > (page * 20) {
-			start := (page - 1) * 20
-			end := (page * 20)
-			TotalPrice := float64(0)
-			for _, v := range dataRaw[start:end] {
-				TotalPrice += v.TotalPrice
-			}
-			dataCount.Lost = map[string]interface{}{
-				"total_price": TotalPrice,
-				"count":       len(dataRaw[start:end]),
-			}
-		} else {
-			start := (page * 20) - (20)
-			TotalPrice := float64(0)
-			for _, v := range dataRaw[start:] {
-				TotalPrice += v.TotalPrice
-			}
-			dataCount.Lost = map[string]interface{}{
-				"total_price": TotalPrice,
-				"count":       len(dataRaw[start:]),
-			}
+		// if len(dataRaw) > (page * 20) {
+		// 	start := (page - 1) * 20
+		// 	end := (page * 20)
+		TotalPrice := float64(0)
+		for _, v := range dataRaw {
+			TotalPrice += v.TotalPrice
 		}
+		dataCount.Lost = map[string]interface{}{
+			"total_price": TotalPrice,
+			"count":       len(dataRaw),
+		}
+		// } else {
+		// 	start := (page * 20) - (20)
+		// 	TotalPrice := float64(0)
+		// 	for _, v := range dataRaw[start:] {
+		// 		TotalPrice += v.TotalPrice
+		// 	}
+		// 	dataCount.Lost = map[string]interface{}{
+		// 		"total_price": TotalPrice,
+		// 		"count":       len(dataRaw),
+		// 	}
+		// }
 
 		// dataCount.Lost = len(dataRaw)
 		wg.Done()
@@ -449,28 +459,28 @@ AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, S
 			hasErr += 1
 		}
 
-		if len(dataRaw) > (page * 20) {
-			start := (page - 1) * 20
-			end := (page * 20)
-			TotalPrice := float64(0)
-			for _, v := range dataRaw[start:end] {
-				TotalPrice += v.TotalPrice
-			}
-			dataCount.Resend = map[string]interface{}{
-				"total_price": TotalPrice,
-				"count":       len(dataRaw[start:end]),
-			}
-		} else {
-			start := (page * 20) - (20)
-			TotalPrice := float64(0)
-			for _, v := range dataRaw[start:] {
-				TotalPrice += v.TotalPrice
-			}
-			dataCount.Resend = map[string]interface{}{
-				"total_price": TotalPrice,
-				"count":       len(dataRaw[start:]),
-			}
+		// if len(dataRaw) > (page * 20) {
+		// 	start := (page - 1) * 20
+		// 	end := (page * 20)
+		TotalPrice := float64(0)
+		for _, v := range dataRaw {
+			TotalPrice += v.TotalPrice
 		}
+		dataCount.Resend = map[string]interface{}{
+			"total_price": TotalPrice,
+			"count":       len(dataRaw),
+		}
+		// } else {
+		// 	start := (page * 20) - (20)
+		// 	TotalPrice := float64(0)
+		// 	for _, v := range dataRaw[start:] {
+		// 		TotalPrice += v.TotalPrice
+		// 	}
+		// 	dataCount.Resend = map[string]interface{}{
+		// 		"total_price": TotalPrice,
+		// 		"count":       len(dataRaw),
+		// 	}
+		// }
 
 		// dataCount.Resend = len(dataRaw)
 		wg.Done()
@@ -503,7 +513,7 @@ AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, S
 	dataResult.Total = map[string]interface{}{
 		"total_all": dataCount.Total,
 		"total_work": map[string]interface{}{
-			"all":       dataCount.Work,
+			"work":      dataCount.Work,
 			"win":       dataCount.Win,
 			"lost":      dataCount.Lost,
 			"not_check": dataCount.NotWork,
