@@ -2,14 +2,17 @@ package api
 
 import (
 	"net/http"
+	"sale_ranking/model"
 	m "sale_ranking/model"
 	"sale_ranking/pkg/log"
+	"sale_ranking/pkg/server"
 	"sale_ranking/pkg/util"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo/v4"
 )
 
@@ -287,6 +290,113 @@ func GetTrackingInvoiceEndPoint(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, dataRaw)
+}
+
+func GetTrackingInvoiceSOEndPoint(c echo.Context) error {
+
+	type SOCus struct {
+		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
+		ContractStartDate   string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate     string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SDPropertyCS28      string  `json:"SDPropertyCS28" gorm:"column:SDPropertyCS28"`
+		BLSCDocNo           string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
+		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
+		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
+		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
+		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
+		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
+		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
+		SoType              string  `json:"SoType" gorm:"column:SoType"`
+		Detail              string  `json:"detail" gorm:"column:detail"`
+	}
+
+	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
+	search := strings.TrimSpace(c.QueryParam("search"))
+	CsNumber := strings.TrimSpace(c.QueryParam("cs_number"))
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
+
+	//// get staff id ////
+	var user []model.UserInfo
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, saleId).Scan(&user).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user) != 0 {
+		var staffAll []model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.StaffId)
+		}
+	} else {
+		var staffAll model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, saleId).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.StaffChild != "" {
+			data := strings.Split(staffAll.StaffChild, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.StaffId)
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("end_date")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+	var so []SOCus
+	hasErr := 0
+	sql := `		SELECT * FROM so_mssql
+						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
+						and PeriodStartDate <= ? and PeriodEndDate >= ?
+						and PeriodStartDate <= PeriodEndDate
+						and sale_code in (?)
+						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
+						and INSTR(CONCAT_WS('|', SDPropertyCS28), ?)
+						and INSTR(CONCAT_WS('|', sale_code), ?)
+						;`
+
+	if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&so).Error; err != nil {
+		log.Errorln(pkgName, err, "select data error -:")
+		hasErr += 1
+	}
+
+	if hasErr != 0 {
+		return echo.ErrInternalServerError
+	}
+
+	dataInv := map[string]interface{}{
+		"count_so": len(so),
+		"detail":   so,
+	}
+
+	return c.JSON(http.StatusOK, dataInv)
 }
 
 func GetTrackingBillingEndPoint(c echo.Context) error {

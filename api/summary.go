@@ -893,12 +893,8 @@ func GetSOCustomerCsNumberEndPoint(c echo.Context) error {
 	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
 	CsNumber := strings.TrimSpace(c.QueryParam("cs_number"))
-	// var CsNumber string
-	// if strings.TrimSpace(c.QueryParam("cs_number")) != "" {
-	// 	CsNumber = fmt.Sprintf("AND INSTR(CONCAT_WS('|', SDPropertyCS28), '%s')", strings.TrimSpace(c.QueryParam("cs_number")))
-	// }
-	// status := strings.TrimSpace(c.QueryParam("status"))
-	// fmt.Println("====> filter", search)
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
+
 	ds := time.Now()
 	de := time.Now()
 	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
@@ -981,9 +977,10 @@ func GetSOCustomerCsNumberEndPoint(c echo.Context) error {
 					and PeriodStartDate <= PeriodEndDate
 					and sale_code in (?)
 					and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
-					and INSTR(CONCAT_WS('|', SDPropertyCS28), ?) ;`
+					and INSTR(CONCAT_WS('|', SDPropertyCS28), ?)
+					and INSTR(CONCAT_WS('|', sale_code), ?) ;`
 	var sum []SOCus
-	if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, CsNumber).Scan(&sum).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&sum).Error; err != nil {
 		if gorm.IsRecordNotFoundError(err) {
 			return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
 		}
