@@ -855,10 +855,15 @@ func GetSOCustomerEndPoint(c echo.Context) error {
 		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
 		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
+		Status              string  `json:"status" gorm:"column:status"`
 	}
 
 	sql := `SELECT sonumber,ContractStartDate,ContractEndDate,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,
-		sale_name,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail
+		sale_name,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail,
+		(CASE
+			WHEN GetCN !='' THEN 'ลดหนี้'
+			ELSE 'Success' END
+		) as status
 		FROM so_mssql
 					WHERE Active_Inactive = 'Active'
 					and PeriodStartDate <= ? and PeriodEndDate >= ?
