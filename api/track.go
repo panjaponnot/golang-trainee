@@ -1022,3 +1022,361 @@ func GetTrackingReceiptEndPoint(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, dataRaw)
 }
+
+func GetSOTrackingReceiptEndPoint(c echo.Context) error {
+
+	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
+	search := strings.TrimSpace(c.QueryParam("search"))
+
+	//// get staff id ////
+	var user []model.UserInfo
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, saleId).Scan(&user).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user) != 0 {
+		var staffAll []model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.StaffId)
+		}
+	} else {
+		var staffAll model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, saleId).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.StaffChild != "" {
+			data := strings.Split(staffAll.StaffChild, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.StaffId)
+	}
+
+	type SOCus struct {
+		SOnumber          string `json:"so_number" gorm:"column:sonumber"`
+		ContractStartDate string `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate   string `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		// PeriodStartDate     string  `json:"PeriodStartDate" gorm:"column:PeriodStartDate"`
+		// PeriodEndDate       string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
+		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
+		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
+		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
+		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
+		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
+		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
+		SoType              string  `json:"SoType" gorm:"column:SoType"`
+		Detail              string  `json:"detail" gorm:"column:detail"`
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("end_date")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+	so := []struct {
+		InvNo string `json:"invoice_no" gorm:"column:invoice_no"`
+	}{}
+
+	sql := `
+			 SELECT
+			 invoice_no
+				FROM (
+					SELECT
+					invoice_no,SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
+						(case
+							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
+							else 0 end
+						) as eng_cost,
+						(CASE
+							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+							THEN 0
+							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+							THEN PeriodAmount
+							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
+							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
+							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
+							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
+							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+							ELSE 0 END
+						) as so_amount
+					FROM (
+						SELECT *,CONCAT(BLSCDocNo) as invoice_no FROM so_mssql
+						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
+						and PeriodStartDate <= ? and PeriodEndDate >= ?
+						and PeriodStartDate <= PeriodEndDate
+
+					) sub_data
+				) so_group
+				GROUP by BLSCDocNo
+			 `
+
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom).Scan(&so).Error; err != nil {
+		log.Errorln(pkgName, err, "select data error -:")
+		return echo.ErrInternalServerError
+	}
+
+	listInv := []string{}
+	for _, v := range so {
+		listInv = append(listInv, v.InvNo)
+	}
+	var inv []m.Invoice
+	if err := dbSale.Ctx().Model(&m.Invoice{}).Where(`invoice_no IN (?)`, listInv).Preload("InvStatus").Find(&inv).Error; err != nil {
+		log.Errorln(pkgName, err, "select data invoice error -:")
+	}
+	hasBill := 0
+	hadBill := 0
+	nonBill := 0
+	var listInvBilling []string
+	for _, v := range inv {
+		if len(v.InvStatus) != 0 {
+			check := false
+			for _, i := range v.InvStatus {
+				if strings.TrimSpace(i.InvoiceStatusName) == "วางบิลแล้ว" {
+					check = true
+				} else {
+					if !check {
+						check = false
+					}
+				}
+			}
+			if check {
+				listInvBilling = append(listInvBilling, v.InvoiceNo)
+				hadBill += 1
+			} else {
+				hasBill += 1
+			}
+		} else {
+			nonBill += 1
+		}
+	}
+	// var sumSo []m.TrackInvoice
+	// var receipt []m.SOMssql
+	// if err := dbSale.Ctx().Raw(`select BLSCDocNo from so_mssql where BLSCDocNo IN (?) and INCSCDocNo <> '' group by BLSCDocNo`, listInvBilling).Scan(&receipt).Error; err != nil {
+	// 	log.Errorln(pkgName, err, "select data error -:")
+	// }
+	sqlSum := `		SELECT * FROM so_mssql
+						WHERE Active_Inactive = 'Active' 
+						and PeriodStartDate <= ? and PeriodEndDate >= ?
+						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) and INCSCDocNo <> ''
+						and sale_code in (?)
+						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
+					;`
+	var sum []SOCus
+	if err := dbSale.Ctx().Raw(sqlSum, dateTo, dateFrom, listInv, listId, search).Scan(&sum).Error; err != nil {
+		log.Errorln(pkgName, err, "select data error -:")
+	}
+	dataReceipt := map[string]interface{}{
+		"has_receipt": len(sum),
+		"detail":      sum,
+	}
+	return c.JSON(http.StatusOK, dataReceipt)
+}
+
+func GetSOTrackingReceiptCsEndPoint(c echo.Context) error {
+
+	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
+	search := strings.TrimSpace(c.QueryParam("search"))
+	CsNumber := strings.TrimSpace(c.QueryParam("cs_number"))
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
+
+	//// get staff id ////
+	var user []model.UserInfo
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, saleId).Scan(&user).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user) != 0 {
+		var staffAll []model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.StaffId)
+		}
+	} else {
+		var staffAll model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, saleId).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.StaffChild != "" {
+			data := strings.Split(staffAll.StaffChild, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.StaffId)
+	}
+
+	type SOCus struct {
+		SOnumber          string `json:"so_number" gorm:"column:sonumber"`
+		ContractStartDate string `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate   string `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SDPropertyCS28    string `json:"SDPropertyCS28" gorm:"column:SDPropertyCS28"`
+		// PeriodEndDate       string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
+		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
+		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
+		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
+		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
+		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
+		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
+		SoType              string  `json:"SoType" gorm:"column:SoType"`
+		Detail              string  `json:"detail" gorm:"column:detail"`
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("end_date")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+	so := []struct {
+		InvNo string `json:"invoice_no" gorm:"column:invoice_no"`
+	}{}
+
+	sql := `
+			 SELECT
+			 invoice_no
+				FROM (
+					SELECT
+					invoice_no,SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
+						(case
+							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
+							else 0 end
+						) as eng_cost,
+						(CASE
+							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+							THEN 0
+							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+							THEN PeriodAmount
+							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
+							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
+							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
+							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
+							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+							ELSE 0 END
+						) as so_amount
+					FROM (
+						SELECT *,CONCAT(BLSCDocNo) as invoice_no FROM so_mssql
+						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
+						and PeriodStartDate <= ? and PeriodEndDate >= ?
+						and PeriodStartDate <= PeriodEndDate
+
+					) sub_data
+				) so_group
+				GROUP by BLSCDocNo
+			 `
+
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom).Scan(&so).Error; err != nil {
+		log.Errorln(pkgName, err, "select data error -:")
+		return echo.ErrInternalServerError
+	}
+
+	listInv := []string{}
+	for _, v := range so {
+		listInv = append(listInv, v.InvNo)
+	}
+	var inv []m.Invoice
+	if err := dbSale.Ctx().Model(&m.Invoice{}).Where(`invoice_no IN (?)`, listInv).Preload("InvStatus").Find(&inv).Error; err != nil {
+		log.Errorln(pkgName, err, "select data invoice error -:")
+	}
+	hasBill := 0
+	hadBill := 0
+	nonBill := 0
+	var listInvBilling []string
+	for _, v := range inv {
+		if len(v.InvStatus) != 0 {
+			check := false
+			for _, i := range v.InvStatus {
+				if strings.TrimSpace(i.InvoiceStatusName) == "วางบิลแล้ว" {
+					check = true
+				} else {
+					if !check {
+						check = false
+					}
+				}
+			}
+			if check {
+				listInvBilling = append(listInvBilling, v.InvoiceNo)
+				hadBill += 1
+			} else {
+				hasBill += 1
+			}
+		} else {
+			nonBill += 1
+		}
+	}
+
+	sqlSum := `		SELECT * FROM so_mssql
+						WHERE Active_Inactive = 'Active' 
+						and PeriodStartDate <= ? and PeriodEndDate >= ?
+						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) and INCSCDocNo <> ''
+						and sale_code in (?)
+						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
+						and INSTR(CONCAT_WS('|', SDPropertyCS28), ?)
+						and INSTR(CONCAT_WS('|', sale_code), ?)
+					;`
+	var sum []SOCus
+	if err := dbSale.Ctx().Raw(sqlSum, dateTo, dateFrom, listInv, listId, search, CsNumber, StaffId).Scan(&sum).Error; err != nil {
+		log.Errorln(pkgName, err, "select data error -:")
+	}
+	dataReceipt := map[string]interface{}{
+		"has_receipt": len(sum),
+		"detail":      sum,
+	}
+	return c.JSON(http.StatusOK, dataReceipt)
+}

@@ -67,6 +67,8 @@ func InitApiRouter(g *echo.Group) error {
 	track.GET("/invoice/so", GetTrackingInvoiceSOEndPoint)
 	track.GET("/bill", GetTrackingBillingEndPoint)
 	track.GET("/receipt", GetTrackingReceiptEndPoint)
+	track.GET("/receipt/so", GetSOTrackingReceiptEndPoint)
+	track.GET("/receipt/so/cs", GetSOTrackingReceiptCsEndPoint)
 	track.GET("/so", GetSummaryCustomerEndPoint)
 	track.GET("/cus/so", GetSOCustomerEndPoint)
 	track.GET("/cus/so/cs", GetSOCustomerCsNumberEndPoint)
