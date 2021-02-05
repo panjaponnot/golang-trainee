@@ -62,13 +62,13 @@ func RevenueEndPoint(c echo.Context) error {
 	if St_date != "" || En_date != "" || OneID != "" || Form_status != ""{
 		sql = sql+` AND `
 		if St_date != ""{
-			sql = sql+` ci.StartDate_P1 >= '`+St_date+`' `
+			sql = sql+` ci.StartDate_P1 >= '`+St_date+`' AND ci.StartDate_P1 <= '`+En_date+` `
 			if En_date != "" || OneID != "" || Form_status != ""{
 				sql = sql+` AND `
 			}
 		}
 		if En_date != ""{
-			sql = sql+` ci.EndDate_P1 >= '`+En_date+`' `
+			sql = sql+` ci.EndDate_P1 <= '`+En_date+`'`
 			if OneID != "" || Form_status != ""{
 				sql = sql+` AND `
 			}
