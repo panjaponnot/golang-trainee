@@ -2182,12 +2182,29 @@ func StaffChildAllEndPoint(c echo.Context) error {
 		Staff []StaffProfile `json:"staff_id" gorm:"column:staff_id"`
 	}
 
+	type role struct {
+		Role string `json:"role"`
+	}
+
+	var StaffProf []StaffProfile
+	var Role role
+	if err := dbSale.Ctx().Raw(`SELECT distinct role FROM user_info WHERE staff_id = ?;`, id).Scan(&Role).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+	if Role.Role == "admin" {
+		str := fmt.Sprintf(`SELECT distinct one_id,staff_id,fname,lname,nname FROM staff_info;`)
+		if err := dbSale.Ctx().Raw(str).Scan(&StaffProf).Error; err != nil {
+			log.Errorln("GetSoExpireLead Select Staff error :-", err)
+		}
+		return c.JSON(http.StatusOK, StaffProf)
+	}
+
 	var StaffChild Staff
 	if err := dbSale.Ctx().Raw(`SELECT distinct staff_id,staff_child FROM staff_info WHERE staff_id = ?;`, id).Scan(&StaffChild).Error; err != nil {
 		log.Errorln(pkgName, err, "Select data error")
 	}
 	var StaffChildStr string
-	var StaffProf []StaffProfile
+
 	if StaffChild.StaffChild != "" {
 		raw := strings.Split(StaffChild.StaffChild, ",")
 		for n, s := range raw {
