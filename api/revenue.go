@@ -57,9 +57,10 @@ func RevenueEndPoint(c echo.Context) error {
 		Revenue_Day			string
 	}{}
 
-	sql := `select * from costsheet_info ci left join staff_info si on ci.ID_PreSale = si.staff_id `
+	sql := `select * from costsheet_info ci left join staff_info si on ci.ID_PreSale = si.staff_id 
+	WHERE doc_number_eform is not null AND doc_number_eform not like '' `
 	if St_date != "" || En_date != "" || OneID != "" || Form_status != ""{
-		sql = sql+` where `
+		sql = sql+` AND `
 		if St_date != ""{
 			sql = sql+` ci.StartDate_P1 >= '`+St_date+`' `
 			if En_date != "" || OneID != "" || Form_status != ""{
@@ -83,7 +84,7 @@ func RevenueEndPoint(c echo.Context) error {
 		}
 
 	}
-	sql = sql+` limit 100 `
+	// sql = sql+` limit 100 `
 	if err := dbSale.Ctx().Raw(sql).Scan(&rawData).Error; err != nil {
 		log.Errorln("GettrackingList error :-", err)
 	}
