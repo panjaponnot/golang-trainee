@@ -17,6 +17,10 @@ func RevenueEndPoint(c echo.Context) error {
 	OneID := strings.TrimSpace(c.QueryParam("oneid"))
 	Form_status := strings.TrimSpace(c.QueryParam("status"))
 
+	if len(St_date) > 0 && len(En_date) == 0 || len(St_date) == 0 && len(En_date) > 0{
+		return echo.ErrBadRequest
+	}
+
 	rawData := []struct {
 		Send_time 			string `json:"send_time" gorm:"column:send_time"`
 		Status    			string `json:"status" gorm:"column:status"`
@@ -62,7 +66,7 @@ func RevenueEndPoint(c echo.Context) error {
 	if St_date != "" || En_date != "" || OneID != "" || Form_status != ""{
 		sql = sql+` AND `
 		if St_date != ""{
-			sql = sql+` ci.StartDate_P1 >= '`+St_date+`' AND ci.StartDate_P1 <= '`+En_date+` `
+			sql = sql+` ci.StartDate_P1 >= '`+St_date+`' AND ci.StartDate_P1 <= '`+En_date+`' `
 			if En_date != "" || OneID != "" || Form_status != ""{
 				sql = sql+` AND `
 			}
@@ -84,7 +88,6 @@ func RevenueEndPoint(c echo.Context) error {
 		}
 
 	}
-	// sql = sql+` limit 100 `
 	if err := dbSale.Ctx().Raw(sql).Scan(&rawData).Error; err != nil {
 		log.Errorln("GettrackingList error :-", err)
 	}
@@ -103,8 +106,6 @@ func RevenueEndPoint(c echo.Context) error {
 			rawData[i].Revenue_Day = "0.000000"
 		}
 	}
-
-	// fmt.Println(days)
 
 	return c.JSON(http.StatusOK, rawData)
 }

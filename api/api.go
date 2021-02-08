@@ -126,5 +126,8 @@ func InitApiRouter(g *echo.Group) error {
 	revanue := g.Group("/revenue")
 	revanue.GET("/all", RevenueEndPoint)
 
+	so_receive := g.Group("/soreceive")
+	so_receive.GET("/all", SOReceiveEndPoint)
+
 	return nil
 }
