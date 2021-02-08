@@ -770,6 +770,136 @@ func GetTrackingBillingEndPoint(c echo.Context) error {
 	return c.JSON(http.StatusOK, dataRaw)
 }
 
+func GetTrackingBillingStatusEndPoint(c echo.Context) error {
+
+	// SELECT * FROM `so_mssql` JOIN invoice_status ON so_mssql.BLSCDocNo = invoice_status.inv_no;
+
+	type SOCusBill struct {
+		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
+		ContractStartDate   string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate     string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SDPropertyCS28      string  `json:"SDPropertyCS28" gorm:"column:SDPropertyCS28"`
+		BLSCDocNo           string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
+		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
+		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
+		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
+		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
+		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
+		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
+		SoType              string  `json:"SoType" gorm:"column:SoType"`
+		Detail              string  `json:"detail" gorm:"column:detail"`
+		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount              float64 `json:"amount" gorm:"column:amount"`
+		InvStatusName       string  `json:"invoice_status_name" gorm:"column:invoice_status_name"`
+	}
+
+	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
+	search := strings.TrimSpace(c.QueryParam("search"))
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
+
+	//// get staff id ////
+	var user []model.UserInfo
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, saleId).Scan(&user).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user) != 0 {
+		var staffAll []model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.StaffId)
+		}
+	} else {
+		var staffAll model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, saleId).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.StaffChild != "" {
+			data := strings.Split(staffAll.StaffChild, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.StaffId)
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("end_date")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+	var so []SOCusBill
+	hasErr := 0
+	sql := `		SELECT *,
+					(CASE
+						WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+						THEN 0
+						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+						THEN PeriodAmount
+						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate = ?
+						THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+						ELSE 0 END
+					) as so_amount,
+					sum(PeriodAmount) as amount,
+					invoice_status_name
+	 			FROM so_mssql
+				 JOIN invoice_status ON so_mssql.BLSCDocNo = invoice_status.inv_no
+						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
+						and PeriodStartDate <= ? and PeriodEndDate >= ?
+						and PeriodStartDate <= PeriodEndDate
+						and sale_code in (?)
+						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
+						and INSTR(CONCAT_WS('|', sale_code), ?)
+						group by sonumber
+						;`
+
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, StaffId).Scan(&so).Error; err != nil {
+		log.Errorln(pkgName, err, "select data error -:")
+		hasErr += 1
+	}
+
+	if hasErr != 0 {
+		return echo.ErrInternalServerError
+	}
+
+	dataInv := map[string]interface{}{
+		"count_so": len(so),
+		"detail":   so,
+	}
+
+	return c.JSON(http.StatusOK, dataInv)
+}
+
 func GetTrackingReceiptEndPoint(c echo.Context) error {
 	ds := time.Now()
 	de := time.Now()
@@ -1234,7 +1364,7 @@ func GetSOTrackingReceiptEndPoint(c echo.Context) error {
 						group by sonumber
 																	;`
 	var sum []SOCus
-	if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, StaffId).Scan(&sum).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, StaffId).Scan(&sum).Error; err != nil {
 		log.Errorln(pkgName, err, "select data error -:")
 	}
 	dataReceipt := map[string]interface{}{
