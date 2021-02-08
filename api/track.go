@@ -315,6 +315,7 @@ func GetTrackingInvoiceSOEndPoint(c echo.Context) error {
 		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
 		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount              float64 `json:"amount" gorm:"column:amount"`
 	}
 
 	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
@@ -388,7 +389,8 @@ func GetTrackingInvoiceSOEndPoint(c echo.Context) error {
 						WHEN PeriodStartDate < ? AND PeriodEndDate > ?
 						THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
 						ELSE 0 END
-					) as so_amount
+					) as so_amount,
+					sum(PeriodAmount) as amount
 	 			FROM so_mssql
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
@@ -397,6 +399,7 @@ func GetTrackingInvoiceSOEndPoint(c echo.Context) error {
 						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
 						and INSTR(CONCAT_WS('|', SDPropertyCS28), ?)
 						and INSTR(CONCAT_WS('|', sale_code), ?)
+						group by sonumber
 						;`
 
 	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&so).Error; err != nil {
@@ -1048,6 +1051,7 @@ func GetSOTrackingReceiptEndPoint(c echo.Context) error {
 
 	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
 
 	//// get staff id ////
 	var user []model.UserInfo
@@ -1103,6 +1107,7 @@ func GetSOTrackingReceiptEndPoint(c echo.Context) error {
 		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
 		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount              float64 `json:"amount" gorm:"column:amount"`
 	}
 
 	ds := time.Now()
@@ -1217,16 +1222,19 @@ func GetSOTrackingReceiptEndPoint(c echo.Context) error {
 						WHEN PeriodStartDate < ? AND PeriodEndDate > ?
 						THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
 						ELSE 0 END
-					) as so_amount
+					) as so_amount,
+					sum(PeriodAmount) as amount
 	 			FROM so_mssql
 						WHERE Active_Inactive = 'Active' 
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) and INCSCDocNo <> ''
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
-					;`
+						and INSTR(CONCAT_WS('|', sale_code), ?)
+						group by sonumber
+																	;`
 	var sum []SOCus
-	if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search).Scan(&sum).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, StaffId).Scan(&sum).Error; err != nil {
 		log.Errorln(pkgName, err, "select data error -:")
 	}
 	dataReceipt := map[string]interface{}{
@@ -1301,6 +1309,7 @@ func GetSOTrackingReceiptCsEndPoint(c echo.Context) error {
 		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
 		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount              float64 `json:"amount" gorm:"column:amount"`
 	}
 
 	ds := time.Now()
@@ -1411,7 +1420,8 @@ func GetSOTrackingReceiptCsEndPoint(c echo.Context) error {
 						WHEN PeriodStartDate < ? AND PeriodEndDate > ?
 						THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
 						ELSE 0 END
-					) as so_amount
+					) as so_amount,
+					sum(PeriodAmount) as amount
 	 			FROM so_mssql
 						WHERE Active_Inactive = 'Active' 
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
@@ -1420,6 +1430,7 @@ func GetSOTrackingReceiptCsEndPoint(c echo.Context) error {
 						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
 						and INSTR(CONCAT_WS('|', SDPropertyCS28), ?)
 						and INSTR(CONCAT_WS('|', sale_code), ?)
+						group by sonumber
 					;`
 	var sum []SOCus
 	if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, CsNumber, StaffId).Scan(&sum).Error; err != nil {
