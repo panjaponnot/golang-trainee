@@ -314,6 +314,7 @@ func GetTrackingInvoiceSOEndPoint(c echo.Context) error {
 		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
 		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
+		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
 	}
 
 	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
@@ -372,7 +373,23 @@ func GetTrackingInvoiceSOEndPoint(c echo.Context) error {
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 	var so []SOCus
 	hasErr := 0
-	sql := `		SELECT * FROM so_mssql
+	sql := `		SELECT *,
+					(CASE
+						WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+						THEN 0
+						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+						THEN PeriodAmount
+						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate = ?
+						THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+						ELSE 0 END
+					) as so_amount
+	 			FROM so_mssql
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate
@@ -382,7 +399,7 @@ func GetTrackingInvoiceSOEndPoint(c echo.Context) error {
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 						;`
 
-	if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&so).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&so).Error; err != nil {
 		log.Errorln(pkgName, err, "select data error -:")
 		hasErr += 1
 	}
@@ -1085,6 +1102,7 @@ func GetSOTrackingReceiptEndPoint(c echo.Context) error {
 		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
 		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
+		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
 	}
 
 	ds := time.Now()
@@ -1184,7 +1202,23 @@ func GetSOTrackingReceiptEndPoint(c echo.Context) error {
 	// if err := dbSale.Ctx().Raw(`select BLSCDocNo from so_mssql where BLSCDocNo IN (?) and INCSCDocNo <> '' group by BLSCDocNo`, listInvBilling).Scan(&receipt).Error; err != nil {
 	// 	log.Errorln(pkgName, err, "select data error -:")
 	// }
-	sqlSum := `		SELECT * FROM so_mssql
+	sqlSum := `		SELECT *,
+					(CASE
+						WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+						THEN 0
+						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+						THEN PeriodAmount
+						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate = ?
+						THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+						ELSE 0 END
+					) as so_amount
+	 			FROM so_mssql
 						WHERE Active_Inactive = 'Active' 
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) and INCSCDocNo <> ''
@@ -1192,7 +1226,7 @@ func GetSOTrackingReceiptEndPoint(c echo.Context) error {
 						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
 					;`
 	var sum []SOCus
-	if err := dbSale.Ctx().Raw(sqlSum, dateTo, dateFrom, listInv, listId, search).Scan(&sum).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search).Scan(&sum).Error; err != nil {
 		log.Errorln(pkgName, err, "select data error -:")
 	}
 	dataReceipt := map[string]interface{}{
@@ -1266,6 +1300,7 @@ func GetSOTrackingReceiptCsEndPoint(c echo.Context) error {
 		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
 		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
+		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
 	}
 
 	ds := time.Now()
@@ -1361,7 +1396,23 @@ func GetSOTrackingReceiptCsEndPoint(c echo.Context) error {
 		}
 	}
 
-	sqlSum := `		SELECT * FROM so_mssql
+	sqlSum := `		SELECT *,
+					(CASE
+						WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+						THEN 0
+						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+						THEN PeriodAmount
+						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate = ?
+						THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+						WHEN PeriodStartDate < ? AND PeriodEndDate > ?
+						THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+						ELSE 0 END
+					) as so_amount
+	 			FROM so_mssql
 						WHERE Active_Inactive = 'Active' 
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) and INCSCDocNo <> ''
@@ -1371,7 +1422,7 @@ func GetSOTrackingReceiptCsEndPoint(c echo.Context) error {
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 					;`
 	var sum []SOCus
-	if err := dbSale.Ctx().Raw(sqlSum, dateTo, dateFrom, listInv, listId, search, CsNumber, StaffId).Scan(&sum).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, CsNumber, StaffId).Scan(&sum).Error; err != nil {
 		log.Errorln(pkgName, err, "select data error -:")
 	}
 	dataReceipt := map[string]interface{}{
