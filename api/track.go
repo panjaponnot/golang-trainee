@@ -880,7 +880,7 @@ func GetTrackingBillingStatusEndPoint(c echo.Context) error {
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
 						and INSTR(CONCAT_WS('|', sale_code), ?)
-						group by sonumber
+						group by BLSCDocNo
 						;`
 
 	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, StaffId).Scan(&so).Error; err != nil {
