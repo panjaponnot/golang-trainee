@@ -491,61 +491,62 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 
 	var rawData []PendingData
 	if err := dbSale.Ctx().Raw(`
-	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,
-	so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount,
-	 SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,SOType as so_type,so_type_change,pay_type_change,
-        (case
-                when status is null then 0
-                else status end
-        ) as status,
-				(case
-								when tb_expire.reason is null then ''
-								else tb_expire.reason end
-				) as reason,
-          (case
-                when tb_expire.remark is null then ''
-                else tb_expire.remark end
-        ) as remark  from (
-                SELECT *  from (
-                SELECT  Active_Inactive,has_refer,sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,
-                                DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
-                                                                PeriodAmount, SUM(PeriodAmount) as TotalAmount,SOType,
-                                                                staff_id,prefix,fname,lname,nname,position,department
-                                                                FROM ( SELECT * FROM so_mssql WHERE SOType NOT IN ('onetime' , 'project base') ) as s
-                                                        left join
-                                                        (
-                                                                select staff_id, prefix, fname, lname, nname, position, department from staff_info
-
-                                                        ) tb_sale on s.sale_code = tb_sale.staff_id
-                                                        WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ?
-                                                        group by sonumber
-                        ) as tb_so_number
-
-                ) as tb_ch_so
-                left join
-                (
-                  select id,sonumber,
-                        (case
-                                when status is null then 0
-                                else status end
-                        ) as status,
-												(case
-                                when reason is null then ''
-                                else reason end
-                        ) as reason,
-                        (case
-                                when remark is null then ''
-                                else remark end
-                        ) as remark,
-												pay_type as pay_type_change,
-												so_type as so_type_change
-                        from check_expire
-				  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
-				  WHERE INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,Customer_ID,Customer_Name,tb_ch_so.sonumber), ?)
-
-				  AND INSTR(CONCAT_WS('|', staff_id), ?)
-                  group by tb_ch_so.sonumber
-		  `, listStaffId, year, search, StaffId).Scan(&rawData).Error; err != nil {
+				SELECT Active_Inactive,has_refer,sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,
+						so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount,
+						TotalAmount,staff_id,prefix,fname,lname,nname,position,department,SOType as so_type,so_type_change,pay_type_change,
+								(case
+								when status is null then 0
+							else status end
+								) as status,
+						(case
+							when reason is null then ''
+							else reason end
+						) as reason,
+								(case
+										when remark is null then ''
+							else remark end
+						) as remark
+								FROM
+					(
+						SELECT
+							Active_Inactive,has_refer,sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as 				ContractEndDate,so_refer,sale_code,sale_lead,
+											DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
+											PeriodAmount, SUM(PeriodAmount) as TotalAmount,SOType,staff_id, prefix, fname, lname, nname, position, department
+						FROM so_mssql
+						left join
+						(
+									select staff_id, prefix, fname, lname, nname, position, department from staff_info
+						) tb_sale on so_mssql.sale_code = tb_sale.staff_id
+						WHERE staff_id IN (?)
+							and INSTR(CONCAT_WS('|', staff_id), ?)
+							and Active_Inactive = 'Active'
+							and has_refer = 0
+							and SOType NOT IN ('onetime' , 'project base')
+							and year(ContractEndDate) = ?
+						group by sonumber
+					) s
+					left join
+					(
+						select
+							id,sonumber as so_number,
+							(case
+								when status is null then 0
+								else status end
+									) as status,
+							(case
+								when reason is null then ''
+											else reason end
+									) as reason,
+							(case
+								when remark is null then ''
+								else remark end
+							) as remark,
+							pay_type as pay_type_change,
+							so_type as so_type_change
+						from check_expire
+					) tb_expire on s.sonumber = tb_expire.so_number
+			Where INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,Customer_ID,Customer_Name,sonumber), ?)
+		  `, listStaffId, StaffId, year, search).Scan(&rawData).Error; err != nil {
 		log.Errorln(pkgName, err, "Select data error")
 	}
 
