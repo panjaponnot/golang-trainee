@@ -781,6 +781,7 @@ func GetSOCustomerEndPoint(c echo.Context) error {
 
 	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
 	// status := strings.TrimSpace(c.QueryParam("status"))
 	// fmt.Println("====> filter", search)
 	ds := time.Now()
@@ -856,6 +857,8 @@ func GetSOCustomerEndPoint(c echo.Context) error {
 		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
 		Status              string  `json:"status" gorm:"column:status"`
+		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount              float64 `json:"amount" gorm:"column:amount"`
 	}
 
 	sql := `SELECT sonumber,ContractStartDate,ContractEndDate,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,
@@ -863,16 +866,34 @@ func GetSOCustomerEndPoint(c echo.Context) error {
 		(CASE
 			WHEN GetCN !='' THEN 'ลดหนี้'
 			ELSE 'Success' END
-		) as status
+		) as status,
+		(CASE
+			WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+			THEN 0
+			WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+			THEN PeriodAmount
+			WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
+			THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+			WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
+			THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+			WHEN PeriodStartDate < ? AND PeriodEndDate = ?
+			THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+			WHEN PeriodStartDate < ? AND PeriodEndDate > ?
+			THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+			ELSE 0 END
+		) as so_amount,
+		sum(PeriodAmount) as amount
 		FROM so_mssql
 					WHERE Active_Inactive = 'Active'
 					and PeriodStartDate <= ? and PeriodEndDate >= ?
 					and PeriodStartDate <= PeriodEndDate
 					and sale_code in (?)
 					and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
+					and INSTR(CONCAT_WS('|', sale_code), ?)
+					group by sonumber
 					 ;`
 	var sum []SOCus
-	if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search).Scan(&sum).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, StaffId).Scan(&sum).Error; err != nil {
 		if gorm.IsRecordNotFoundError(err) {
 			return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
 		}
@@ -972,10 +993,28 @@ func GetSOCustomerCsNumberEndPoint(c echo.Context) error {
 		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
 		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
+		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount              float64 `json:"amount" gorm:"column:amount"`
 	}
 
 	sql := `SELECT sonumber,SDPropertyCS28,ContractStartDate,ContractEndDate,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,
-		sale_name,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail
+		sale_name,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail,
+		(CASE
+			WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+			THEN 0
+			WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+			THEN PeriodAmount
+			WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
+			THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+			WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
+			THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+			WHEN PeriodStartDate < ? AND PeriodEndDate = ?
+			THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+			WHEN PeriodStartDate < ? AND PeriodEndDate > ?
+			THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+			ELSE 0 END
+		) as so_amount,
+		sum(PeriodAmount) as amount
 		FROM so_mssql
 					WHERE Active_Inactive = 'Active'
 					and PeriodStartDate <= ? and PeriodEndDate >= ?
@@ -983,9 +1022,11 @@ func GetSOCustomerCsNumberEndPoint(c echo.Context) error {
 					and sale_code in (?)
 					and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
 					and INSTR(CONCAT_WS('|', SDPropertyCS28), ?)
-					and INSTR(CONCAT_WS('|', sale_code), ?) ;`
+					and INSTR(CONCAT_WS('|', sale_code), ?)
+					group by sonumber
+					 ;`
 	var sum []SOCus
-	if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&sum).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&sum).Error; err != nil {
 		if gorm.IsRecordNotFoundError(err) {
 			return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
 		}
