@@ -94,7 +94,7 @@ func SOReceiveEndPoint(c echo.Context) error {
 			}
 		}
 		if En_date != ""{
-			sql = sql+` ci.EndDate_P1 <= '`+En_date+`'`
+			sql = sql+` ci.EndDate_P1 <= '`+En_date+`' AND ci.EndDate_P1 >= '`+St_date+`' `
 			if OneID != ""{
 				sql = sql+` AND `
 			}

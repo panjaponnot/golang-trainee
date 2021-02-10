@@ -72,7 +72,7 @@ func RevenueEndPoint(c echo.Context) error {
 			}
 		}
 		if En_date != ""{
-			sql = sql+` ci.EndDate_P1 <= '`+En_date+`'`
+			sql = sql+` ci.EndDate_P1 <= '`+En_date+`' AND ci.EndDate_P1 >= '`+St_date+`' `
 			if OneID != "" || Form_status != ""{
 				sql = sql+` AND `
 			}
@@ -92,8 +92,8 @@ func RevenueEndPoint(c echo.Context) error {
 		log.Errorln("GettrackingList error :-", err)
 	}
 
-	time1,_ := time.Parse("2006-01-02 00:00:00",St_date)
-	time2,_ := time.Parse("2006-01-02 00:00:00",En_date)
+	time1,_ := time.Parse("2006-01-02",St_date)
+	time2,_ := time.Parse("2006-01-02",En_date)
 	days := (time2.Sub(time1).Hours() / 24)+1
 
 	for i , j := range rawData {
