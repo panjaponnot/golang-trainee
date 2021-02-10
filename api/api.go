@@ -61,18 +61,21 @@ func InitApiRouter(g *echo.Group) error {
 	// 	skipper.Add("/api/v2/export", http.MethodGet)
 	// 	return skipper.Test(c)
 	// }}))
-
 	track := g.Group("/track")
+	track.GET("/so", GetSummaryCustomerEndPoint)
+	track.GET("/doc/so", GetSOCustomerEndPoint)            //doc/so  /cus/so
+	track.GET("/doc/so/cs", GetSOCustomerCsNumberEndPoint) //doc/so/cs  /cus/so/cs
+
 	track.GET("/invoice", GetTrackingInvoiceEndPoint)
-	track.GET("/invoice/so", GetTrackingInvoiceSOEndPoint)
+	track.GET("/doc/inv", GetDocTrackingInvoiceEndPoint)
+	track.GET("/doc/inv/so", GetDocTrackingInvoiceSOEndPoint)
+
 	track.GET("/bill", GetTrackingBillingEndPoint)
 	track.GET("/bill/status", GetTrackingBillingStatusEndPoint)
+
 	track.GET("/receipt", GetTrackingReceiptEndPoint)
 	track.GET("/receipt/so", GetSOTrackingReceiptEndPoint)
 	track.GET("/receipt/so/cs", GetSOTrackingReceiptCsEndPoint)
-	track.GET("/so", GetSummaryCustomerEndPoint)
-	track.GET("/cus/so", GetSOCustomerEndPoint)
-	track.GET("/cus/so/cs", GetSOCustomerCsNumberEndPoint)
 
 	export := g.Group("/export")
 	export.GET("/pending", GetReportExcelSOPendingEndPoint)
