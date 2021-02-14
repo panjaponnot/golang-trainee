@@ -550,6 +550,169 @@ func GetReportExcelTrackingEndPoint(c echo.Context) error {
 	// }
 
 	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
+	// search := strings.TrimSpace(c.QueryParam("search"))
+	// status := strings.TrimSpace(c.QueryParam("status"))
+	// fmt.Println("====> filter", search)
+	// ds := time.Now()
+	// de := time.Now()
+	// if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
+	// 	ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	// }
+	// if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("end_date")), 10); err == nil {
+	// 	de = time.Unix(util.ConvertTimeStamp(f), 0)
+	// }
+	// yearStart, monthStart, dayStart := ds.Date()
+	// yearEnd, monthEnd, dayEnd := de.Date()
+	// startRange := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	// endRange := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+	// dateFrom := startRange.Format("2006-01-02")
+	// dateTo := endRange.Format("2006-01-02")
+	// m := endRange.Sub(startRange)
+	// if m < 0 {
+	// 	return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid date"})
+	// }
+
+	//// get staff id ////
+	var user []model.UserInfo
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, saleId).Scan(&user).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user) != 0 {
+		var staffAll []model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.StaffId)
+		}
+	} else {
+		var staffAll model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, saleId).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.StaffChild != "" {
+			data := strings.Split(staffAll.StaffChild, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.StaffId)
+	}
+
+	sql := `SELECT SDPropertyCS28 as costsheetnumber, sonumber, DATE_FORMAT(ContractStartDate, "%Y-%m-%d") as ContractStartDate,DATE_FORMAT(ContractEndDate, "%Y-%m-%d") as ContractEndDate, pricesale, TotalContractAmount, SOWebStatus,
+        Customer_ID, Customer_Name, sale_code, 	sale_name, sale_team, 	PeriodAmount, sale_factor, in_factor, ex_factor, so_refer,
+        SOType, detail
+        FROM so_mssql
+        WHERE Active_Inactive = 'Active'
+				and sale_code in (?)
+        group by sonumber order by ContractStartDate DESC;`
+	var sum []model.SoExport
+	if err := dbSale.Ctx().Raw(sql, listId).Scan(&sum).Error; err != nil {
+		if gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+		}
+		return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+	}
+
+	log.Infoln(pkgName, "====  create excel ====")
+	f := excelize.NewFile()
+	// Create a new sheet.
+	mode := "tracking"
+	index := f.NewSheet(mode)
+	// Set value of a cell.
+
+	f.SetCellValue(mode, "A1", "Costsheet Number")
+	f.SetCellValue(mode, "B1", "SONumber")
+	f.SetCellValue(mode, "C1", "Contract Start Date")
+	f.SetCellValue(mode, "D1", "Contract End Date")
+	f.SetCellValue(mode, "E1", "Price Sale")
+	f.SetCellValue(mode, "F1", "Total Contract Amount")
+	f.SetCellValue(mode, "G1", "SO Status")
+	f.SetCellValue(mode, "H1", "Customer ID")
+	f.SetCellValue(mode, "I1", "Customer Name")
+	f.SetCellValue(mode, "J1", "Sale Code")
+	f.SetCellValue(mode, "K1", "Sale Name")
+	f.SetCellValue(mode, "L1", "Sale Team")
+	f.SetCellValue(mode, "M1", "Period Amount")
+	f.SetCellValue(mode, "N1", "Sale Factor")
+	f.SetCellValue(mode, "O1", "Internal Factor")
+	f.SetCellValue(mode, "P1", "External Factor")
+	f.SetCellValue(mode, "Q1", "So Refer")
+	f.SetCellValue(mode, "R1", "SO Type")
+	f.SetCellValue(mode, "S1", "Detail")
+
+	colCostsheetNumber := "A"
+	colSoNumber := "B"
+	colContractStartDate := "C"
+	colContractEndDate := "D"
+	colPriceSale := "E"
+	colTotalContractAmount := "F"
+	colSOWebStatus := "G"
+	colCustomerId := "H"
+	colCustomerName := "I"
+	colSaleCode := "J"
+	colSaleName := "K"
+	colSaleTeam := "L"
+	colPeriodAmount := "M"
+	colSaleFactor := "N"
+	colInfactor := "O"
+	colExFactor := "P"
+	colSoRefer := "Q"
+	colSoType := "R"
+	colDetail := "S"
+
+	for k, v := range sum {
+		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
+		f.SetCellValue(mode, fmt.Sprint(colCostsheetNumber, k+2), v.CostsheetNumber)
+		f.SetCellValue(mode, fmt.Sprint(colSoNumber, k+2), v.SoNumber)
+		f.SetCellValue(mode, fmt.Sprint(colContractStartDate, k+2), v.ContractStartDate)
+		f.SetCellValue(mode, fmt.Sprint(colContractEndDate, k+2), v.ContractEndDate)
+		f.SetCellValue(mode, fmt.Sprint(colPriceSale, k+2), v.PriceSale)
+		f.SetCellValue(mode, fmt.Sprint(colTotalContractAmount, k+2), v.TotalContractAmount)
+		f.SetCellValue(mode, fmt.Sprint(colSOWebStatus, k+2), v.SOWebStatus)
+		f.SetCellValue(mode, fmt.Sprint(colCustomerId, k+2), v.CustomerId)
+		f.SetCellValue(mode, fmt.Sprint(colCustomerName, k+2), v.CustomerName)
+		f.SetCellValue(mode, fmt.Sprint(colSaleCode, k+2), v.SaleCode)
+		f.SetCellValue(mode, fmt.Sprint(colSaleName, k+2), v.SaleName)
+		f.SetCellValue(mode, fmt.Sprint(colSaleTeam, k+2), v.SaleTeam)
+		f.SetCellValue(mode, fmt.Sprint(colPeriodAmount, k+2), v.PeriodAmount)
+		f.SetCellValue(mode, fmt.Sprint(colSaleFactor, k+2), v.SaleFactor)
+		f.SetCellValue(mode, fmt.Sprint(colInfactor, k+2), v.Infactor)
+		f.SetCellValue(mode, fmt.Sprint(colExFactor, k+2), v.ExFactor)
+		f.SetCellValue(mode, fmt.Sprint(colSoRefer, k+2), v.SoRefer)
+		f.SetCellValue(mode, fmt.Sprint(colSoType, k+2), v.SoType)
+		f.SetCellValue(mode, fmt.Sprint(colDetail, k+2), v.Detail)
+	}
+
+	f.SetActiveSheet(index)
+	f.DeleteSheet("Sheet1")
+
+	buff, err := f.WriteToBuffer()
+	if err != nil {
+		log.Errorln("XLSX export error ->", err)
+		return c.JSON(http.StatusInternalServerError, model.Result{Error: "export error"})
+	}
+	return c.Blob(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buff.Bytes())
+
+}
+
+func GetReportExcelTrackingOldEndPoint(c echo.Context) error {
+
+	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+	// b, e := strconv.ParseBool(strings.TrimSpace(c.QueryParam("check_amount")))
+	// if e != nil {
+	// 	return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid check amount"})
+	// }
+
+	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
 	status := strings.TrimSpace(c.QueryParam("status"))
 	// fmt.Println("====> filter", search)
@@ -3035,7 +3198,7 @@ func GetReportExcelSaleFactorEndPoint(c echo.Context) error {
 	var countSale []CountSoPerson
 	var saleFac []SaleFactorPerson
 	var dataRaw []SaleFactorPerson
-	sql := `select 
+	sql := `select
 				sum(in_factor) as in_factor,
 				sum(ex_factor) as ex_factor,
 				sum(revenue) as total_revenue,
@@ -3043,7 +3206,7 @@ func GetReportExcelSaleFactorEndPoint(c echo.Context) error {
 				sum(revenue)/sum(engcost) as real_sf,
 				department,staff_id,fname,lname,nname,staff_child
 			from (
-				Select 
+				Select
 						TotalContractAmount as revenue,
 						(CASE
 								WHEN TotalContractAmount is not null and sale_factor is not null and sale_factor != 0 THEN TotalContractAmount/sale_factor
@@ -3064,7 +3227,7 @@ func GetReportExcelSaleFactorEndPoint(c echo.Context) error {
 
 	countCompany := `SELECT COUNT(Customer_ID) as count_so , department ,fname,lname,staff_id
 			from (
-					Select 
+					Select
 									Customer_ID, Customer_name, sale_code
 					from so_mssql where month(PeriodStartDate) = ? and year(PeriodStartDate) = ?
 					group by Customer_ID
@@ -3073,12 +3236,12 @@ func GetReportExcelSaleFactorEndPoint(c echo.Context) error {
 			where department in (
 					SELECT department FROM staff_info WHERE  department <> 'Sale JV' GROUP BY department
 			) GROUP BY staff_id`
-	sqlFactor := `select 
+	sqlFactor := `select
 					sum(in_factor)/count(sonumber) as in_fac,
 					sum(ex_factor)/count(sonumber) as ex_fac
 
 				from (
-				Select 
+				Select
 					TotalContractAmount as revenue,
 					(CASE
 						WHEN TotalContractAmount is not null and sale_factor is not null and sale_factor != 0 THEN TotalContractAmount/sale_factor
