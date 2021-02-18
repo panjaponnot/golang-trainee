@@ -2872,7 +2872,7 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 	}()
 	go func() {
 		sql := `SELECT sum(amount) as amount, AVG(in_factor) as in_factor,AVG(ex_factor) as ex_factor,
-		(sum(amount)/sum(amount_engcost)) as SaleFactors , SUM(Total_Revenue_Month/(DATEDIFF(?,?)+1)) as pro_rate
+		(sum(amount)/sum(amount_engcost)) as SaleFactors , SUM(Revenue_Month/(DATEDIFF(?,?)+1)) as pro_rate
 		from (
 			SELECT
 				Customer_ID as Customer_ID,
@@ -2880,11 +2880,11 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 				sum(Revenue_Month) as amount,
 				sum(eng_cost) as amount_engcost,
 				SaleFactors,
-				in_factor,EmployeeID,Sales_Name,ex_factor,Total_Revenue_Month
+				in_factor,EmployeeID,Sales_Name,ex_factor,Revenue_Month
 				FROM (
 					SELECT
 					doc_number_eform,StartDate_P1,EndDate_P1,Customer_ID,Cusname_thai,
-					EmployeeID,	Sales_Name,Sale_Team,Revenue_Month, SaleFactors, Int_INET as in_factor, (Ext_JV + Ext) as ex_factor,Total_Revenue_Month,
+					EmployeeID,	Sales_Name,Sale_Team,Revenue_Month, SaleFactors, Int_INET as in_factor, (Ext_JV + Ext) as ex_factor,
 						(case
 							when Revenue_Month is not null and SaleFactors is not null then Revenue_Month/SaleFactors
 							else 0 end
