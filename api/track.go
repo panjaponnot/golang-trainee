@@ -2823,8 +2823,11 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 	hasErr := 0
 	var soTotal []TrackInvoice
 	var sum []SOCus
+	cus := []struct {
+		CusnameThai string `json:"Customer_ID" gorm:"column:Customer_ID"`
+	}{}
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		sql := `SELECT *,
 		SUM(CASE
@@ -2843,8 +2846,8 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 			ELSE 0 END
 		) as so_amount,
 		sum(Total_Revenue_Month) as amount,
-		sum(COALESCE(Int_INET, 0)) as in_factor, 
-		sum((COALESCE(Ext_JV, 0) + COALESCE(Ext, 0))) as ex_factor
+		sum(COALESCE(Int_INET, 0))/100 as in_factor, 
+		sum((COALESCE(Ext_JV, 0) + COALESCE(Ext, 0)))/100 as ex_factor
 		FROM costsheet_info
 		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
 				 WHERE doc_number_eform <> ''
@@ -2865,13 +2868,13 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, AVG(in_factor) as in_factor,AVG(ex_factor) as ex_factor,
-		(sum(amount)/sum(amount_engcost)) as SaleFactors , SUM(Revenue_Month/(DATEDIFF(?,?)+1)) as pro_rate
+		sql := `SELECT sum(amount) as amount, AVG(in_factor)/100 as in_factor,AVG(ex_factor)/100 as ex_factor,
+		(sum(amount)/sum(amount_engcost)) as SaleFactors , SUM(Total_Revenue_Month/(DATEDIFF(?,?)+1)) as pro_rate
 		from (
 			SELECT
 				Customer_ID as Customer_ID,
 				Cusname_thai as Cusname_thai,
-				sum(Revenue_Month) as amount,
+				sum(Total_Revenue_Month) as amount,
 				sum(eng_cost) as amount_engcost,
 				SaleFactors,
 				sum(in_factor) as in_factor,
@@ -2928,10 +2931,32 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 		}
 		wg.Done()
 	}()
+	go func() {
+		sql := `SELECT distinct Customer_ID
+		FROM costsheet_info
+		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
+				 WHERE doc_number_eform <> ''
+				 	and StartDate_P1 <= ? and EndDate_P1 >= ?
+					and StartDate_P1 <= EndDate_P1
+					and EmployeeID in (?)
+					and INSTR(CONCAT_WS('|', Customer_ID, Sales_Name, EmployeeID), ?)
+					and INSTR(CONCAT_WS('|', doc_number_eform), ?)
+					and INSTR(CONCAT_WS('|', EmployeeID), ?)
+					group by doc_number_eform
+					 ;`
+
+		if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&cus).Error; err != nil {
+			log.Errorln(pkgName, err, "select data error -:")
+			hasErr += 1
+		}
+
+		wg.Done()
+	}()
 	wg.Wait()
 
 	dataMap := map[string]interface{}{
-		"customer_total": len(sum),
+		"total":          len(sum),
+		"customer_total": len(cus),
 		"total_so":       soTotal,
 		"detail":         sum,
 	}
@@ -3020,8 +3045,8 @@ func GetDetailSoEndPoint(c echo.Context) error {
 		SaleFactor   float64 `json:"SaleFactors" gorm:"column:SaleFactors"`
 		InFactor     float64 `json:"in_factor" gorm:"column:in_factor"`
 		ExFactor     float64 `json:"ex_factor" gorm:"column:ex_factor"`
-		StartDate    string  `json:"PeriodStartDate" gorm:"column:PeriodStartDate"`
-		EndDate      string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
+		StartDate    string  `json:"ContractStartDate" gorm:"column:ContractStartDate"`
+		EndDate      string  `json:"ContractEndDate" gorm:"column:ContractEndDate"`
 		Detail       string  `json:"detail" gorm:"column:detail"`
 		Remark       string  `json:"remark" gorm:"column:remark"`
 	}
@@ -3036,32 +3061,37 @@ func GetDetailSoEndPoint(c echo.Context) error {
 	hasErr := 0
 	var soTotal []TrackInvoice
 	var sum []SOCus
+	cus := []struct {
+		CustomerID string `json:"Customer_ID" gorm:"column:Customer_ID"`
+	}{}
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 
 		sql := `SELECT *,
 		SUM(CASE
-			WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+			WHEN DATEDIFF(ContractEndDate, ContractStartDate)+1 = 0
 			THEN 0
-			WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+			WHEN ContractStartDate >= ? AND ContractStartDate <= ? AND ContractEndDate <= ?
 			THEN PeriodAmount
-			WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-			THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-			WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-			THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-			WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-			THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-			WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-			THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+			WHEN ContractStartDate >= ? AND ContractStartDate <= ? AND ContractEndDate > ?
+			THEN (DATEDIFF(?, ContractStartDate)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate, ContractStartDate)+1))
+			WHEN ContractStartDate < ? AND ContractEndDate <= ? AND ContractEndDate > ?
+			THEN (DATEDIFF(ContractEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate, ContractStartDate)+1))
+			WHEN ContractStartDate < ? AND ContractEndDate = ?
+			THEN 1*(PeriodAmount/(DATEDIFF(ContractEndDate, ContractStartDate)+1))
+			WHEN ContractStartDate < ? AND ContractEndDate > ?
+			THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate,ContractStartDate)+1))
 			ELSE 0 END
 		) as so_amount,
+		in_factor/100 as in_factor,
+		ex_factor/100 as ex_factor,
 		sum(PeriodAmount) as amount
 		FROM so_mssql
 		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 					WHERE Active_Inactive = 'Active'
-					and PeriodStartDate <= ? and PeriodEndDate >= ?
-					and PeriodStartDate <= PeriodEndDate
+					and ContractStartDate <= ? and ContractEndDate >= ?
+					and ContractStartDate <= ContractEndDate
 					and sale_code in (?)
 					and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
 					and INSTR(CONCAT_WS('|', sonumber), ?)
@@ -3077,37 +3107,17 @@ func GetDetailSoEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(sonumber_all) as sonumber_all, sum(sonumber) as total_so, sum(csnumber) as total_cs,sum(invnumber) as total_inv, sum(rcnumber) as total_rc, sum(cnnumber) as total_cn,
-		sum(so_amount) as so_amount, sum(inv_amount) as inv_amount, sum(cs_amount) as cs_amount, sum(rc_amount) as rc_amount, sum(cn_amount) as cn_amount, sum(amount) as amount, AVG(in_factor) as in_factor,
-		sum(in_factor) as sum_if, sum(inv_amount) - sum(rc_amount) as outstainding_amount,AVG(ex_factor) as ex_factor,sum(ex_factor) as sum_ef, SUM(PeriodAmount/(DATEDIFF(?,?)+1)) as pro_rate,
-		(CASE
-			WHEN sum(inv_amount) = 0 THEN 'ยังไม่ออกใบแจ้งหนี้'
-			WHEN sum(inv_amount) = sum(cn_amount) THEN 'ลดหนี้'
-			WHEN sum(inv_amount) - sum(cn_amount) <= sum(rc_amount) AND sum(rc_amount) <> 0 THEN 'ชำระแล้ว'
-			WHEN sum(inv_amount) - sum(cn_amount) > sum(rc_amount) AND sum(rc_amount) <> 0 THEN 'ชำระไม่ครบ'
-			ELSE 'ค้างชำระ' END
-		) as status,
-		sum((CASE
-			WHEN inv_amount = rc_amount THEN inv_amount
-			ELSE inv_amount - cn_amount END
-		)) as inv_amount_cal,
-		(sum(amount)/sum(amount_engcost)) as sale_factor,
-		sonumber_all
+		sql := `SELECT sum(amount) as amount, 
+		AVG(in_factor)/100 as in_factor,
+		AVG(ex_factor)/100 as ex_factor, 
+		SUM(PeriodAmount/(DATEDIFF(?,?)+1)) as pro_rate,
+		(sum(amount)/sum(amount_engcost)) as sale_factor
 		from (
 			SELECT
 				count(DISTINCT sonumber) as sonumber,
 				count(sonumber) as sonumber_all,
 				Customer_ID as Customer_ID,
 				Customer_Name as Customer_Name,
-				count(DISTINCT(CASE WHEN SDPropertyCS28 !='' THEN SDPropertyCS28 END)) as csnumber,
-				count(DISTINCT(CASE WHEN BLSCDocNo !='' THEN BLSCDocNo END)) as invnumber,
-				count(DISTINCT(CASE WHEN INCSCDocNo !='' THEN INCSCDocNo END)) as rcnumber,
-				count(DISTINCT(CASE WHEN GetCN !='' THEN GetCN END)) as cnnumber,
-				sum(so_amount) as so_amount,
-				sum(CASE WHEN BLSCDocNo !='' THEN so_amount ELSE 0 END) as inv_amount,
-				sum(CASE WHEN SDPropertyCS28 !='' THEN so_amount ELSE 0 END) as cs_amount,
-				sum(CASE WHEN INCSCDocNo !='' THEN so_amount ELSE 0 END) as rc_amount,
-				sum(CASE WHEN GetCN !='' THEN so_amount ELSE 0 END) as cn_amount,
 				sum(PeriodAmount) as amount,
 				sum(eng_cost) as amount_engcost,
 				sale_factor,
@@ -3121,26 +3131,26 @@ func GetDetailSoEndPoint(c echo.Context) error {
 							else 0 end
 						) as eng_cost,
 						(CASE
-							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+							WHEN DATEDIFF(ContractEndDate, ContractStartDate)+1 = 0
 							THEN 0
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+							WHEN ContractStartDate >= ? AND ContractStartDate <= ? AND ContractEndDate <= ?
 							THEN PeriodAmount
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+							WHEN ContractStartDate >= ? AND ContractStartDate <= ? AND ContractEndDate > ?
+							THEN (DATEDIFF(?, ContractStartDate)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate, ContractStartDate)+1))
+							WHEN ContractStartDate < ? AND ContractEndDate <= ? AND ContractEndDate > ?
+							THEN (DATEDIFF(ContractEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate, ContractStartDate)+1))
+							WHEN ContractStartDate < ? AND ContractEndDate = ?
+							THEN 1*(PeriodAmount/(DATEDIFF(ContractEndDate, ContractStartDate)+1))
+							WHEN ContractStartDate < ? AND ContractEndDate > ?
+							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate,ContractStartDate)+1))
 							ELSE 0 END
 						) as so_amount
 					FROM (
 						SELECT * FROM so_mssql
 						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 						WHERE Active_Inactive = 'Active'
-						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate
+						and ContractStartDate <= ? and ContractEndDate >= ?
+						and ContractStartDate <= ContractEndDate
 
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,sonumber), ?)
@@ -3157,10 +3167,33 @@ func GetDetailSoEndPoint(c echo.Context) error {
 		}
 		wg.Done()
 	}()
+	go func() {
+
+		sql := `SELECT distinct Customer_ID
+		FROM so_mssql
+		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+					WHERE Active_Inactive = 'Active'
+					and ContractStartDate <= ? and ContractEndDate >= ?
+					and ContractStartDate <= ContractEndDate
+					and sale_code in (?)
+					and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
+					and INSTR(CONCAT_WS('|', sonumber), ?)
+					and INSTR(CONCAT_WS('|', sale_code), ?)
+					group by sonumber
+					 ;`
+
+		if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, SONumber, StaffId).Scan(&cus).Error; err != nil {
+			log.Errorln(pkgName, err, "select data error -:")
+			hasErr += 1
+		}
+
+		wg.Done()
+	}()
 	wg.Wait()
 
 	dataMap := map[string]interface{}{
-		"customer_total": len(sum),
+		"customer_total": len(cus),
+		"total":          len(sum),
 		"total_so":       soTotal,
 		"detail":         sum,
 	}
