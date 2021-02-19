@@ -2831,18 +2831,18 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 			WHEN DATEDIFF(EndDate_P1, StartDate_P1)+1 = 0
 			THEN 0
 			WHEN StartDate_P1 >= ? AND StartDate_P1 <= ? AND EndDate_P1 <= ?
-			THEN Revenue_Month
+			THEN Total_Revenue_Month
 			WHEN StartDate_P1 >= ? AND StartDate_P1 <= ? AND EndDate_P1 > ?
-			THEN (DATEDIFF(?, StartDate_P1)+1)*(Revenue_Month/(DATEDIFF(EndDate_P1, StartDate_P1)+1))
+			THEN (DATEDIFF(?, StartDate_P1)+1)*(Total_Revenue_Month/(DATEDIFF(EndDate_P1, StartDate_P1)+1))
 			WHEN StartDate_P1 < ? AND EndDate_P1 <= ? AND EndDate_P1 > ?
-			THEN (DATEDIFF(EndDate_P1, ?)+1)*(Revenue_Month/(DATEDIFF(EndDate_P1, StartDate_P1)+1))
+			THEN (DATEDIFF(EndDate_P1, ?)+1)*(Total_Revenue_Month/(DATEDIFF(EndDate_P1, StartDate_P1)+1))
 			WHEN StartDate_P1 < ? AND EndDate_P1 = ?
-			THEN 1*(Revenue_Month/(DATEDIFF(EndDate_P1, StartDate_P1)+1))
+			THEN 1*(Total_Revenue_Month/(DATEDIFF(EndDate_P1, StartDate_P1)+1))
 			WHEN StartDate_P1 < ? AND EndDate_P1 > ?
-			THEN (DATEDIFF(?,?)+1)*(Revenue_Month/(DATEDIFF(EndDate_P1,StartDate_P1)+1))
+			THEN (DATEDIFF(?,?)+1)*(Total_Revenue_Month/(DATEDIFF(EndDate_P1,StartDate_P1)+1))
 			ELSE 0 END
 		) as so_amount,
-		sum(Revenue_Month) as amount,
+		sum(Total_Revenue_Month) as amount,
 		sum(COALESCE(Int_INET, 0)) as in_factor, 
 		sum((COALESCE(Ext_JV, 0) + COALESCE(Ext, 0))) as ex_factor
 		FROM costsheet_info
@@ -2878,30 +2878,30 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 				EmployeeID,
 				Sales_Name,
 				sum(ex_factor) as ex_factor,
-				Revenue_Month
+				Total_Revenue_Month
 				FROM (
 					SELECT
 					doc_number_eform,StartDate_P1,EndDate_P1,Customer_ID,Cusname_thai,
-					EmployeeID,	Sales_Name,Sale_Team,Revenue_Month, SaleFactors, 
+					EmployeeID,	Sales_Name,Sale_Team,Total_Revenue_Month, SaleFactors, 
 					COALESCE(Int_INET, 0) as in_factor, 
 					(COALESCE(Ext_JV, 0) + COALESCE(Ext, 0)) as ex_factor,
 						(case
-							when Revenue_Month is not null and SaleFactors is not null then Revenue_Month/SaleFactors
+							when Total_Revenue_Month is not null and SaleFactors is not null then Total_Revenue_Month/SaleFactors
 							else 0 end
 						) as eng_cost,
 						(CASE
 							WHEN DATEDIFF(EndDate_P1, StartDate_P1)+1 = 0
 							THEN 0
 							WHEN StartDate_P1 >= ? AND StartDate_P1 <= ? AND EndDate_P1 <= ?
-							THEN Revenue_Month
+							THEN Total_Revenue_Month
 							WHEN StartDate_P1 >= ? AND StartDate_P1 <= ? AND EndDate_P1 > ?
-							THEN (DATEDIFF(?, StartDate_P1)+1)*(Revenue_Month/(DATEDIFF(EndDate_P1, StartDate_P1)+1))
+							THEN (DATEDIFF(?, StartDate_P1)+1)*(Total_Revenue_Month/(DATEDIFF(EndDate_P1, StartDate_P1)+1))
 							WHEN StartDate_P1 < ? AND EndDate_P1 <= ? AND EndDate_P1 > ?
-							THEN (DATEDIFF(EndDate_P1, ?)+1)*(Revenue_Month/(DATEDIFF(EndDate_P1, StartDate_P1)+1))
+							THEN (DATEDIFF(EndDate_P1, ?)+1)*(Total_Revenue_Month/(DATEDIFF(EndDate_P1, StartDate_P1)+1))
 							WHEN StartDate_P1 < ? AND EndDate_P1 = ?
-							THEN 1*(Revenue_Month/(DATEDIFF(EndDate_P1, StartDate_P1)+1))
+							THEN 1*(Total_Revenue_Month/(DATEDIFF(EndDate_P1, StartDate_P1)+1))
 							WHEN StartDate_P1 < ? AND EndDate_P1 > ?
-							THEN (DATEDIFF(?,?)+1)*(Revenue_Month/(DATEDIFF(EndDate_P1,StartDate_P1)+1))
+							THEN (DATEDIFF(?,?)+1)*(Total_Revenue_Month/(DATEDIFF(EndDate_P1,StartDate_P1)+1))
 							ELSE 0 END
 						) as so_amount
 					FROM (
