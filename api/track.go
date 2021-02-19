@@ -2017,13 +2017,13 @@ func GetSOTrackingReceiptEndPoint(c echo.Context) error {
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate
-
+						and sale_code in (?)
 					) sub_data
 				) so_group
 				GROUP by BLSCDocNo
 			 `
 
-	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom).Scan(&so).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId).Scan(&so).Error; err != nil {
 		log.Errorln(pkgName, err, "select data error -:")
 		return echo.ErrInternalServerError
 	}
@@ -2102,7 +2102,7 @@ func GetSOTrackingReceiptEndPoint(c echo.Context) error {
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 						group by BLSCDocNo
 																	;`
-		var sum []SOCus
+
 		if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, StaffId).Scan(&sum).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
 		}
@@ -2341,13 +2341,13 @@ func GetSOTrackingReceiptCsEndPoint(c echo.Context) error {
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate
-
+						and sale_code in (?)
 					) sub_data
 				) so_group
 				GROUP by BLSCDocNo
 			 `
 
-	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom).Scan(&so).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId).Scan(&so).Error; err != nil {
 		log.Errorln(pkgName, err, "select data error -:")
 		return echo.ErrInternalServerError
 	}
@@ -2422,7 +2422,6 @@ func GetSOTrackingReceiptCsEndPoint(c echo.Context) error {
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 						group by BLSCDocNo
 					;`
-		var sum []SOCus
 		if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, InvNumber, StaffId).Scan(&sum).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
 		}
@@ -2792,39 +2791,32 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 	}
 
 	type SOCus struct {
-		SOnumber          string `json:"so_number" gorm:"column:sonumber"`
-		ContractStartDate string `json:"contract_start_date" gorm:"column:ContractStartDate"`
-		ContractEndDate   string `json:"contract_end_date" gorm:"column:ContractEndDate"`
-		SDPropertyCS28    string `json:"SDPropertyCS28" gorm:"column:SDPropertyCS28"`
-		// PeriodEndDate       string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
-		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
-		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
-		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
-		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
-		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
-		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
-		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
-		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
-		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
-		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
-		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
-		SoType              string  `json:"SoType" gorm:"column:SoType"`
-		Detail              string  `json:"detail" gorm:"column:detail"`
-		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
-		Amount              float64 `json:"amount" gorm:"column:amount"`
-		StaffID             string  `json:"staff_id" gorm:"column:staff_id"`
-		Prefix              string  `json:"prefix" gorm:"column:prefix"`
-		Fname               string  `json:"fname" gorm:"column:fname"`
-		Lname               string  `json:"lname" gorm:"column:lname"`
-		Position            string  `json:"position" gorm:"column:position"`
-		Department          string  `json:"department" gorm:"column:department"`
+		DocNumberEform string  `json:"doc_number_eform" gorm:"column:doc_number_eform"`
+		StaffID        string  `json:"staff_id" gorm:"column:staff_id"`
+		Fname          string  `json:"fname" gorm:"column:fname"`
+		Lname          string  `json:"lname" gorm:"column:lname"`
+		Nname          string  `json:"nname" gorm:"column:nname"`
+		Department     string  `json:"department" gorm:"column:department"`
+		SoAmount       float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount         float64 `json:"amount" gorm:"column:amount"`
+		StatusEform    string  `json:"status" gorm:"column:status"`
+		CustomerID     string  `json:"Customer_ID" gorm:"column:Customer_ID"`
+		CusnameThai    string  `json:"Cusname_thai" gorm:"column:Cusname_thai"`
+		CusnameEng     string  `json:"Cusname_Eng" gorm:"column:Cusname_Eng"`
+		BusinessType   string  `json:"Business_type" gorm:"column:Business_type"`
+		JobStatus      string  `json:"Job_Status" gorm:"column:Job_Status"`
+		SoType         string  `json:"SO_Type" gorm:"column:SO_Type"`
+		SaleFactor     float64 `json:"SaleFactors" gorm:"column:SaleFactors"`
+		InFactor       float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor       float64 `json:"ex_factor" gorm:"column:ex_factor"`
+		StartDate      string  `json:"StartDate_P1" gorm:"column:StartDate_P1"`
+		EndDate        string  `json:"EndDate_P1" gorm:"column:EndDate_P1"`
 	}
 	type TrackInvoice struct {
 		Amount     float64 `json:"amount" gorm:"column:amount"`
 		InFactor   float64 `json:"in_factor" gorm:"column:in_factor"`
 		ExFactor   float64 `json:"ex_factor" gorm:"column:ex_factor"`
-		SaleFactor float64 `json:"sale_factor" gorm:"column:sale_factor"`
+		SaleFactor float64 `json:"SaleFactors" gorm:"column:SaleFactors"`
 		ProRate    float64 `json:"pro_rate" gorm:"column:pro_rate"`
 	}
 
@@ -2850,7 +2842,9 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 			THEN (DATEDIFF(?,?)+1)*(Revenue_Month/(DATEDIFF(EndDate_P1,StartDate_P1)+1))
 			ELSE 0 END
 		) as so_amount,
-		sum(Revenue_Month) as amount
+		sum(Revenue_Month) as amount,
+		sum(COALESCE(Int_INET, 0)) as in_factor, 
+		sum((COALESCE(Ext_JV, 0) + COALESCE(Ext, 0))) as ex_factor
 		FROM costsheet_info
 		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
 				 WHERE doc_number_eform <> ''
@@ -2880,11 +2874,17 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 				sum(Revenue_Month) as amount,
 				sum(eng_cost) as amount_engcost,
 				SaleFactors,
-				in_factor,EmployeeID,Sales_Name,ex_factor,Revenue_Month
+				sum(in_factor) as in_factor,
+				EmployeeID,
+				Sales_Name,
+				sum(ex_factor) as ex_factor,
+				Revenue_Month
 				FROM (
 					SELECT
 					doc_number_eform,StartDate_P1,EndDate_P1,Customer_ID,Cusname_thai,
-					EmployeeID,	Sales_Name,Sale_Team,Revenue_Month, SaleFactors, Int_INET as in_factor, (Ext_JV + Ext) as ex_factor,
+					EmployeeID,	Sales_Name,Sale_Team,Revenue_Month, SaleFactors, 
+					COALESCE(Int_INET, 0) as in_factor, 
+					(COALESCE(Ext_JV, 0) + COALESCE(Ext, 0)) as ex_factor,
 						(case
 							when Revenue_Month is not null and SaleFactors is not null then Revenue_Month/SaleFactors
 							else 0 end
@@ -2918,7 +2918,8 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 					) sub_data
 				) so_group
 				group by doc_number_eform
-			) cust_group`
+			) cust_group
+			`
 		// and StartDate_P1 <= ? and EndDate_P1 >= ?
 		// and StartDate_P1 <= EndDate_P1
 		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&soTotal).Error; err != nil {
@@ -2945,7 +2946,7 @@ func GetDetailSoEndPoint(c echo.Context) error {
 
 	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
-	CsNumber := strings.TrimSpace(c.QueryParam("cs_number"))
+	SONumber := strings.TrimSpace(c.QueryParam("cs_number"))
 	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
 
 	ds := time.Now()
@@ -3001,56 +3002,35 @@ func GetDetailSoEndPoint(c echo.Context) error {
 	}
 
 	type SOCus struct {
-		SOnumber          string `json:"so_number" gorm:"column:sonumber"`
-		ContractStartDate string `json:"contract_start_date" gorm:"column:ContractStartDate"`
-		ContractEndDate   string `json:"contract_end_date" gorm:"column:ContractEndDate"`
-		SDPropertyCS28    string `json:"SDPropertyCS28" gorm:"column:SDPropertyCS28"`
-		// PeriodEndDate       string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
-		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
-		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
-		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
-		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
-		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
-		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
-		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
-		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
-		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
-		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
-		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
-		SoType              string  `json:"SoType" gorm:"column:SoType"`
-		Detail              string  `json:"detail" gorm:"column:detail"`
-		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
-		Amount              float64 `json:"amount" gorm:"column:amount"`
-		StaffID             string  `json:"staff_id" gorm:"column:staff_id"`
-		Prefix              string  `json:"prefix" gorm:"column:prefix"`
-		Fname               string  `json:"fname" gorm:"column:fname"`
-		Lname               string  `json:"lname" gorm:"column:lname"`
-		Position            string  `json:"position" gorm:"column:position"`
-		Department          string  `json:"department" gorm:"column:department"`
+		SOnumber     string  `json:"sonumber" gorm:"column:sonumber"`
+		StaffID      string  `json:"staff_id" gorm:"column:staff_id"`
+		Fname        string  `json:"fname" gorm:"column:fname"`
+		Lname        string  `json:"lname" gorm:"column:lname"`
+		Nname        string  `json:"nname" gorm:"column:nname"`
+		Department   string  `json:"department" gorm:"column:department"`
+		SoAmount     float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount       float64 `json:"amount" gorm:"column:amount"`
+		SOWebStatus  string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerID   string  `json:"Customer_ID" gorm:"column:Customer_ID"`
+		CusnameThai  string  `json:"Customer_Name" gorm:"column:Customer_Name"`
+		CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"` //ไม่มีในcolumn so_ms
+		BusinessType string  `json:"Business_type" gorm:"column:Business_type"`
+		JobStatus    string  `json:"Job_Status" gorm:"column:Job_Status"`
+		SoType       string  `json:"SO_Type" gorm:"column:SO_Type"`
+		SaleFactor   float64 `json:"SaleFactors" gorm:"column:SaleFactors"`
+		InFactor     float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor     float64 `json:"ex_factor" gorm:"column:ex_factor"`
+		StartDate    string  `json:"PeriodStartDate" gorm:"column:PeriodStartDate"`
+		EndDate      string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
+		Detail       string  `json:"detail" gorm:"column:detail"`
+		Remark       string  `json:"remark" gorm:"column:remark"`
 	}
 	type TrackInvoice struct {
-		// BLSCDocNo         string  `json:"blsc_doc_no" gorm:"column:BLSCDocNo"`
-		// TotalSo           float64 `json:"total_so" gorm:"column:total_so"`
-		// TotalCs           float64 `json:"total_cs" gorm:"column:total_cs"`
-		// SoAmountTotalInv  float64 `json:"total_inv" gorm:"column:total_inv"`
-		// TotalRc           float64 `json:"total_rc" gorm:"column:total_rc"`
-		// TotalCn           float64 `json:"total_cn" gorm:"column:total_cn"`
-		// SoAmount          float64 `json:"so_amount" gorm:"column:so_amount"`
-		// InvAmount         float64 `json:"inv_amount" gorm:"column:inv_amount"`
-		// CsAmount          float64 `json:"cs_amount" gorm:"column:cs_amount"`
-		// RcAmount          float64 `json:"rc_amount" gorm:"column:rc_amount"`
-		// CnAmount          float64 `json:"cn_amount" gorm:"column:cn_amount"`
-		Amount   float64 `json:"amount" gorm:"column:amount"`
-		InFactor float64 `json:"in_factor" gorm:"column:in_factor"`
-		// SumIf             float64 `json:"sum_if" gorm:"column:sum_if"`
-		// OutStandingAmount float64 `json:"outstanding_amount" gorm:"column:outstanding_amount"`
-		ExFactor float64 `json:"ex_factor" gorm:"column:ex_factor"`
-		// SumEf             float64 `json:"sum_ef" gorm:"column:sum_ef"`
-		// InvAmountCal      float64 `json:"inv_amount_cal" gorm:"column:inv_amount_cal"`
+		Amount     float64 `json:"amount" gorm:"column:amount"`
+		InFactor   float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor   float64 `json:"ex_factor" gorm:"column:ex_factor"`
 		SaleFactor float64 `json:"sale_factor" gorm:"column:sale_factor"`
-		// SoNumberAll       int     `json:"sonumber_all" gorm:"column:sonumber_all"`
-		ProRate float64 `json:"pro_rate" gorm:"column:pro_rate"`
+		ProRate    float64 `json:"pro_rate" gorm:"column:pro_rate"`
 	}
 
 	hasErr := 0
@@ -3060,8 +3040,7 @@ func GetDetailSoEndPoint(c echo.Context) error {
 	wg.Add(2)
 	go func() {
 
-		sql := `SELECT sonumber,SDPropertyCS28,ContractStartDate,ContractEndDate,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,
-		sale_name,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail,staff_id,prefix,fname,lname,position,department,
+		sql := `SELECT *,
 		SUM(CASE
 			WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
 			THEN 0
@@ -3085,12 +3064,12 @@ func GetDetailSoEndPoint(c echo.Context) error {
 					and PeriodStartDate <= PeriodEndDate
 					and sale_code in (?)
 					and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
-					and INSTR(CONCAT_WS('|', SDPropertyCS28), ?)
+					and INSTR(CONCAT_WS('|', sonumber), ?)
 					and INSTR(CONCAT_WS('|', sale_code), ?)
 					group by sonumber
 					 ;`
 
-		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&sum).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, SONumber, StaffId).Scan(&sum).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
 			hasErr += 1
 		}
@@ -3159,20 +3138,20 @@ func GetDetailSoEndPoint(c echo.Context) error {
 					FROM (
 						SELECT * FROM so_mssql
 						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
+						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate
 
 						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
-						and INSTR(CONCAT_WS('|', SDPropertyCS28), ?)
+						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,sonumber), ?)
+						and INSTR(CONCAT_WS('|', sonumber), ?)
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 					) sub_data
 				) so_group
 				WHERE so_amount <> 0 group by sonumber
 			) cust_group`
 
-		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&soTotal).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, SONumber, StaffId).Scan(&soTotal).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
 			hasErr += 1
 		}
@@ -3191,33 +3170,28 @@ func GetDetailSoEndPoint(c echo.Context) error {
 func GetDetailInvoiceEndPoint(c echo.Context) error {
 
 	type SOCus struct {
-		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
-		ContractStartDate   string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
-		ContractEndDate     string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
-		SDPropertyCS28      string  `json:"SDPropertyCS28" gorm:"column:SDPropertyCS28"`
-		BLSCDocNo           string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
-		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
-		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
-		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		CustomerID          string  `json:"customer_id" gorm:"column:Customer_ID"`
-		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
-		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
-		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
-		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
-		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
-		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
-		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
-		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
-		SoType              string  `json:"SoType" gorm:"column:SoType"`
-		Detail              string  `json:"detail" gorm:"column:detail"`
-		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
-		Amount              float64 `json:"amount" gorm:"column:amount"`
-		StaffID             string  `json:"staff_id" gorm:"column:staff_id"`
-		Prefix              string  `json:"prefix" gorm:"column:prefix"`
-		Fname               string  `json:"fname" gorm:"column:fname"`
-		Lname               string  `json:"lname" gorm:"column:lname"`
-		Position            string  `json:"position" gorm:"column:position"`
-		Department          string  `json:"department" gorm:"column:department"`
+		BLSCDocNo    string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
+		StaffID      string  `json:"staff_id" gorm:"column:staff_id"`
+		Fname        string  `json:"fname" gorm:"column:fname"`
+		Lname        string  `json:"lname" gorm:"column:lname"`
+		Nname        string  `json:"nname" gorm:"column:nname"`
+		Department   string  `json:"department" gorm:"column:department"`
+		SoAmount     float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount       float64 `json:"amount" gorm:"column:amount"`
+		SOWebStatus  string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerID   string  `json:"Customer_ID" gorm:"column:Customer_ID"`
+		CusnameThai  string  `json:"Customer_Name" gorm:"column:Customer_Name"`
+		CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"` //ไม่มีในcolumn so_ms
+		BusinessType string  `json:"Business_type" gorm:"column:Business_type"`
+		JobStatus    string  `json:"Job_Status" gorm:"column:Job_Status"`
+		SoType       string  `json:"SO_Type" gorm:"column:SO_Type"`
+		SaleFactor   float64 `json:"SaleFactors" gorm:"column:SaleFactors"`
+		InFactor     float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor     float64 `json:"ex_factor" gorm:"column:ex_factor"`
+		StartDate    string  `json:"PeriodStartDate" gorm:"column:PeriodStartDate"`
+		EndDate      string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
+		Detail       string  `json:"detail" gorm:"column:detail"`
+		Remark       string  `json:"remark" gorm:"column:remark"`
 	}
 	type TrackInvoice struct {
 		Amount     float64 `json:"amount" gorm:"column:amount"`
@@ -3233,7 +3207,7 @@ func GetDetailInvoiceEndPoint(c echo.Context) error {
 
 	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
-	SoNumber := strings.TrimSpace(c.QueryParam("so_number"))
+	InvNumber := strings.TrimSpace(c.QueryParam("so_number"))
 	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
 
 	//// get staff id ////
@@ -3311,12 +3285,12 @@ func GetDetailInvoiceEndPoint(c echo.Context) error {
 						and PeriodStartDate <= PeriodEndDate
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
-						and INSTR(CONCAT_WS('|', sonumber), ?)
+						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
 						and INSTR(CONCAT_WS('|', sale_code), ?)
-						group by sonumber
+						group by BLSCDocNo
 						;`
 
-		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, SoNumber, StaffId).Scan(&so).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, InvNumber, StaffId).Scan(&so).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
 			hasErr += 1
 		}
@@ -3390,14 +3364,14 @@ func GetDetailInvoiceEndPoint(c echo.Context) error {
 
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
-						and INSTR(CONCAT_WS('|', sonumber), ?)
+						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 					) sub_data
 				) so_group
-				WHERE so_amount <> 0 group by sonumber
+				WHERE so_amount <> 0 group by BLSCDocNo
 			) cust_group`
 
-		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, SoNumber, StaffId).Scan(&soTotal).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, InvNumber, StaffId).Scan(&soTotal).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
 			hasErr += 1
 		}
@@ -3453,27 +3427,11 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 		Department          string  `json:"department" gorm:"column:department"`
 	}
 	type TrackInvoice struct {
-		// BLSCDocNo         string  `json:"blsc_doc_no" gorm:"column:BLSCDocNo"`
-		// TotalSo           float64 `json:"total_so" gorm:"column:total_so"`
-		// TotalCs           float64 `json:"total_cs" gorm:"column:total_cs"`
-		// SoAmountTotalInv  float64 `json:"total_inv" gorm:"column:total_inv"`
-		// TotalRc           float64 `json:"total_rc" gorm:"column:total_rc"`
-		// TotalCn           float64 `json:"total_cn" gorm:"column:total_cn"`
-		// SoAmount          float64 `json:"so_amount" gorm:"column:so_amount"`
-		// InvAmount         float64 `json:"inv_amount" gorm:"column:inv_amount"`
-		// CsAmount          float64 `json:"cs_amount" gorm:"column:cs_amount"`
-		// RcAmount          float64 `json:"rc_amount" gorm:"column:rc_amount"`
-		// CnAmount          float64 `json:"cn_amount" gorm:"column:cn_amount"`
-		Amount   float64 `json:"amount" gorm:"column:amount"`
-		InFactor float64 `json:"in_factor" gorm:"column:in_factor"`
-		// SumIf             float64 `json:"sum_if" gorm:"column:sum_if"`
-		// OutStandingAmount float64 `json:"outstanding_amount" gorm:"column:outstanding_amount"`
-		ExFactor float64 `json:"ex_factor" gorm:"column:ex_factor"`
-		// SumEf             float64 `json:"sum_ef" gorm:"column:sum_ef"`
-		// InvAmountCal      float64 `json:"inv_amount_cal" gorm:"column:inv_amount_cal"`
+		Amount     float64 `json:"amount" gorm:"column:amount"`
+		InFactor   float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor   float64 `json:"ex_factor" gorm:"column:ex_factor"`
 		SaleFactor float64 `json:"sale_factor" gorm:"column:sale_factor"`
-		// SoNumberAll       int     `json:"sonumber_all" gorm:"column:sonumber_all"`
-		ProRate float64 `json:"pro_rate" gorm:"column:pro_rate"`
+		ProRate    float64 `json:"pro_rate" gorm:"column:pro_rate"`
 	}
 
 	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
@@ -3722,56 +3680,34 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 	}
 
 	type SOCus struct {
-		SOnumber          string `json:"so_number" gorm:"column:sonumber"`
-		ContractStartDate string `json:"contract_start_date" gorm:"column:ContractStartDate"`
-		ContractEndDate   string `json:"contract_end_date" gorm:"column:ContractEndDate"`
-		SDPropertyCS28    string `json:"SDPropertyCS28" gorm:"column:SDPropertyCS28"`
-		// PeriodEndDate       string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
-		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
-		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
-		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
-		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
-		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
-		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
-		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
-		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
-		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
-		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
-		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
-		SoType              string  `json:"SoType" gorm:"column:SoType"`
-		Detail              string  `json:"detail" gorm:"column:detail"`
-		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
-		Amount              float64 `json:"amount" gorm:"column:amount"`
-		StaffID             string  `json:"staff_id" gorm:"column:staff_id"`
-		Prefix              string  `json:"prefix" gorm:"column:prefix"`
-		Fname               string  `json:"fname" gorm:"column:fname"`
-		Lname               string  `json:"lname" gorm:"column:lname"`
-		Position            string  `json:"position" gorm:"column:position"`
-		Department          string  `json:"department" gorm:"column:department"`
+		BLSCDocNo    string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
+		StaffID      string  `json:"staff_id" gorm:"column:staff_id"`
+		Fname        string  `json:"fname" gorm:"column:fname"`
+		Lname        string  `json:"lname" gorm:"column:lname"`
+		Nname        string  `json:"nname" gorm:"column:nname"`
+		Department   string  `json:"department" gorm:"column:department"`
+		SoAmount     float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount       float64 `json:"amount" gorm:"column:amount"`
+		SOWebStatus  string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerID   string  `json:"Customer_ID" gorm:"column:Customer_ID"`
+		CusnameThai  string  `json:"Customer_Name" gorm:"column:Customer_Name"`
+		CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"` //ไม่มีในcolumn so_ms
+		BusinessType string  `json:"Business_type" gorm:"column:Business_type"`
+		JobStatus    string  `json:"Job_Status" gorm:"column:Job_Status"`
+		SoType       string  `json:"SO_Type" gorm:"column:SO_Type"`
+		SaleFactor   float64 `json:"SaleFactors" gorm:"column:SaleFactors"`
+		InFactor     float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor     float64 `json:"ex_factor" gorm:"column:ex_factor"`
+		StartDate    string  `json:"PeriodStartDate" gorm:"column:PeriodStartDate"`
+		EndDate      string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
+		Detail       string  `json:"detail" gorm:"column:detail"`
 	}
 	type TrackInvoice struct {
-		// BLSCDocNo         string  `json:"blsc_doc_no" gorm:"column:BLSCDocNo"`
-		// TotalSo           float64 `json:"total_so" gorm:"column:total_so"`
-		// TotalCs           float64 `json:"total_cs" gorm:"column:total_cs"`
-		// SoAmountTotalInv  float64 `json:"total_inv" gorm:"column:total_inv"`
-		// TotalRc           float64 `json:"total_rc" gorm:"column:total_rc"`
-		// TotalCn           float64 `json:"total_cn" gorm:"column:total_cn"`
-		// SoAmount          float64 `json:"so_amount" gorm:"column:so_amount"`
-		// InvAmount         float64 `json:"inv_amount" gorm:"column:inv_amount"`
-		// CsAmount          float64 `json:"cs_amount" gorm:"column:cs_amount"`
-		// RcAmount          float64 `json:"rc_amount" gorm:"column:rc_amount"`
-		// CnAmount          float64 `json:"cn_amount" gorm:"column:cn_amount"`
-		Amount   float64 `json:"amount" gorm:"column:amount"`
-		InFactor float64 `json:"in_factor" gorm:"column:in_factor"`
-		// SumIf             float64 `json:"sum_if" gorm:"column:sum_if"`
-		// OutStandingAmount float64 `json:"outstanding_amount" gorm:"column:outstanding_amount"`
-		ExFactor float64 `json:"ex_factor" gorm:"column:ex_factor"`
-		// SumEf             float64 `json:"sum_ef" gorm:"column:sum_ef"`
-		// InvAmountCal      float64 `json:"inv_amount_cal" gorm:"column:inv_amount_cal"`
+		Amount     float64 `json:"amount" gorm:"column:amount"`
+		InFactor   float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor   float64 `json:"ex_factor" gorm:"column:ex_factor"`
 		SaleFactor float64 `json:"sale_factor" gorm:"column:sale_factor"`
-		// SoNumberAll       int     `json:"sonumber_all" gorm:"column:sonumber_all"`
-		ProRate float64 `json:"pro_rate" gorm:"column:pro_rate"`
+		ProRate    float64 `json:"pro_rate" gorm:"column:pro_rate"`
 	}
 
 	ds := time.Now()
@@ -3821,13 +3757,13 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate
-
+						and sale_code in (?)
 					) sub_data
 				) so_group
 				GROUP by BLSCDocNo
 			 `
 
-	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom).Scan(&so).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId).Scan(&so).Error; err != nil {
 		log.Errorln(pkgName, err, "select data error -:")
 		return echo.ErrInternalServerError
 	}
@@ -3902,7 +3838,7 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 						group by BLSCDocNo
 					;`
-		var sum []SOCus
+
 		if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, InvNumber, StaffId).Scan(&sum).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
 		}

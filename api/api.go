@@ -80,11 +80,11 @@ func InitApiRouter(g *echo.Group) error {
 
 	track.GET("/doc/cs", GetSOTrackingCsEndPoint) //doc/cs
 
-	track.GET("/detail_reciept", GetDetailReceiptEndPoint)
-	track.GET("/detail_billing", GetDetailBillingEndPoint)
-	track.GET("/detail_invoice", GetDetailInvoiceEndPoint)
-	track.GET("/detail_so", GetDetailSoEndPoint)
-	track.GET("/detail_costsheet", GetDetailCostsheetEndPoint)
+	track.GET("/detail_reciept", GetDetailReceiptEndPoint)     //
+	track.GET("/detail_billing", GetDetailBillingEndPoint)     //invoice no ในinvoice statusเป็นค่าNULL
+	track.GET("/detail_invoice", GetDetailInvoiceEndPoint)     //แก้ groupด้วย BLSCDocNo แทน so number
+	track.GET("/detail_so", GetDetailSoEndPoint)               //**
+	track.GET("/detail_costsheet", GetDetailCostsheetEndPoint) //**
 
 	export := g.Group("/export")
 	export.GET("/pending", GetReportExcelSOPendingEndPoint)
