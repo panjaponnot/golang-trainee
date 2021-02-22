@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"sale_ranking/model"
+	m "sale_ranking/model"
+	"sale_ranking/pkg/log"
 	"sale_ranking/pkg/server"
 	"sale_ranking/pkg/util"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -278,4 +281,723 @@ func sumEF(input []model.SummaryCustomer) float64 {
 
 	fmt.Println("sum was ef", sum)
 	return sum
+}
+
+func GetSummaryPendingSOEndPoint(c echo.Context) error {
+	// if strings.TrimSpace(c.Param("id")) == "" {
+	// 	return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	// }
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
+	year := strings.TrimSpace(c.QueryParam("year"))
+	month := strings.TrimSpace(c.QueryParam("month"))
+	// search := strings.TrimSpace(c.QueryParam("search"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		year = strconv.Itoa(yearDefault.Year())
+	}
+
+	if strings.TrimSpace(c.QueryParam("month")) == "" {
+		monthDefault := time.Now()
+		month = strconv.Itoa(int(monthDefault.Month()))
+	}
+	// oneId := strings.TrimSpace(c.Param("id"))
+	// staff := []struct {
+	// 	ContractEndDate string `json:"ContractEndDate" gorm:"column:ContractEndDate"`
+	// 	Status          string `json:"status" gorm:"column:status"`
+	// 	Remark          string `json:"remark" gorm:"column:remark"`
+	// 	Days            int    `json:"days" gorm:"column:days"`
+	// }{}
+	// if err := dbSale.Ctx().Raw(` SELECT so_mssql.ContractEndDate,check_expire.status,check_expire.remark,DATEDIFF(so_mssql.ContractEndDate, NOW()) as days from staff_info
+	// join so_mssql on so_mssql.sale_code = staff_info.staff_id
+	// left join check_expire on check_expire.sonumber = so_mssql.sonumber
+	//  WHERE staff_info.one_id = ? `, oneId).Scan(&staff).Error; err != nil {
+	// 	log.Errorln(pkgName, err, "Select staff error")
+	// 	return echo.ErrInternalServerError
+	// }
+	type PendingDataSum struct {
+		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
+		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
+		ContractStartDate   string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate     string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
+		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleLead            string  `json:"sale_lead" gorm:"column:sale_lead"`
+		Day                 string  `json:"day" gorm:"column:days"`
+		SoMonth             string  `json:"so_month" gorm:"column:so_month"`
+		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
+		PeriodAmount        float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+		TotalAmount         float64 `json:"total_amount" gorm:"column:TotalAmount"`
+		StaffId             string  `json:"staff_id" gorm:"column:staff_id"`
+		PayType             string  `json:"pay_type" gorm:"column:pay_type"`
+		SoType              string  `json:"so_type" gorm:"column:so_type"`
+		Prefix              string  `json:"prefix"`
+		Fname               string  `json:"fname"`
+		Lname               string  `json:"lname"`
+		Nname               string  `json:"nname"`
+		Position            string  `json:"position"`
+		Department          string  `json:"department"`
+		Status              string  `json:"status"`
+		Remark              string  `json:"remark"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+	}
+
+	type PendingDataSumV2 struct {
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+	}
+
+	Active := 0.0
+	// var Active int64
+	// var Update int64
+	// var NotUpdate int64
+	Update := 0.0
+	NotUpdate := 0.0
+	var DataActive []PendingDataSumV2
+	var DataUpdate []PendingDataSumV2
+	var DataNotUpdate []PendingDataSumV2
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+	go func() {
+		// if err := dbSale.Ctx().Raw(` SELECT * from staff_info
+		// 	join so_mssql on so_mssql.sale_code = staff_info.staff_id
+		// 	left join check_expire on check_expire.sonumber = so_mssql.sonumber
+		// 	 WHERE staff_info.one_id = ?
+		// 	 AND YEAR(ContractEndDate) >= ?
+		// 	 AND MONTH(ContractEndDate) > ?
+		// 	 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataActive).Error; err != nil {
+		DateStr := fmt.Sprintf(`%s-%s-01`, year, month)
+		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
+			left join check_expire on check_expire.sonumber = so_mssql.sonumber
+			WHERE ContractEndDate > ?
+			AND INSTR(CONCAT_WS('|', sale_code), ?)
+			 GROUP BY so_mssql.sonumber`, DateStr, StaffId).Scan(&DataActive).Error; err != nil {
+			log.Errorln(pkgName, err, "Select DataActive error")
+			// return echo.ErrInternalServerError
+		}
+		if len(DataActive) > 0 {
+			for _, d := range DataActive {
+				Active += d.TotalContractAmount
+			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		// if err := dbSale.Ctx().Raw(` SELECT * from staff_info
+		// 	join so_mssql on so_mssql.sale_code = staff_info.staff_id
+		// 	left join check_expire on check_expire.sonumber = so_mssql.sonumber
+		// 	 WHERE staff_info.one_id = ?
+		// 	 AND YEAR(ContractEndDate) = ?
+		// 	 AND MONTH(ContractEndDate) = ?
+		// 	 AND check_expire.remark IS NOT NULL
+		// 	 AND check_expire.status IS NOT NULL
+		// 	 GROUP BY so_mssql.sonumber`, oneId, year, month).Scan(&DataUpdate).Error; err != nil {
+		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
+			left join check_expire on check_expire.sonumber = so_mssql.sonumber
+			WHERE YEAR(ContractEndDate) = ?
+			 AND MONTH(ContractEndDate) = ?
+			 AND check_expire.remark IS NOT NULL
+			 AND check_expire.status IS NOT NULL
+			 AND INSTR(CONCAT_WS('|', sale_code), ?)
+			 GROUP BY so_mssql.sonumber`, year, month, StaffId).Scan(&DataUpdate).Error; err != nil {
+			log.Errorln(pkgName, err, "Select DataUpdate error")
+			// return echo.ErrInternalServerError
+		}
+		if len(DataUpdate) > 0 {
+			for _, d := range DataUpdate {
+				Update += d.TotalContractAmount
+			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
+			left join check_expire on check_expire.sonumber = so_mssql.sonumber
+			WHERE YEAR(ContractEndDate) = ?
+			 AND MONTH(ContractEndDate) = ?
+			 AND check_expire.remark IS NULL
+			 AND check_expire.status IS NULL
+			 AND INSTR(CONCAT_WS('|', sale_code), ?)
+			 GROUP BY so_mssql.sonumber`, year, month, StaffId).Scan(&DataNotUpdate).Error; err != nil {
+			log.Errorln(pkgName, err, "Select DataNotUpdate error")
+			// return echo.ErrInternalServerError
+		}
+		if len(DataNotUpdate) > 0 {
+			for _, d := range DataNotUpdate {
+				NotUpdate += d.TotalContractAmount
+			}
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+
+	dataActive := map[string]interface{}{
+		"total_amount": Active,
+		"count_so":     len(DataActive),
+	}
+	dataUpdate := map[string]interface{}{
+		"total_amount": Update,
+		"count_so":     len(DataUpdate),
+	}
+	dataNotUpdate := map[string]interface{}{
+		"total_amount": NotUpdate,
+		"count_so":     len(DataNotUpdate),
+	}
+	dataRaw := map[string]interface{}{
+		"Active":    dataActive,
+		"Update":    dataUpdate,
+		"NotUpdate": dataNotUpdate,
+	}
+	return c.JSON(http.StatusOK, dataRaw)
+}
+
+func GetContractEndPoint(c echo.Context) error {
+	// if strings.TrimSpace(c.Param("id")) == "" {
+	// 	return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	// }
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
+	year := strings.TrimSpace(c.QueryParam("year"))
+	month := strings.TrimSpace(c.QueryParam("month"))
+	// search := strings.TrimSpace(c.QueryParam("search"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		year = strconv.Itoa(yearDefault.Year())
+	}
+
+	if strings.TrimSpace(c.QueryParam("month")) == "" {
+		monthDefault := time.Now()
+		month = strconv.Itoa(int(monthDefault.Month()))
+	}
+	// oneId := strings.TrimSpace(c.Param("id"))
+	type PendingDataSum struct {
+		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
+		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
+		ContractStartDate   string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate     string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
+		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleLead            string  `json:"sale_lead" gorm:"column:sale_lead"`
+		Day                 string  `json:"day" gorm:"column:days"`
+		SoMonth             string  `json:"so_month" gorm:"column:so_month"`
+		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
+		PeriodAmount        float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+		TotalAmount         float64 `json:"total_amount" gorm:"column:TotalAmount"`
+		StaffId             string  `json:"staff_id" gorm:"column:staff_id"`
+		PayType             string  `json:"pay_type" gorm:"column:pay_type"`
+		SoType              string  `json:"so_type" gorm:"column:so_type"`
+		Prefix              string  `json:"prefix"`
+		Fname               string  `json:"fname"`
+		Lname               string  `json:"lname"`
+		Nname               string  `json:"nname"`
+		Position            string  `json:"position"`
+		Department          string  `json:"department"`
+		Status              string  `json:"status"`
+		Remark              string  `json:"remark"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+	}
+
+	type PendingDataSumV2 struct {
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+	}
+
+	CheckTrue := 0.0
+	CheckFalse := 0.0
+	var DataCheckTrue []PendingDataSumV2
+	var DataCheckFalse []PendingDataSumV2
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
+			left join check_expire on check_expire.sonumber = so_mssql.sonumber
+			 WHERE YEAR(ContractEndDate) = ?
+			 AND MONTH(ContractEndDate) = ?
+			 AND check_expire.status = '1'
+			 AND INSTR(CONCAT_WS('|', sale_code), ?)
+			 GROUP BY so_mssql.sonumber`, year, month, StaffId).Scan(&DataCheckTrue).Error; err != nil {
+			log.Errorln(pkgName, err, "Select CheckTrue error")
+			// AND check_expire.remark IS NOT NULL
+			// return echo.ErrInternalServerError
+		}
+		if len(DataCheckTrue) > 0 {
+			for _, d := range DataCheckTrue {
+				CheckTrue += d.TotalContractAmount
+			}
+		}
+		wg.Done()
+	}()
+	go func() {
+		if err := dbSale.Ctx().Raw(` SELECT TotalContractAmount from so_mssql
+			left join check_expire on check_expire.sonumber = so_mssql.sonumber
+			 WHERE YEAR(ContractEndDate) = ?
+			 AND MONTH(ContractEndDate) = ?
+			 AND check_expire.status = '0'
+			 AND INSTR(CONCAT_WS('|', sale_code), ?)
+			 GROUP BY so_mssql.sonumber`, year, month, StaffId).Scan(&DataCheckFalse).Error; err != nil {
+			log.Errorln(pkgName, err, "Select CheckFalse error")
+			// AND check_expire.remark IS NULL
+			// return echo.ErrInternalServerError
+		}
+		if len(DataCheckFalse) > 0 {
+			for _, d := range DataCheckFalse {
+				CheckFalse += d.TotalContractAmount
+			}
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+
+	dataCheckTrue := map[string]interface{}{
+		"total_amount": CheckTrue,
+		"count_so":     len(DataCheckTrue),
+	}
+	dataCheckFalse := map[string]interface{}{
+		"total_amount": CheckFalse,
+		"count_so":     len(DataCheckFalse),
+	}
+	dataRaw := map[string]interface{}{
+		"CheckTrue":  dataCheckTrue,
+		"CheckFalse": dataCheckFalse,
+	}
+	return c.JSON(http.StatusOK, dataRaw)
+}
+
+func GetTeamsEndPoint(c echo.Context) error {
+	// if strings.TrimSpace(c.Param("id")) == "" {
+	// 	return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	// }
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
+	year := strings.TrimSpace(c.QueryParam("year"))
+	month := strings.TrimSpace(c.QueryParam("month"))
+	// search := strings.TrimSpace(c.QueryParam("search"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		year = strconv.Itoa(yearDefault.Year())
+	}
+	if strings.TrimSpace(c.QueryParam("month")) == "" {
+		monthDefault := time.Now()
+		month = strconv.Itoa(int(monthDefault.Month()))
+	}
+	// oneId := strings.TrimSpace(c.Param("id"))
+
+	type PendingDataSum struct {
+		SaleTeamnumber string  `json:"sale_team" gorm:"column:sale_team"`
+		Sum            float64 `json:"sum" gorm:"column:sum"`
+		CountSO        string  `json:"CountSO" gorm:"column:CountSO"`
+	}
+
+	// CheckTrue := 0
+	// CheckFalse := 0
+	var DataTeam []PendingDataSum
+	// var DataCheckFalse []PendingDataSum
+	// if err := dbSale.Ctx().Raw(` SELECT T1.sale_team,sum(T1.sum) as sum ,COUNT(T1.sonumber) as CountSO
+	// 	FROM (SELECT so_mssql.sonumber,so_mssql.sale_team,SUM(so_mssql.TotalContractAmount) as sum from so_mssql
+	// 				join check_expire on check_expire.sonumber = so_mssql.sonumber
+	// 				 AND YEAR(ContractEndDate) = ?
+	// 				 AND MONTH(ContractEndDate) = ?
+	// 				 AND check_expire.status != '1'
+	// 				 AND check_expire.remark IS NULL
+	// 				 GROUP BY so_mssql.sale_team,so_mssql.sonumber) AS T1
+	// 	GROUP BY T1.sale_team`, year, month).Scan(&DataTeam).Error; err != nil {
+	if err := dbSale.Ctx().Raw(` SELECT T1.department as sale_team,sum(T1.sum) as sum ,COUNT(T1.sonumber) as CountSO
+		FROM
+		(
+		 SELECT so_mssql.sonumber,department,SUM(so_mssql.TotalContractAmount) as sum
+		 from so_mssql
+		 left join check_expire on check_expire.sonumber = so_mssql.sonumber
+		 left join staff_info on so_mssql.sale_code = staff_info.staff_id
+		 WHERE YEAR(ContractEndDate) = ? AND MONTH(ContractEndDate) = ?
+		 AND INSTR(CONCAT_WS('|', sale_code), ?)
+		 GROUP BY so_mssql.sale_team,so_mssql.sonumber
+		) AS T1
+		GROUP BY T1.department`, year, month, StaffId).Scan(&DataTeam).Error; err != nil {
+		log.Errorln(pkgName, err, "Select DataTeam error")
+		// return echo.ErrInternalServerError
+	}
+	// if len(DataTeam) > 0 {
+	// 	for _, d := range DataTeam {
+	// 		CheckTrue += d.TotalContractAmount
+	// 	}
+	// }
+	return c.JSON(http.StatusOK, DataTeam)
+}
+
+func GetTeamsDepartmentEndPoint(c echo.Context) error {
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
+	if strings.TrimSpace(c.QueryParam("department")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	}
+	year := strings.TrimSpace(c.QueryParam("year"))
+	month := strings.TrimSpace(c.QueryParam("month"))
+	// search := strings.TrimSpace(c.QueryParam("search"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		year = strconv.Itoa(yearDefault.Year())
+	}
+	if strings.TrimSpace(c.QueryParam("month")) == "" {
+		monthDefault := time.Now()
+		month = strconv.Itoa(int(monthDefault.Month()))
+	}
+	department := strings.TrimSpace(c.QueryParam("department"))
+
+	type PendingDataSum struct {
+		Fname     string  `json:"fname" gorm:"column:fname"`
+		Lname     string  `json:"lname" gorm:"column:lname"`
+		Sum       float64 `json:"sum" gorm:"column:sum"`
+		CountSO   string  `json:"CountSO" gorm:"column:CountSO"`
+		NotUpdate string  `json:"notupdate" gorm:"column:notupdate"`
+	}
+
+	// CheckTrue := 0
+	// CheckFalse := 0
+	var DataTeam []PendingDataSum
+	// var DataCheckFalse []PendingDataSum
+	// if err := dbSale.Ctx().Raw(` SELECT T1.sale_team,sum(T1.sum) as sum ,COUNT(T1.sonumber) as CountSO
+	// 	FROM (SELECT so_mssql.sonumber,so_mssql.sale_team,SUM(so_mssql.TotalContractAmount) as sum from so_mssql
+	// 				join check_expire on check_expire.sonumber = so_mssql.sonumber
+	// 				 AND YEAR(ContractEndDate) = ?
+	// 				 AND MONTH(ContractEndDate) = ?
+	// 				 AND check_expire.status != '1'
+	// 				 AND check_expire.remark IS NULL
+	// 				 GROUP BY so_mssql.sale_team,so_mssql.sonumber) AS T1
+	// 	GROUP BY T1.sale_team`, year, month).Scan(&DataTeam).Error; err != nil {
+	if err := dbSale.Ctx().Raw(` SELECT T1.fname,T1.lname,sum(T1.sum) as sum ,COUNT(T1.sonumber) as CountSO,SUM(T1.remark IS NULL AND T1.status IS NULL) as notupdate
+	FROM
+	(SELECT so_mssql.sonumber,department,SUM(so_mssql.TotalContractAmount) as sum ,staff_info.one_id,staff_info.staff_id,staff_info.prefix,staff_info.fname,staff_info.lname,check_expire.remark,check_expire.status
+	 from so_mssql
+	 left join check_expire on check_expire.sonumber = so_mssql.sonumber
+	 left join staff_info on so_mssql.sale_code = staff_info.staff_id
+	 WHERE YEAR(ContractEndDate) = ? AND MONTH(ContractEndDate) = ?
+	 AND department = ?
+	 AND INSTR(CONCAT_WS('|', sale_code), ?)
+	 GROUP BY staff_info.staff_id,so_mssql.sonumber) AS T1
+	GROUP BY T1.staff_id`, year, month, department, StaffId).Scan(&DataTeam).Error; err != nil {
+		log.Errorln(pkgName, err, "Select DataTeam error")
+		// return echo.ErrInternalServerError
+	}
+	// if len(DataTeam) > 0 {
+	// 	for _, d := range DataTeam {
+	// 		CheckTrue += d.TotalContractAmount
+	// 	}
+	// }
+	return c.JSON(http.StatusOK, DataTeam)
+}
+
+func GetVmSummaryEndPoint(c echo.Context) error {
+	if strings.TrimSpace(c.QueryParam("so")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	}
+	so := strings.TrimSpace(c.QueryParam("so"))
+	vm := []struct {
+		EquipmentCode string `json:"EquipmentCode" gorm:"column:EquipmentCode"`
+		Cpu           string `json:"cpu" gorm:"column:cpu"`
+		Ram           string `json:"ram" gorm:"column:ram"`
+		DiskStorage   string `json:"disk_storage" gorm:"column:disk_storage"`
+		SOnumber      string `json:"sonumber" gorm:"column:sonumber"`
+	}{}
+	if err := dbEquip.Ctx().Raw(`  select
+				EquipmentCode,
+				sum(cast(cpu as integer)) as cpu,
+				sum(cast(ram as integer)) as ram,
+				sum(cast(disk_storage as integer)) as disk_storage,
+				? as sonumber
+			from
+			(
+				SELECT [EquipmentCode],
+				(case
+					when PropertiesCode = '001' then xValue
+					else '0' end
+				) as cpu,
+				(case
+					when PropertiesCode = '002' then xValue
+					else '0' end
+				) as ram,
+				(case
+					when PropertiesCode = '003' then xValue
+					else '0' end
+				) as disk_storage,
+				(case
+					when PropertiesCode = '004' then xValue
+					else '0' end
+				) as sonumber
+				FROM [ITSM_UK].[dbo].[master_equipment]
+				JOIN [ITSM_UK].[dbo].[master_equipment_properties] ON master_equipment_properties.ObjectID = master_equipment.ObjectID
+				where master_equipment_properties.ObjectID in
+				(
+					select ObjectID from master_equipment_properties where xValue =?
+				)
+			) tb_real GROUP BY EquipmentCode
+			 `, so, so).Scan(&vm).Error; err != nil {
+		log.Errorln(pkgName, err, "Select vm error")
+		return echo.ErrInternalServerError
+	}
+
+	dataRaw := map[string]interface{}{
+		"vm":      vm,
+		"summary": len(vm),
+	}
+	return c.JSON(http.StatusOK, dataRaw)
+}
+
+func GetVmSummaryV2EndPoint(c echo.Context) error {
+	if strings.TrimSpace(c.QueryParam("customer")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid customer"})
+	}
+	Customer := strings.TrimSpace(c.QueryParam("customer"))
+	vm := []struct {
+		EquipmentCode string `json:"EquipmentCode" gorm:"column:EquipmentCode"`
+		Description   string `json:"Description" gorm:"column:Description"`
+		EquipmentType string `json:"EquipmentType" gorm:"column:EquipmentType"`
+		ObjectID      string `json:"ObjectID" gorm:"column:ObjectID"`
+		xValue        string `json:"xValue" gorm:"column:xValue"`
+	}{}
+	if err := dbEquip.Ctx().Raw(` SELECT master_equipment.EquipmentCode
+				,[Description]
+				,[EquipmentType]
+				,master_equipment.ObjectID
+				,master_equipment_properties.xValue
+			FROM [ITSM_UK].[dbo].[master_equipment]
+			JOIN [ITSM_UK].[dbo].[master_equipment_properties] ON master_equipment_properties.ObjectID = master_equipment.ObjectID
+			JOIN [ITSM_UK].[dbo].[master_equipment_owner_assignment] ON master_equipment_owner_assignment.EquipmentCode = master_equipment.EquipmentCode
+			WHERE master_equipment.EquipmentType = 'LVMG'
+			AND master_equipment_properties.PropertiesCode = '004'
+			AND master_equipment_owner_assignment.OwnerCode = ? `, Customer).Scan(&vm).Error; err != nil {
+		log.Errorln(pkgName, err, "Select vm error")
+		return echo.ErrInternalServerError
+	}
+	dataRaw := map[string]interface{}{
+		"vm":      vm,
+		"summary": len(vm),
+	}
+	return c.JSON(http.StatusOK, dataRaw)
+}
+
+func GetSOCustomerEndPoint(c echo.Context) error {
+
+	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
+	search := strings.TrimSpace(c.QueryParam("search"))
+	// status := strings.TrimSpace(c.QueryParam("status"))
+	// fmt.Println("====> filter", search)
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("end_date")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	startRange := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	endRange := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+	dateFrom := startRange.Format("2006-01-02")
+	dateTo := endRange.Format("2006-01-02")
+	m := endRange.Sub(startRange)
+	if m < 0 {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid date"})
+	}
+
+	//// get staff id ////
+	var user []model.UserInfo
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, saleId).Scan(&user).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user) != 0 {
+		var staffAll []model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.StaffId)
+		}
+	} else {
+		var staffAll model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, saleId).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.StaffChild != "" {
+			data := strings.Split(staffAll.StaffChild, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.StaffId)
+	}
+
+	type SOCus struct {
+		SOnumber          string `json:"so_number" gorm:"column:sonumber"`
+		ContractStartDate string `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate   string `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		// PeriodStartDate     string  `json:"PeriodStartDate" gorm:"column:PeriodStartDate"`
+		// PeriodEndDate       string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
+		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
+		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
+		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
+		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
+		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
+		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
+		SoType              string  `json:"SoType" gorm:"column:SoType"`
+		Detail              string  `json:"detail" gorm:"column:detail"`
+		Status              string  `json:"status" gorm:"column:status"`
+	}
+
+	sql := `SELECT sonumber,ContractStartDate,ContractEndDate,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,
+		sale_name,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail,
+		(CASE
+			WHEN GetCN !='' THEN 'ลดหนี้'
+			ELSE 'Success' END
+		) as status
+		FROM so_mssql
+					WHERE Active_Inactive = 'Active'
+					and PeriodStartDate <= ? and PeriodEndDate >= ?
+					and PeriodStartDate <= PeriodEndDate
+					and sale_code in (?)
+					and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
+					 ;`
+	var sum []SOCus
+	if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search).Scan(&sum).Error; err != nil {
+		if gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+		}
+		return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+	}
+
+	dataMap := map[string]interface{}{
+		// "data":           sumAmount,
+		"customer_total": len(sum),
+		// "in_factor":      sumInFac,
+		// "ex_factor":      sumExFac,
+		"detail": sum,
+	}
+	return c.JSON(http.StatusOK, dataMap)
+}
+
+func GetSOCustomerCsNumberEndPoint(c echo.Context) error {
+
+	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
+	search := strings.TrimSpace(c.QueryParam("search"))
+	CsNumber := strings.TrimSpace(c.QueryParam("cs_number"))
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("end_date")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	startRange := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	endRange := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+	dateFrom := startRange.Format("2006-01-02")
+	dateTo := endRange.Format("2006-01-02")
+	m := endRange.Sub(startRange)
+	if m < 0 {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid date"})
+	}
+
+	//// get staff id ////
+	var user []model.UserInfo
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, saleId).Scan(&user).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user) != 0 {
+		var staffAll []model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.StaffId)
+		}
+	} else {
+		var staffAll model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, saleId).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.StaffChild != "" {
+			data := strings.Split(staffAll.StaffChild, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.StaffId)
+	}
+
+	type SOCus struct {
+		SOnumber          string `json:"so_number" gorm:"column:sonumber"`
+		ContractStartDate string `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate   string `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SDPropertyCS28    string `json:"SDPropertyCS28" gorm:"column:SDPropertyCS28"`
+		// PeriodEndDate       string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
+		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
+		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
+		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
+		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
+		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
+		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
+		SoType              string  `json:"SoType" gorm:"column:SoType"`
+		Detail              string  `json:"detail" gorm:"column:detail"`
+	}
+
+	sql := `SELECT sonumber,SDPropertyCS28,ContractStartDate,ContractEndDate,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,
+		sale_name,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail
+		FROM so_mssql
+					WHERE Active_Inactive = 'Active'
+					and PeriodStartDate <= ? and PeriodEndDate >= ?
+					and PeriodStartDate <= PeriodEndDate
+					and sale_code in (?)
+					and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
+					and INSTR(CONCAT_WS('|', SDPropertyCS28), ?)
+					and INSTR(CONCAT_WS('|', sale_code), ?) ;`
+	var sum []SOCus
+	if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&sum).Error; err != nil {
+		if gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+		}
+		return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+	}
+
+	dataMap := map[string]interface{}{
+		// "data":           sumAmount,
+		"customer_total": len(sum),
+		// "in_factor":      sumInFac,
+		// "ex_factor":      sumExFac,
+		"detail": sum,
+	}
+	return c.JSON(http.StatusOK, dataMap)
 }

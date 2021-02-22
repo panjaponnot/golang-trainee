@@ -178,6 +178,7 @@ func SyncBillingToDB() int {
 					iSta := m.InvoiceStatus{
 						InvoiceUid:        i.Uid,
 						SoRef:             strings.TrimSpace(v.SoRef),
+						InvNo:             strings.TrimSpace(v.InvoiceNo),
 						InvoiceStatusName: strings.TrimSpace(s.InvStatusname),
 					}
 					if err := dbSale.Ctx().Model(&m.InvoiceStatus{}).Create(&iSta).Error; err != nil {

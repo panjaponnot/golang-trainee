@@ -17,10 +17,6 @@ import (
 )
 
 func GetDataOrgChartEndPoint(c echo.Context) error {
-	// if err := initDataStore(); err != nil {
-	// 	log.Errorln(pkgName, err, "connect database error")
-	// 	return c.JSON(http.StatusInternalServerError, err)
-	// }
 
 	if strings.TrimSpace(c.QueryParam(("staff_id"))) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Message: "invalid staff id"})
@@ -32,9 +28,6 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "func check permission error :-")
 		return c.JSON(http.StatusInternalServerError, m.Result{Error: "check permission error"})
 	}
-	// fmt.Println("listStaffId ===>", listStaffId[strings.TrimSpace(c.QueryParam(("staff_id")))])
-
-	// return c.JSON(http.StatusOK, listStaffId)
 	if len(listStaffId) == 0 {
 		return c.JSON(http.StatusNoContent, nil)
 	}
@@ -49,7 +42,6 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 
 	var org []m.OrgChart
 	var filterOrg []m.OrgChart
-	// var defaultOrg []OrgChart
 	var inv []m.InvBefore
 	var result m.Result
 	today := time.Now()
@@ -277,21 +269,12 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 		}
 		wg.Done()
 	}()
-	// go func() {
-	// 	if err := dbSale.Ctx().Raw(sqlDefault, "").Offset(p.Offset()).Limit(p.Size).Scan(&defaultOrg).Error; err != nil {
-	// 		if !gorm.IsRecordNotFoundError(err) {
-	// 			hasErr += 1
-	// 		}
-	// 	}
-	// 	wg.Done()
-	// }()
 	wg.Wait()
 	if hasErr != 0 {
 		return echo.ErrInternalServerError
 	}
 
 	var dataResult []m.OrgChart
-	// set data
 	for _, o := range org {
 		if s, ok := listStaffId[o.StaffId]; ok {
 			for _, or := range org {
@@ -357,10 +340,6 @@ func GetDataOrgChartEndPoint(c echo.Context) error {
 		}
 
 	}
-
-	// fmt.Println(len(filterOrg))
-	// fmt.Println(len(dataResult))
-	// fmt.Println("listStaffId ===>", listStaffId)
 	result.Data = dataResult
 	result.Count = len(dataResult)
 	result.Total = len(org)
@@ -450,15 +429,146 @@ func CheckPermissionOrg(id string) (map[string][]string, error) {
 }
 
 func GetReportSOPendingEndPoint(c echo.Context) error {
-	// if err := initDataStore(); err != nil {
-	// 	log.Errorln(pkgName, err, "init db error")
-	// }
 
 	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
 		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
 	}
 
 	search := strings.TrimSpace(c.QueryParam("search"))
+	// searchSO := strings.TrimSpace(c.QueryParam("searchSO"))
+	oneId := strings.TrimSpace(c.QueryParam("one_id"))
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
+	year := strings.TrimSpace(c.QueryParam("year"))
+	if strings.TrimSpace(c.QueryParam("year")) == "" {
+		yearDefault := time.Now()
+		if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("year")), 10); err == nil {
+			yearDefault = time.Unix(util.ConvertTimeStamp(f), 0)
+		}
+		years, _, _ := yearDefault.Date()
+		year = strconv.Itoa(years)
+	}
+
+	// log.Infoln(pkgName, year)
+	// log.Infoln(" query staff ")
+	staff := []struct {
+		StaffId    string `json:"staff_id"`
+		Role       string `json:"role"`
+		StaffChild string `json:"staff_child"`
+	}{}
+	if err := dbSale.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ?
+	union
+	SELECT staff_id, "normal" as role, staff_child from staff_info where one_id = ? `, oneId, oneId).Scan(&staff).Error; err != nil {
+		log.Errorln(pkgName, err, "Select staff error")
+		return echo.ErrInternalServerError
+	}
+	staffs := []struct {
+		StaffId    string `json:"staff_id"`
+		StaffChild string `json:"staff_child"`
+	}{}
+	var listStaffId []string
+	if len(staff) != 0 {
+		for _, v := range staff {
+			log.Infoln(pkgName, v.Role)
+			if strings.TrimSpace(v.Role) == "admin" {
+				if err := dbSale.Ctx().Raw(`select staff_id from staff_info;`).Scan(&staffs).Error; err != nil {
+					log.Errorln(pkgName, err, "Select data error")
+				}
+				if len(staffs) != 0 {
+					for _, id := range staffs {
+						listStaffId = append(listStaffId, id.StaffId)
+					}
+					break
+				}
+			} else {
+				if strings.TrimSpace(v.StaffChild) != "" {
+					listStaffId = strings.Split(v.StaffChild, ",")
+				}
+				listStaffId = append(listStaffId, staff[0].StaffId)
+			}
+		}
+	}
+	//////////////  getListStaffID  //////////////
+
+	var rawData []PendingData
+	if err := dbSale.Ctx().Raw(`
+	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,
+	so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount,
+	 SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,SOType as so_type,so_type_change,pay_type_change,
+        (case
+                when status is null then 0
+                else status end
+        ) as status,
+				(case
+								when tb_expire.reason is null then ''
+								else tb_expire.reason end
+				) as reason,
+          (case
+                when tb_expire.remark is null then ''
+                else tb_expire.remark end
+        ) as remark  from (
+                SELECT *  from (
+                SELECT  Active_Inactive,has_refer,sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,
+                                DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
+                                                                PeriodAmount, SUM(PeriodAmount) as TotalAmount,SOType,
+                                                                staff_id,prefix,fname,lname,nname,position,department
+                                                                FROM ( SELECT * FROM so_mssql WHERE SOType NOT IN ('onetime' , 'project base') ) as s
+                                                        left join
+                                                        (
+                                                                select staff_id, prefix, fname, lname, nname, position, department from staff_info
+
+                                                        ) tb_sale on s.sale_code = tb_sale.staff_id
+                                                        WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ?
+                                                        group by sonumber
+                        ) as tb_so_number
+
+                ) as tb_ch_so
+                left join
+                (
+                  select id,sonumber,
+                        (case
+                                when status is null then 0
+                                else status end
+                        ) as status,
+												(case
+                                when reason is null then ''
+                                else reason end
+                        ) as reason,
+                        (case
+                                when remark is null then ''
+                                else remark end
+                        ) as remark,
+												pay_type as pay_type_change,
+												so_type as so_type_change
+                        from check_expire
+				  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
+				  WHERE INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,Customer_ID,Customer_Name,tb_ch_so.sonumber), ?)
+
+				  AND INSTR(CONCAT_WS('|', staff_id), ?)
+                  group by tb_ch_so.sonumber
+		  `, listStaffId, year, search, StaffId).Scan(&rawData).Error; err != nil {
+		log.Errorln(pkgName, err, "Select data error")
+	}
+
+	fmt.Println("   ==== ", len(rawData))
+	mapData := map[string][]PendingData{}
+
+	for _, v := range rawData {
+		mapData[v.SoMonth] = append(mapData[v.SoMonth], v)
+	}
+	var result m.Result
+	result.Data = mapData
+	result.Total = len(rawData)
+	return c.JSON(http.StatusOK, result)
+}
+
+func GetReportSOPendingTypeEndPoint(c echo.Context) error {
+
+	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
+		return c.JSON(http.StatusBadRequest, m.Result{Error: "Invalid one id"})
+	}
+
+	search := strings.TrimSpace(c.QueryParam("search"))
+	searchSOType := strings.TrimSpace(c.QueryParam("sotype"))
 	oneId := strings.TrimSpace(c.QueryParam("one_id"))
 	year := strings.TrimSpace(c.QueryParam("year"))
 	if strings.TrimSpace(c.QueryParam("year")) == "" {
@@ -470,14 +580,14 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 		year = strconv.Itoa(years)
 	}
 
-	log.Infoln(pkgName, year)
-	log.Infoln(" query staff ")
+	// log.Infoln(pkgName, year)
+	// log.Infoln(" query staff ")
 	staff := []struct {
 		StaffId    string `json:"staff_id"`
 		Role       string `json:"role"`
 		StaffChild string `json:"staff_child"`
 	}{}
-	if err := dbSale.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ? 
+	if err := dbSale.Ctx().Raw(` SELECT staff_id, role, "" as staff_child from user_info where role = "admin" and one_id = ?
 	union
 	SELECT staff_id, "normal" as role, staff_child from staff_info where one_id = ? `, oneId, oneId).Scan(&staff).Error; err != nil {
 		log.Errorln(pkgName, err, "Select staff error")
@@ -507,43 +617,15 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 				listStaffId = append(listStaffId, staff[0].StaffId)
 			}
 		}
-		// if strings.TrimSpace(staff[0].Role) != "admin" {
-		// 	listStaffId = append(listStaffId, staff[0].StaffId)
-		// }
 	}
 	//////////////  getListStaffID  //////////////
-	type PendingData struct {
-		SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
-		CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
-		CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
-		ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
-		ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
-		SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
-		SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
-		SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
-		Day               string  `json:"day" gorm:"column:days"`
-		SoMonth           string  `json:"so_month" gorm:"column:so_month"`
-		SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
-		PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
-		TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
-		StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
-		PayType           string  `json:"pay_type" gorm:"column:pay_type"`
-		SoType            string  `json:"so_type" gorm:"column:so_type"`
-		Prefix            string  `json:"prefix"`
-		Fname             string  `json:"fname"`
-		Lname             string  `json:"lname"`
-		Nname             string  `json:"nname"`
-		Position          string  `json:"position"`
-		Department        string  `json:"department"`
-		Status            string  `json:"status"`
-		Remark            string  `json:"remark"`
-	}
+
+	// FROM ( SELECT * FROM so_mssql WHERE SOType NOT IN ('onetime' , 'project base') ) as s
 	var rawData []PendingData
 	if err := dbSale.Ctx().Raw(`
 	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,
 	so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount,
-	 SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,SOType as so_type,
+	 SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,department,so_type,pay_type,
         (case
                 when status is null then 0
                 else status end
@@ -554,36 +636,35 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
         ) as remark  from (
                 SELECT *  from (
                 SELECT  Active_Inactive,has_refer,sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,
-                                DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
-                                                                PeriodAmount, SUM(PeriodAmount) as TotalAmount,SOType,
-                                                                staff_id,prefix,fname,lname,nname,position,department
-                                                                FROM ( SELECT * FROM so_mssql WHERE SOType NOT IN ('onetime' , 'project base') ) as s
-                                                        left join
-                                                        (
-                                                                select staff_id, prefix, fname, lname, nname, position, department from staff_info
+                    DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
+                    PeriodAmount, SUM(PeriodAmount) as TotalAmount,SOType as so_type, '' as pay_type,
+                    staff_id,prefix,fname,lname,nname,position,department
+                    FROM ( SELECT * FROM so_mssql WHERE SOType = ? ) as s
+            left join
+            (
+                    select staff_id, prefix, fname, lname, nname, position, department from staff_info
 
-                                                        ) tb_sale on s.sale_code = tb_sale.staff_id
-                                                        WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ?
-                                                        group by sonumber
-                        ) as tb_so_number
-                        
-                ) as tb_ch_so
-                left join
-                (
-                  select id,sonumber,
-                        (case
-                                when status is null then 0
-                                else status end
-                        ) as status,
-                        (case
-                                when remark is null then ''
-                                else remark end
-                        ) as remark 
-                        from check_expire
-				  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
-				  WHERE INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,Customer_ID,Customer_Name), ?)
-                  group by tb_ch_so.sonumber
-		  `, listStaffId, year, search).Scan(&rawData).Error; err != nil {
+            ) tb_sale on s.sale_code = tb_sale.staff_id
+            WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ?
+            group by sonumber
+        ) as tb_so_number
+      ) as tb_ch_so
+      left join
+      (
+        select id,sonumber,
+              (case
+                      when status is null then 0
+                      else status end
+              ) as status,
+              (case
+                      when remark is null then ''
+                      else remark end
+              ) as remark
+              from check_expire
+		) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
+		WHERE INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,Customer_ID,Customer_Name,tb_ch_so.sonumber), ?)
+		group by tb_ch_so.sonumber
+		  `, searchSOType, listStaffId, year, search).Scan(&rawData).Error; err != nil {
 		log.Errorln(pkgName, err, "Select data error")
 	}
 
@@ -907,32 +988,8 @@ func CheckRemark(remark string, types string) string {
 func UpdateSOEndPoint(c echo.Context) error {
 	type SoData struct {
 		SOnumber string `json:"sonumber" gorm:"column:sonumber"`
-		// CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
-		// CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
-		// ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
-		// ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
-		// SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
-		// SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
-		// SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
-		// Day               string  `json:"day" gorm:"column:days"`
-		// SoMonth           string  `json:"so_month" gorm:"column:so_month"`
-		// SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		// PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
-		// PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
-		// TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
-		// StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
-		// PayType           string  `json:"pay_type" gorm:"column:pay_type"`
-		// SoType            string  `json:"so_type" gorm:"column:so_type"`
-		// Prefix            string  `json:"prefix"`
-		// Fname             string  `json:"fname"`
-		// Lname             string  `json:"lname"`
-		// Nname             string  `json:"nname"`
-		// Position          string  `json:"position"`
-		// Department        string  `json:"department"`
-		Status string `json:"status"`
-		Remark string `json:"remark"`
-		// StatusSO          bool    `json:"status_so" gorm:"column:status_so"`
-		// StatusSale        bool    `json:"status_sale" gorm:"column:status_sale"`
+		Status   string `json:"status"`
+		Remark   string `json:"remark"`
 	}
 	body := struct {
 		Data  []SoData `json:"data"`
@@ -973,9 +1030,6 @@ func UpdateSOEndPoint(c echo.Context) error {
 	var ValuesUpdate []m.CheckExpire
 	var ValuesInsert []m.CheckExpire
 
-	// log.Infoln("string ==>", SoAllStr)
-	// log.Infoln("SOnumber ==>", ListData[0].SOnumber)
-	// log.Infoln(strings.Contains(SoAllStr, ListData[0].SOnumber))
 	for _, d := range ListData {
 		if strings.Contains(SoAllStr, "BOI-20190101-0026") {
 			value := m.CheckExpire{
@@ -1027,4 +1081,35 @@ func UpdateSOEndPoint(c echo.Context) error {
 
 	return c.JSON(http.StatusNoContent, nil)
 
+}
+
+type PendingData struct {
+	SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
+	CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
+	CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
+	ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+	ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+	SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
+	SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
+	SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
+	Day               string  `json:"day" gorm:"column:days"`
+	SoMonth           string  `json:"so_month" gorm:"column:so_month"`
+	SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+	PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
+	PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+	TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
+	StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
+	PayType           string  `json:"pay_type" gorm:"column:pay_type"`
+	SoType            string  `json:"so_type" gorm:"column:so_type"`
+	Prefix            string  `json:"prefix"`
+	Fname             string  `json:"fname"`
+	Lname             string  `json:"lname"`
+	Nname             string  `json:"nname"`
+	Position          string  `json:"position"`
+	Department        string  `json:"department"`
+	Status            string  `json:"status"`
+	PayTypeChange     string  `json:"pay_type_change"`
+	SoTypeChange      string  `json:"so_type_change"`
+	Reason            string  `json:"reason"`
+	Remark            string  `json:"remark"`
 }

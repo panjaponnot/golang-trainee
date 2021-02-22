@@ -12,6 +12,7 @@ import (
 const pkgName = "API"
 
 var (
+	dbEquip    database.Database
 	dbSale     database.Database
 	dbQuataion database.Database
 	dbMssql    database.Database
@@ -20,6 +21,11 @@ var (
 
 func initDataStore() error {
 	// Database
+	dbEquip = core.NewDatabaseMssql(pkgName, "equip")
+	if err := dbEquip.Connect(); err != nil {
+		log.Errorln(pkgName, err, "Connect to database equip error")
+		return err
+	}
 	dbSale = core.NewDatabase(pkgName, "salerank")
 	if err := dbSale.Connect(); err != nil {
 		log.Errorln(pkgName, err, "Connect to database salerank error")
@@ -56,13 +62,31 @@ func InitApiRouter(g *echo.Group) error {
 	// 	return skipper.Test(c)
 	// }}))
 
+	track := g.Group("/track")
+	track.GET("/invoice", GetTrackingInvoiceEndPoint)
+	track.GET("/invoice/so", GetTrackingInvoiceSOEndPoint)
+	track.GET("/bill", GetTrackingBillingEndPoint)
+	track.GET("/receipt", GetTrackingReceiptEndPoint)
+	track.GET("/receipt/so", GetSOTrackingReceiptEndPoint)
+	track.GET("/receipt/so/cs", GetSOTrackingReceiptCsEndPoint)
+	track.GET("/so", GetSummaryCustomerEndPoint)
+	track.GET("/cus/so", GetSOCustomerEndPoint)
+	track.GET("/cus/so/cs", GetSOCustomerCsNumberEndPoint)
+
 	export := g.Group("/export")
 	export.GET("/pending", GetReportExcelSOPendingEndPoint)
 	export.GET("/so", GetReportExcelSOEndPoint)
+	export.GET("/tracking", GetReportExcelTrackingEndPoint)
+	export.GET("/quotation", GetReportExcelQuotationEndPoint)
+	export.GET("/ranking/base", GettReportExcelRankBaseSaleEndPoint)
+	export.GET("/ranking/key", GettReportExcelRankKeyAccEndPoint)
+	export.GET("/ranking/recovery", GettReportExcelRankRecoveEndPoint)
+	export.GET("/ranking/lead", GetReportExcelRankTeamLeadEndPoint)
 
 	report := g.Group("/report")
 	report.GET("/org", GetDataOrgChartEndPoint)
 	report.GET("/pending", GetReportSOPendingEndPoint)
+	report.GET("/pending/type", GetReportSOPendingTypeEndPoint)
 	report.GET("/so", GetReportSOEndPoint)
 	report.PUT("/so", EditSOEndPoint)
 	report.GET("/ranking/base", GetRankingBaseSale)
@@ -85,7 +109,13 @@ func InitApiRouter(g *echo.Group) error {
 	permission.GET("/lead/:id", CheckTeamLeadEndPoint)
 
 	summary := g.Group("/summary")
-	summary.GET("/customer", GetSummaryCustomerEndPoint)
+	summary.GET("/all", GetSummaryPendingSOEndPoint)
+	summary.GET("/contract", GetContractEndPoint)
+	summary.GET("/teams", GetTeamsEndPoint)
+	summary.GET("/teams/department", GetTeamsDepartmentEndPoint)
+
+	summary.GET("/vm", GetVmSummaryEndPoint)
+	summary.GET("/vm/v2", GetVmSummaryV2EndPoint)
 
 	webhook := g.Group("/webhook")
 	webhook.GET("/user", GetUserOneThEndPoint)
@@ -111,11 +141,28 @@ func InitApiRouter(g *echo.Group) error {
 	staff.GET("/summary", HeaderSummaryEndPoint)
 
 	staff.GET("/dept", DepartmentStaffEndPoint)
+	staff.GET("/dept/:id", DepartmentStaffV2EndPoint)
+	staff.GET("/teams/dept", GetTeamsDeptStaffEndPoint)
 
+	staff.GET("/dept/child/:id", DepartmentStaffAllEndPoint)
+
+	staff.GET("/ranking/base", GetRankingBaseSale2)
 	// report.GET("/ranking/base", GetRankingBaseSale)
+	staff.GET("/child/:id", StaffChildAllEndPoint)
 
 	bot := g.Group("/bot")
 	bot.GET("/userone", GetUserOneThEndPoint)
+
+	alert := g.Group("/alert")
+	alert.POST("/bot", AlertSoToBotEndPoint)
+	alert.POST("/terminate/success", AlertTerminateRunSuccessEndPoint)
+	alert.POST("/terminate/fail", AlertTerminateRunFailEndPoint)
+	alert.POST("/terminate/credit", AlertTerminateCreditNoteEndPoint)
+	alert.POST("/so/success", AlertSoRunSuccessEndPoint)
+	alert.POST("/so/fail", AlertSoRunFailEndPoint)
+	alert.POST("/so/main", AlertSoRunMainEndPoint)
+	alert.POST("/so/change", AlertSoRunChangeEndPoint)
+	alert.POST("/so/invoice", AlertSoRunInvoiceEndPoint)
 
 	bill := g.Group("/bill")
 	bill.GET("", GetBillingEndPoint)
