@@ -3084,8 +3084,8 @@ func GetDetailSoEndPoint(c echo.Context) error {
 			THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate,ContractStartDate)+1))
 			ELSE 0 END
 		) as so_amount,
-		in_factor/100 as in_factor,
-		ex_factor/100 as ex_factor,
+		in_factor as in_factor,
+		ex_factor as ex_factor,
 		sum(PeriodAmount) as amount
 		FROM so_mssql
 		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
@@ -3108,8 +3108,8 @@ func GetDetailSoEndPoint(c echo.Context) error {
 	}()
 	go func() {
 		sql := `SELECT sum(amount) as amount, 
-		AVG(in_factor)/100 as in_factor,
-		AVG(ex_factor)/100 as ex_factor, 
+		AVG(in_factor) as in_factor,
+		AVG(ex_factor) as ex_factor, 
 		SUM(PeriodAmount/(DATEDIFF(?,?)+1)) as pro_rate,
 		(sum(amount)/sum(amount_engcost)) as sale_factor
 		from (
