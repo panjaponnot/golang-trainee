@@ -128,6 +128,12 @@ func InitApiRouter(g *echo.Group) error {
 
 	so_receive := g.Group("/soreceive")
 	so_receive.GET("/all", SOReceiveEndPoint)
+	
+	receive_tracking := g.Group("/receive_tracking")
+	receive_tracking.GET("/costsheet", CostSheet_Status)
+	receive_tracking.GET("/invoice", Invoice_Status)
+	receive_tracking.GET("/billing", Billing_Status)
+	receive_tracking.GET("/reciept", Reciept_Status)
 
 	return nil
 }
