@@ -2868,8 +2868,11 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, AVG(in_factor)/100 as in_factor,AVG(ex_factor)/100 as ex_factor,
-		(sum(amount)/sum(amount_engcost)) as SaleFactors , SUM(Total_Revenue_Month/(DATEDIFF(?,?)+1)) as pro_rate
+		sql := `SELECT sum(amount) as amount, 
+		AVG(in_factor)/100 as in_factor,
+		AVG(ex_factor)/100 as ex_factor,
+		(sum(amount)/sum(amount_engcost)) as SaleFactors , 
+		SUM(so_amount) as pro_rate
 		from (
 			SELECT
 				Customer_ID as Customer_ID,
@@ -2881,7 +2884,8 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 				EmployeeID,
 				Sales_Name,
 				sum(ex_factor) as ex_factor,
-				Total_Revenue_Month
+				Total_Revenue_Month,
+				so_amount
 				FROM (
 					SELECT
 					doc_number_eform,StartDate_P1,EndDate_P1,Customer_ID,Cusname_thai,
@@ -2925,7 +2929,7 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 			`
 		// and StartDate_P1 <= ? and EndDate_P1 >= ?
 		// and StartDate_P1 <= EndDate_P1
-		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&soTotal).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&soTotal).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
 			hasErr += 1
 		}
@@ -3027,18 +3031,18 @@ func GetDetailSoEndPoint(c echo.Context) error {
 	}
 
 	type SOCus struct {
-		SOnumber     string  `json:"sonumber" gorm:"column:sonumber"`
-		StaffID      string  `json:"staff_id" gorm:"column:staff_id"`
-		Fname        string  `json:"fname" gorm:"column:fname"`
-		Lname        string  `json:"lname" gorm:"column:lname"`
-		Nname        string  `json:"nname" gorm:"column:nname"`
-		Department   string  `json:"department" gorm:"column:department"`
-		SoAmount     float64 `json:"so_amount" gorm:"column:so_amount"`
-		Amount       float64 `json:"amount" gorm:"column:amount"`
-		SOWebStatus  string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		CustomerID   string  `json:"Customer_ID" gorm:"column:Customer_ID"`
-		CusnameThai  string  `json:"Customer_Name" gorm:"column:Customer_Name"`
-		CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"` //ไม่มีในcolumn so_ms
+		SOnumber    string  `json:"sonumber" gorm:"column:sonumber"`
+		StaffID     string  `json:"staff_id" gorm:"column:staff_id"`
+		Fname       string  `json:"fname" gorm:"column:fname"`
+		Lname       string  `json:"lname" gorm:"column:lname"`
+		Nname       string  `json:"nname" gorm:"column:nname"`
+		Department  string  `json:"department" gorm:"column:department"`
+		SoAmount    float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount      float64 `json:"amount" gorm:"column:amount"`
+		SOWebStatus string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerID  string  `json:"Customer_ID" gorm:"column:Customer_ID"`
+		CusnameThai string  `json:"Customer_Name" gorm:"column:Customer_Name"`
+		// CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"` //ไม่มีในcolumn so_ms
 		BusinessType string  `json:"Business_type" gorm:"column:Business_type"`
 		JobStatus    string  `json:"Job_Status" gorm:"column:Job_Status"`
 		SoType       string  `json:"SO_Type" gorm:"column:SO_Type"`
@@ -3110,22 +3114,18 @@ func GetDetailSoEndPoint(c echo.Context) error {
 		sql := `SELECT sum(amount) as amount, 
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor, 
-		SUM(PeriodAmount/(DATEDIFF(?,?)+1)) as pro_rate,
+		SUM(so_amount) as pro_rate,
 		(sum(amount)/sum(amount_engcost)) as sale_factor
 		from (
 			SELECT
-				count(DISTINCT sonumber) as sonumber,
-				count(sonumber) as sonumber_all,
-				Customer_ID as Customer_ID,
-				Customer_Name as Customer_Name,
-				sum(PeriodAmount) as amount,
+				sum(TotalContractAmount) as amount,
 				sum(eng_cost) as amount_engcost,
 				sale_factor,
-				in_factor,sale_code,sale_name,ex_factor,PeriodAmount
+				in_factor,sale_code,sale_name,ex_factor,PeriodAmount,so_amount
 				FROM (
 					SELECT
 						SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,	
 						(case
 							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
 							else 0 end
@@ -3161,7 +3161,7 @@ func GetDetailSoEndPoint(c echo.Context) error {
 				WHERE so_amount <> 0 group by sonumber
 			) cust_group`
 
-		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, SONumber, StaffId).Scan(&soTotal).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, SONumber, StaffId).Scan(&soTotal).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
 			hasErr += 1
 		}
@@ -3203,18 +3203,18 @@ func GetDetailSoEndPoint(c echo.Context) error {
 func GetDetailInvoiceEndPoint(c echo.Context) error {
 
 	type SOCus struct {
-		BLSCDocNo    string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
-		StaffID      string  `json:"staff_id" gorm:"column:staff_id"`
-		Fname        string  `json:"fname" gorm:"column:fname"`
-		Lname        string  `json:"lname" gorm:"column:lname"`
-		Nname        string  `json:"nname" gorm:"column:nname"`
-		Department   string  `json:"department" gorm:"column:department"`
-		SoAmount     float64 `json:"so_amount" gorm:"column:so_amount"`
-		Amount       float64 `json:"amount" gorm:"column:amount"`
-		SOWebStatus  string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		CustomerID   string  `json:"Customer_ID" gorm:"column:Customer_ID"`
-		CusnameThai  string  `json:"Customer_Name" gorm:"column:Customer_Name"`
-		CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"` //ไม่มีในcolumn so_ms
+		BLSCDocNo   string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
+		StaffID     string  `json:"staff_id" gorm:"column:staff_id"`
+		Fname       string  `json:"fname" gorm:"column:fname"`
+		Lname       string  `json:"lname" gorm:"column:lname"`
+		Nname       string  `json:"nname" gorm:"column:nname"`
+		Department  string  `json:"department" gorm:"column:department"`
+		SoAmount    float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount      float64 `json:"amount" gorm:"column:amount"`
+		SOWebStatus string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerID  string  `json:"Customer_ID" gorm:"column:Customer_ID"`
+		CusnameThai string  `json:"Customer_Name" gorm:"column:Customer_Name"`
+		// CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"` //ไม่มีในcolumn so_ms
 		BusinessType string  `json:"Business_type" gorm:"column:Business_type"`
 		JobStatus    string  `json:"Job_Status" gorm:"column:Job_Status"`
 		SoType       string  `json:"SO_Type" gorm:"column:SO_Type"`
@@ -3330,45 +3330,22 @@ func GetDetailInvoiceEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(sonumber_all) as sonumber_all, sum(sonumber) as total_so, sum(csnumber) as total_cs,sum(invnumber) as total_inv, sum(rcnumber) as total_rc, sum(cnnumber) as total_cn,
-		sum(so_amount) as so_amount, sum(inv_amount) as inv_amount, sum(cs_amount) as cs_amount, sum(rc_amount) as rc_amount, sum(cn_amount) as cn_amount, sum(amount) as amount, AVG(in_factor) as in_factor,
-		sum(in_factor) as sum_if, sum(inv_amount) - sum(rc_amount) as outstainding_amount,AVG(ex_factor) as ex_factor,sum(ex_factor) as sum_ef, SUM(PeriodAmount/(DATEDIFF(?,?)+1)) as pro_rate,
-		(CASE
-			WHEN sum(inv_amount) = 0 THEN 'ยังไม่ออกใบแจ้งหนี้'
-			WHEN sum(inv_amount) = sum(cn_amount) THEN 'ลดหนี้'
-			WHEN sum(inv_amount) - sum(cn_amount) <= sum(rc_amount) AND sum(rc_amount) <> 0 THEN 'ชำระแล้ว'
-			WHEN sum(inv_amount) - sum(cn_amount) > sum(rc_amount) AND sum(rc_amount) <> 0 THEN 'ชำระไม่ครบ'
-			ELSE 'ค้างชำระ' END
-		) as status,
-		sum((CASE
-			WHEN inv_amount = rc_amount THEN inv_amount
-			ELSE inv_amount - cn_amount END
-		)) as inv_amount_cal,
-		(sum(amount)/sum(amount_engcost)) as sale_factor,
-		sonumber_all
+		sql := `SELECT 
+		sum(amount) as amount, 
+		AVG(in_factor) as in_factor,
+		AVG(ex_factor) as ex_factor,
+		SUM(so_amount) as pro_rate,
+		(sum(amount)/sum(amount_engcost)) as sale_factor
 		from (
 			SELECT
-				count(DISTINCT sonumber) as sonumber,
-				count(sonumber) as sonumber_all,
-				Customer_ID as Customer_ID,
-				Customer_Name as Customer_Name,
-				count(DISTINCT(CASE WHEN SDPropertyCS28 !='' THEN SDPropertyCS28 END)) as csnumber,
-				count(DISTINCT(CASE WHEN BLSCDocNo !='' THEN BLSCDocNo END)) as invnumber,
-				count(DISTINCT(CASE WHEN INCSCDocNo !='' THEN INCSCDocNo END)) as rcnumber,
-				count(DISTINCT(CASE WHEN GetCN !='' THEN GetCN END)) as cnnumber,
-				sum(so_amount) as so_amount,
-				sum(CASE WHEN BLSCDocNo !='' THEN so_amount ELSE 0 END) as inv_amount,
-				sum(CASE WHEN SDPropertyCS28 !='' THEN so_amount ELSE 0 END) as cs_amount,
-				sum(CASE WHEN INCSCDocNo !='' THEN so_amount ELSE 0 END) as rc_amount,
-				sum(CASE WHEN GetCN !='' THEN so_amount ELSE 0 END) as cn_amount,
-				sum(PeriodAmount) as amount,
+				sum(TotalContractAmount) as amount,
 				sum(eng_cost) as amount_engcost,
 				sale_factor,
-				in_factor,sale_code,sale_name,ex_factor,PeriodAmount
+				in_factor,sale_code,sale_name,ex_factor,PeriodAmount,so_amount
 				FROM (
 					SELECT
 						SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,
 						(case
 							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
 							else 0 end
@@ -3404,7 +3381,7 @@ func GetDetailInvoiceEndPoint(c echo.Context) error {
 				WHERE so_amount <> 0 group by BLSCDocNo
 			) cust_group`
 
-		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, InvNumber, StaffId).Scan(&soTotal).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, InvNumber, StaffId).Scan(&soTotal).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
 			hasErr += 1
 		}
@@ -3548,9 +3525,9 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 						sum(PeriodAmount) as amount,
 						invoice_status_name
 					 FROM invoice
-					 LEFT JOIN invoice_status ON invoice.invoice_no = invoice_status.inv_no
-					 LEFT JOIN so_mssql ON so_mssql.BLSCDocNo = invoice_status.inv_no
-					 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+					  JOIN invoice_status ON invoice.uid = invoice_status.invoice_uid
+					  JOIN so_mssql ON so_mssql.BLSCDocNo = invoice.invoice_no
+					  JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 					 WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 							and PeriodStartDate <= ? and PeriodEndDate >= ?
 							and PeriodStartDate <= PeriodEndDate
@@ -3569,45 +3546,21 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(sonumber_all) as sonumber_all, sum(sonumber) as total_so, sum(csnumber) as total_cs,sum(invnumber) as total_inv, sum(rcnumber) as total_rc, sum(cnnumber) as total_cn,
-		sum(so_amount) as so_amount, sum(inv_amount) as inv_amount, sum(cs_amount) as cs_amount, sum(rc_amount) as rc_amount, sum(cn_amount) as cn_amount, sum(amount) as amount, AVG(in_factor) as in_factor,
-		sum(in_factor) as sum_if, sum(inv_amount) - sum(rc_amount) as outstainding_amount,AVG(ex_factor) as ex_factor,sum(ex_factor) as sum_ef, SUM(PeriodAmount/(DATEDIFF(?,?)+1)) as pro_rate,
-		(CASE
-			WHEN sum(inv_amount) = 0 THEN 'ยังไม่ออกใบแจ้งหนี้'
-			WHEN sum(inv_amount) = sum(cn_amount) THEN 'ลดหนี้'
-			WHEN sum(inv_amount) - sum(cn_amount) <= sum(rc_amount) AND sum(rc_amount) <> 0 THEN 'ชำระแล้ว'
-			WHEN sum(inv_amount) - sum(cn_amount) > sum(rc_amount) AND sum(rc_amount) <> 0 THEN 'ชำระไม่ครบ'
-			ELSE 'ค้างชำระ' END
-		) as status,
-		sum((CASE
-			WHEN inv_amount = rc_amount THEN inv_amount
-			ELSE inv_amount - cn_amount END
-		)) as inv_amount_cal,
-		(sum(amount)/sum(amount_engcost)) as sale_factor,
-		sonumber_all
+		sql := `SELECT sum(amount) as amount, 
+		AVG(in_factor) as in_factor,
+		AVG(ex_factor) as ex_factor,
+		sum(ex_factor) as sum_ef, SUM(so_amount) as pro_rate,
+		(sum(amount)/sum(amount_engcost)) as sale_factor
 		from (
 			SELECT
-				count(DISTINCT sonumber) as sonumber,
-				count(sonumber) as sonumber_all,
-				Customer_ID as Customer_ID,
-				Customer_Name as Customer_Name,
-				count(DISTINCT(CASE WHEN SDPropertyCS28 !='' THEN SDPropertyCS28 END)) as csnumber,
-				count(DISTINCT(CASE WHEN BLSCDocNo !='' THEN BLSCDocNo END)) as invnumber,
-				count(DISTINCT(CASE WHEN INCSCDocNo !='' THEN INCSCDocNo END)) as rcnumber,
-				count(DISTINCT(CASE WHEN GetCN !='' THEN GetCN END)) as cnnumber,
-				sum(so_amount) as so_amount,
-				sum(CASE WHEN BLSCDocNo !='' THEN so_amount ELSE 0 END) as inv_amount,
-				sum(CASE WHEN SDPropertyCS28 !='' THEN so_amount ELSE 0 END) as cs_amount,
-				sum(CASE WHEN INCSCDocNo !='' THEN so_amount ELSE 0 END) as rc_amount,
-				sum(CASE WHEN GetCN !='' THEN so_amount ELSE 0 END) as cn_amount,
-				sum(PeriodAmount) as amount,
+				sum(TotalContractAmount) as amount,
 				sum(eng_cost) as amount_engcost,
 				sale_factor,
-				in_factor,sale_code,sale_name,ex_factor,PeriodAmount
+				in_factor,sale_code,sale_name,ex_factor,PeriodAmount,so_amount
 				FROM (
 					SELECT
 						SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,
 						(case
 							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
 							else 0 end
@@ -3629,28 +3582,33 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 						) as so_amount
 					FROM (
 						SELECT SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount
 						FROM invoice
-						LEFT JOIN invoice_status ON invoice.invoice_no = invoice_status.inv_no
-						LEFT JOIN so_mssql ON so_mssql.BLSCDocNo = invoice_status.inv_no
-						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
-						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate
+						 JOIN invoice_status ON invoice.uid = invoice_status.invoice_uid
+						 JOIN so_mssql ON so_mssql.BLSCDocNo = invoice.invoice_no
+						 JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+							WHERE Active_Inactive = 'Active'
+							and BLSCDocNo <> ''
+							and PeriodStartDate <= ? and PeriodEndDate >= ?
+							and PeriodStartDate <= PeriodEndDate
 
-						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
-						and INSTR(CONCAT_WS('|', sale_code), ?)
-						and INSTR(CONCAT_WS('|', invoice_no), ?)
+							and sale_code in (?)
+							and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
+							and INSTR(CONCAT_WS('|', sale_code), ?)
+							and INSTR(CONCAT_WS('|', invoice_no), ?)
 					) sub_data
 				) so_group
 				WHERE so_amount <> 0 group by BLSCDocNo
 			) cust_group`
 
-		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, StaffId, InvNumber).Scan(&soTotal).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, StaffId, InvNumber).Scan(&soTotal).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
 			hasErr += 1
 		}
+		// if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom).Scan(&soTotal).Error; err != nil {
+		// 	log.Errorln(pkgName, err, "select data error -:")
+		// 	hasErr += 1
+		// }
 		wg.Done()
 	}()
 	wg.Wait()
@@ -3713,18 +3671,18 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 	}
 
 	type SOCus struct {
-		BLSCDocNo    string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
-		StaffID      string  `json:"staff_id" gorm:"column:staff_id"`
-		Fname        string  `json:"fname" gorm:"column:fname"`
-		Lname        string  `json:"lname" gorm:"column:lname"`
-		Nname        string  `json:"nname" gorm:"column:nname"`
-		Department   string  `json:"department" gorm:"column:department"`
-		SoAmount     float64 `json:"so_amount" gorm:"column:so_amount"`
-		Amount       float64 `json:"amount" gorm:"column:amount"`
-		SOWebStatus  string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		CustomerID   string  `json:"Customer_ID" gorm:"column:Customer_ID"`
-		CusnameThai  string  `json:"Customer_Name" gorm:"column:Customer_Name"`
-		CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"` //ไม่มีในcolumn so_ms
+		BLSCDocNo   string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
+		StaffID     string  `json:"staff_id" gorm:"column:staff_id"`
+		Fname       string  `json:"fname" gorm:"column:fname"`
+		Lname       string  `json:"lname" gorm:"column:lname"`
+		Nname       string  `json:"nname" gorm:"column:nname"`
+		Department  string  `json:"department" gorm:"column:department"`
+		SoAmount    float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount      float64 `json:"amount" gorm:"column:amount"`
+		SOWebStatus string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerID  string  `json:"Customer_ID" gorm:"column:Customer_ID"`
+		CusnameThai string  `json:"Customer_Name" gorm:"column:Customer_Name"`
+		// CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"` //ไม่มีในcolumn so_ms
 		BusinessType string  `json:"Business_type" gorm:"column:Business_type"`
 		JobStatus    string  `json:"Job_Status" gorm:"column:Job_Status"`
 		SoType       string  `json:"SO_Type" gorm:"column:SO_Type"`
@@ -3864,7 +3822,7 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 						WHERE Active_Inactive = 'Active' 
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) and INCSCDocNo <> ''
+						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
@@ -3879,45 +3837,22 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(sonumber_all) as sonumber_all, sum(sonumber) as total_so, sum(csnumber) as total_cs,sum(invnumber) as total_inv, sum(rcnumber) as total_rc, sum(cnnumber) as total_cn,
-		sum(so_amount) as so_amount, sum(inv_amount) as inv_amount, sum(cs_amount) as cs_amount, sum(rc_amount) as rc_amount, sum(cn_amount) as cn_amount, sum(amount) as amount, AVG(in_factor) as in_factor,
-		sum(in_factor) as sum_if, sum(inv_amount) - sum(rc_amount) as outstainding_amount,AVG(ex_factor) as ex_factor,sum(ex_factor) as sum_ef, SUM(PeriodAmount/(DATEDIFF(?,?)+1)) as pro_rate,
-		(CASE
-			WHEN sum(inv_amount) = 0 THEN 'ยังไม่ออกใบแจ้งหนี้'
-			WHEN sum(inv_amount) = sum(cn_amount) THEN 'ลดหนี้'
-			WHEN sum(inv_amount) - sum(cn_amount) <= sum(rc_amount) AND sum(rc_amount) <> 0 THEN 'ชำระแล้ว'
-			WHEN sum(inv_amount) - sum(cn_amount) > sum(rc_amount) AND sum(rc_amount) <> 0 THEN 'ชำระไม่ครบ'
-			ELSE 'ค้างชำระ' END
-		) as status,
-		sum((CASE
-			WHEN inv_amount = rc_amount THEN inv_amount
-			ELSE inv_amount - cn_amount END
-		)) as inv_amount_cal,
-		(sum(amount)/sum(amount_engcost)) as sale_factor,
-		sonumber_all
+		sql := `SELECT
+		sum(amount) as amount, 
+		AVG(in_factor) as in_factor,
+		AVG(ex_factor) as ex_factor,
+		SUM(so_amount) as pro_rate,
+		(sum(amount)/sum(amount_engcost)) as sale_factor
 		from (
 			SELECT
-				count(DISTINCT sonumber) as sonumber,
-				count(sonumber) as sonumber_all,
-				Customer_ID as Customer_ID,
-				Customer_Name as Customer_Name,
-				count(DISTINCT(CASE WHEN SDPropertyCS28 !='' THEN SDPropertyCS28 END)) as csnumber,
-				count(DISTINCT(CASE WHEN BLSCDocNo !='' THEN BLSCDocNo END)) as invnumber,
-				count(DISTINCT(CASE WHEN INCSCDocNo !='' THEN INCSCDocNo END)) as rcnumber,
-				count(DISTINCT(CASE WHEN GetCN !='' THEN GetCN END)) as cnnumber,
-				sum(so_amount) as so_amount,
-				sum(CASE WHEN BLSCDocNo !='' THEN so_amount ELSE 0 END) as inv_amount,
-				sum(CASE WHEN SDPropertyCS28 !='' THEN so_amount ELSE 0 END) as cs_amount,
-				sum(CASE WHEN INCSCDocNo !='' THEN so_amount ELSE 0 END) as rc_amount,
-				sum(CASE WHEN GetCN !='' THEN so_amount ELSE 0 END) as cn_amount,
-				sum(PeriodAmount) as amount,
+				sum(TotalContractAmount) as amount,
 				sum(eng_cost) as amount_engcost,
 				sale_factor,
-				in_factor,sale_code,sale_name,ex_factor,PeriodAmount
+				in_factor,sale_code,sale_name,ex_factor,PeriodAmount,so_amount
 				FROM (
 					SELECT
 						SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,
 						(case
 							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
 							else 0 end
@@ -3942,7 +3877,7 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) and INCSCDocNo <> ''
+						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
 
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
@@ -3953,7 +3888,7 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 				WHERE so_amount <> 0 group by BLSCDocNo
 			) cust_group`
 
-		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, StaffId, InvNumber).Scan(&soTotal).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, StaffId, InvNumber).Scan(&soTotal).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
 			hasErr += 1
 		}
