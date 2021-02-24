@@ -2854,7 +2854,7 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 				 	and StartDate_P1 <= ? and EndDate_P1 >= ?
 					and StartDate_P1 <= EndDate_P1
 					and EmployeeID in (?)
-					and INSTR(CONCAT_WS('|', Customer_ID, Sales_Name, EmployeeID), ?)
+					and INSTR(CONCAT_WS('|', doc_number_eform, staff_id, fname,lname,nname,department,status,Customer_ID,Cusname_thai,Cusname_Eng,Business_type,Job_Status,SO_Type), ?)
 					and INSTR(CONCAT_WS('|', doc_number_eform), ?)
 					and INSTR(CONCAT_WS('|', EmployeeID), ?)
 					group by doc_number_eform
@@ -2919,7 +2919,7 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 						and StartDate_P1 <= EndDate_P1
 
 						and EmployeeID in (?)
-						and INSTR(CONCAT_WS('|', Customer_ID, Sales_Name, EmployeeID,doc_number_eform), ?)
+						and INSTR(CONCAT_WS('|', doc_number_eform, staff_id, fname,lname,nname,department,status,Customer_ID,Cusname_thai,Cusname_Eng,Business_type,Job_Status,SO_Type), ?)
 						and INSTR(CONCAT_WS('|', doc_number_eform), ?)
 						and INSTR(CONCAT_WS('|', EmployeeID), ?)
 					) sub_data
@@ -2943,7 +2943,7 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 				 	and StartDate_P1 <= ? and EndDate_P1 >= ?
 					and StartDate_P1 <= EndDate_P1
 					and EmployeeID in (?)
-					and INSTR(CONCAT_WS('|', Customer_ID, Sales_Name, EmployeeID), ?)
+					and INSTR(CONCAT_WS('|', doc_number_eform, staff_id, fname,lname,nname,department,status,Customer_ID,Cusname_thai,Cusname_Eng,Business_type,Job_Status,SO_Type), ?)
 					and INSTR(CONCAT_WS('|', doc_number_eform), ?)
 					and INSTR(CONCAT_WS('|', EmployeeID), ?)
 					group by doc_number_eform
@@ -3097,7 +3097,7 @@ func GetDetailSoEndPoint(c echo.Context) error {
 					and ContractStartDate <= ? and ContractEndDate >= ?
 					and ContractStartDate <= ContractEndDate
 					and sale_code in (?)
-					and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
+					and INSTR(CONCAT_WS('|', sonumber, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,Business_type,Job_Status,SO_Type,detail,remark), ?)
 					and INSTR(CONCAT_WS('|', sonumber), ?)
 					and INSTR(CONCAT_WS('|', sale_code), ?)
 					group by sonumber
@@ -3153,7 +3153,7 @@ func GetDetailSoEndPoint(c echo.Context) error {
 						and ContractStartDate <= ContractEndDate
 
 						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,sonumber), ?)
+						and INSTR(CONCAT_WS('|', sonumber, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,Business_type,Job_Status,SO_Type,detail,remark), ?)
 						and INSTR(CONCAT_WS('|', sonumber), ?)
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 					) sub_data
@@ -3176,7 +3176,7 @@ func GetDetailSoEndPoint(c echo.Context) error {
 					and ContractStartDate <= ? and ContractEndDate >= ?
 					and ContractStartDate <= ContractEndDate
 					and sale_code in (?)
-					and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
+					and INSTR(CONCAT_WS('|', sonumber, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,Business_type,Job_Status,SO_Type,detail,remark), ?)
 					and INSTR(CONCAT_WS('|', sonumber), ?)
 					and INSTR(CONCAT_WS('|', sale_code), ?)
 					group by sonumber
@@ -3317,7 +3317,7 @@ func GetDetailInvoiceEndPoint(c echo.Context) error {
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate
 						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
+						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,Business_type,Job_Status,SO_Type,detail,remark), ?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 						group by BLSCDocNo
@@ -3373,7 +3373,7 @@ func GetDetailInvoiceEndPoint(c echo.Context) error {
 						and PeriodStartDate <= PeriodEndDate
 
 						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
+						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,Business_type,Job_Status,SO_Type,detail,remark), ?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 					) sub_data
@@ -3532,7 +3532,7 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 							and PeriodStartDate <= ? and PeriodEndDate >= ?
 							and PeriodStartDate <= PeriodEndDate
 							and sale_code in (?)
-							and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
+							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,invoice_status_name,staff_id,prefix,fname,lname,position,department), ?)
 							and INSTR(CONCAT_WS('|', sale_code), ?)
 							and INSTR(CONCAT_WS('|', invoice_no), ?)
 							group by BLSCDocNo
@@ -3593,7 +3593,7 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 							and PeriodStartDate <= PeriodEndDate
 
 							and sale_code in (?)
-							and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
+							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,invoice_status_name,staff_id,prefix,fname,lname,position,department), ?)
 							and INSTR(CONCAT_WS('|', sale_code), ?)
 							and INSTR(CONCAT_WS('|', invoice_no), ?)
 					) sub_data
@@ -3605,10 +3605,6 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 			log.Errorln(pkgName, err, "select data error -:")
 			hasErr += 1
 		}
-		// if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom).Scan(&soTotal).Error; err != nil {
-		// 	log.Errorln(pkgName, err, "select data error -:")
-		// 	hasErr += 1
-		// }
 		wg.Done()
 	}()
 	wg.Wait()
@@ -3824,7 +3820,7 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
 						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code), ?)
+						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,Business_type,Job_Status,SO_Type,detail), ?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 						group by BLSCDocNo
@@ -3880,7 +3876,7 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
 
 						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
+						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,Business_type,Job_Status,SO_Type,detail), ?)
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
 					) sub_data
