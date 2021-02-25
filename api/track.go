@@ -1106,15 +1106,16 @@ func GetTrackingBillingStatusEndPoint(c echo.Context) error {
 		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
 		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
 		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
-		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
-		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
-		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
+		SaleFactor          float64 `json:"sale_factor" gorm:"column:sale_factor"`
+		InFactor            float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor            float64 `json:"ex_factor" gorm:"column:ex_factor"`
 		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
 		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
 		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
 		Amount              float64 `json:"amount" gorm:"column:amount"`
-		InvStatusName       string  `json:"invoice_status_name" gorm:"column:invoice_status_name"`
+		InvStatusName       string  `json:"status" gorm:"column:status"`
+		Reason              string  `json:"reason" gorm:"column:reason"`
 		StaffID             string  `json:"staff_id" gorm:"column:staff_id"`
 		Prefix              string  `json:"prefix" gorm:"column:prefix"`
 		Fname               string  `json:"fname" gorm:"column:fname"`
@@ -1223,11 +1224,10 @@ func GetTrackingBillingStatusEndPoint(c echo.Context) error {
 							ELSE 0 END
 						) as so_amount,
 						sum(PeriodAmount) as amount,
-						invoice_status_name
-					 FROM invoice
-					 LEFT JOIN invoice_status ON invoice.invoice_no = invoice_status.inv_no
-					 LEFT JOIN so_mssql ON so_mssql.BLSCDocNo = invoice_status.inv_no
-					 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+						status
+						FROM billing_info
+						JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
+						JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 					 WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 							and PeriodStartDate <= ? and PeriodEndDate >= ?
 							and PeriodStartDate <= PeriodEndDate
@@ -1306,10 +1306,9 @@ func GetTrackingBillingStatusEndPoint(c echo.Context) error {
 					FROM (
 						SELECT SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
 						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor
-						FROM invoice
-						LEFT JOIN invoice_status ON invoice.invoice_no = invoice_status.inv_no
-						LEFT JOIN so_mssql ON so_mssql.BLSCDocNo = invoice_status.inv_no
-						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+						FROM billing_info
+					  JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
+					  JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate
@@ -1361,15 +1360,16 @@ func GetTrackingBillingStatusInvEndPoint(c echo.Context) error {
 		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
 		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
 		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
-		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
-		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
-		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
+		SaleFactor          float64 `json:"sale_factor" gorm:"column:sale_factor"`
+		InFactor            float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor            float64 `json:"ex_factor" gorm:"column:ex_factor"`
 		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
 		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
 		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
 		Amount              float64 `json:"amount" gorm:"column:amount"`
-		InvStatusName       string  `json:"invoice_status_name" gorm:"column:invoice_status_name"`
+		InvStatusName       string  `json:"status" gorm:"column:status"`
+		Reason              string  `json:"reason" gorm:"column:reason"`
 		StaffID             string  `json:"staff_id" gorm:"column:staff_id"`
 		Prefix              string  `json:"prefix" gorm:"column:prefix"`
 		Fname               string  `json:"fname" gorm:"column:fname"`
@@ -1479,11 +1479,10 @@ func GetTrackingBillingStatusInvEndPoint(c echo.Context) error {
 							ELSE 0 END
 						) as so_amount,
 						sum(PeriodAmount) as amount,
-						invoice_status_name
-					 FROM invoice
-					 LEFT JOIN invoice_status ON invoice.invoice_no = invoice_status.inv_no
-					 LEFT JOIN so_mssql ON so_mssql.BLSCDocNo = invoice_status.inv_no
-					 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+						status
+						FROM billing_info
+						JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
+						JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 					 WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 							and PeriodStartDate <= ? and PeriodEndDate >= ?
 							and PeriodStartDate <= PeriodEndDate
@@ -1563,10 +1562,9 @@ func GetTrackingBillingStatusInvEndPoint(c echo.Context) error {
 					FROM (
 						SELECT SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
 						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor
-						FROM invoice
-						LEFT JOIN invoice_status ON invoice.invoice_no = invoice_status.inv_no
-						LEFT JOIN so_mssql ON so_mssql.BLSCDocNo = invoice_status.inv_no
-						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+						FROM billing_info
+						JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
+						JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate
@@ -3410,7 +3408,6 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
 		ContractStartDate   string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
 		ContractEndDate     string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
-		SDPropertyCS28      string  `json:"SDPropertyCS28" gorm:"column:SDPropertyCS28"`
 		BLSCDocNo           string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
 		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
 		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
@@ -3420,15 +3417,16 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
 		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
 		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
-		SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
-		InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
-		ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
+		SaleFactor          float64 `json:"sale_factor" gorm:"column:sale_factor"`
+		InFactor            float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor            float64 `json:"ex_factor" gorm:"column:ex_factor"`
 		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
 		SoType              string  `json:"SoType" gorm:"column:SoType"`
 		Detail              string  `json:"detail" gorm:"column:detail"`
 		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
 		Amount              float64 `json:"amount" gorm:"column:amount"`
-		InvStatusName       string  `json:"invoice_status_name" gorm:"column:invoice_status_name"`
+		InvStatusName       string  `json:"status" gorm:"column:status"`
+		Reason              string  `json:"reason" gorm:"column:reason"`
 		StaffID             string  `json:"staff_id" gorm:"column:staff_id"`
 		Prefix              string  `json:"prefix" gorm:"column:prefix"`
 		Fname               string  `json:"fname" gorm:"column:fname"`
@@ -3523,16 +3521,15 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 							ELSE 0 END
 						) as so_amount,
 						sum(PeriodAmount) as amount,
-						invoice_status_name
-					 FROM invoice
-					  JOIN invoice_status ON invoice.uid = invoice_status.invoice_uid
-					  JOIN so_mssql ON so_mssql.BLSCDocNo = invoice.invoice_no
+						status
+					 FROM billing_info
+					  JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
 					  JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 					 WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 							and PeriodStartDate <= ? and PeriodEndDate >= ?
 							and PeriodStartDate <= PeriodEndDate
 							and sale_code in (?)
-							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,invoice_status_name,staff_id,prefix,fname,lname,position,department), ?)
+							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,status,staff_id,prefix,fname,lname,position,department), ?)
 							and INSTR(CONCAT_WS('|', sale_code), ?)
 							and INSTR(CONCAT_WS('|', invoice_no), ?)
 							group by BLSCDocNo
@@ -3583,17 +3580,16 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 					FROM (
 						SELECT SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
 						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount
-						FROM invoice
-						 JOIN invoice_status ON invoice.uid = invoice_status.invoice_uid
-						 JOIN so_mssql ON so_mssql.BLSCDocNo = invoice.invoice_no
-						 JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+						FROM billing_info
+							JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
+							JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 							WHERE Active_Inactive = 'Active'
 							and BLSCDocNo <> ''
 							and PeriodStartDate <= ? and PeriodEndDate >= ?
 							and PeriodStartDate <= PeriodEndDate
 
 							and sale_code in (?)
-							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,invoice_status_name,staff_id,prefix,fname,lname,position,department), ?)
+							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,status,staff_id,prefix,fname,lname,position,department), ?)
 							and INSTR(CONCAT_WS('|', sale_code), ?)
 							and INSTR(CONCAT_WS('|', invoice_no), ?)
 					) sub_data
