@@ -59,7 +59,11 @@ func CostSheet_Status(c echo.Context) error{
 		sql := `select ci.Total_Revenue_Month
 		from costsheet_info ci
 		left join staff_info si on ci.ID_Presale = si.staff_id
-		LEFT JOIN so_mssql_test smt on ci.doc_number_eform = smt.SDPropertyCS28 
+		LEFT JOIN (
+			select * 
+			from so_mssql_test
+			group by sonumber
+			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
 		where ci.status_eform like '%Complete from paperless%' AND smt.SDPropertyCS28 is not null 
 		AND smt.SDPropertyCS28 not like '' `
 		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
@@ -254,7 +258,11 @@ func CostSheet_Status(c echo.Context) error{
 		sql := `select ci.Total_Revenue_Month
 		from costsheet_info ci
 		left join staff_info si on ci.ID_Presale = si.staff_id
-		LEFT JOIN so_mssql_test smt on ci.doc_number_eform = smt.SDPropertyCS28 
+		LEFT JOIN(
+			select * 
+			from so_mssql_test
+			group by sonumber
+			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
 		where ci.status_eform like '%Complete from paperless%' AND smt.SDPropertyCS28 is null `
 		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
 		DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
@@ -610,7 +618,11 @@ func CostSheet_Status(c echo.Context) error{
 		sql := `select ci.Total_Revenue_Month
 		from costsheet_info ci
 		left join staff_info si on ci.ID_Presale = si.staff_id
-		LEFT JOIN so_mssql_test smt on ci.doc_number_eform = smt.SDPropertyCS28 
+		LEFT JOIN (
+			select * 
+			from so_mssql_test
+			group by sonumber
+			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
 		where ci.status_eform like '%Complete from eform%' `
 		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
 		DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
@@ -804,7 +816,11 @@ func CostSheet_Status(c echo.Context) error{
 		sql := `select ci.Total_Revenue_Month
 		from costsheet_info ci
 		left join staff_info si on ci.ID_Presale = si.staff_id
-		LEFT JOIN so_mssql_test smt on ci.doc_number_eform = smt.SDPropertyCS28 
+		LEFT JOIN(
+			select * 
+			from so_mssql_test
+			group by sonumber
+			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
 		where ci.status_eform like '%Onprocess%' `
 		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
 		DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
@@ -998,7 +1014,11 @@ func CostSheet_Status(c echo.Context) error{
 		sql := `select ci.Total_Revenue_Month
 		from costsheet_info ci
 		left join staff_info si on ci.ID_Presale = si.staff_id
-		LEFT JOIN so_mssql_test smt on ci.doc_number_eform = smt.SDPropertyCS28 
+		LEFT JOIN(
+			select * 
+			from so_mssql_test
+			group by sonumber
+			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
 		where ci.status_eform like '%Cancel%' `
 		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
 		DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
@@ -1192,7 +1212,11 @@ func CostSheet_Status(c echo.Context) error{
 		sql := `select ci.Total_Revenue_Month
 		from costsheet_info ci
 		left join staff_info si on ci.ID_Presale = si.staff_id
-		LEFT JOIN so_mssql_test smt on ci.doc_number_eform = smt.SDPropertyCS28 
+		LEFT JOIN(
+			select * 
+			from so_mssql_test
+			group by sonumber
+			) smt on ci.doc_number_eform = smt.SDPropertyCS28
 		where ci.status_eform like '%Reject%' `
 		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
 		DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||

@@ -182,5 +182,8 @@ func InitApiRouter(g *echo.Group) error {
 	receive_tracking.GET("/billing", Billing_Status)
 	receive_tracking.GET("/reciept", Reciept_Status)
 
+	tracking_costsheet := g.Group("/tracking_costsheet")
+	tracking_costsheet.GET("/Detail", Costsheet_Detail)
+
 	return nil
 }
