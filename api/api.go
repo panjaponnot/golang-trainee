@@ -81,10 +81,22 @@ func InitApiRouter(g *echo.Group) error {
 	track.GET("/doc/cs", GetSOTrackingCsEndPoint) //doc/cs
 
 	track.GET("/detail_reciept", GetDetailReceiptEndPoint)     //
-	track.GET("/detail_billing", GetDetailBillingEndPoint)     //invoice no ในinvoice statusเป็นค่าNULL
-	track.GET("/detail_invoice", GetDetailInvoiceEndPoint)     //แก้ groupด้วย BLSCDocNo แทน so number
+	track.GET("/detail_billing", GetDetailBillingEndPoint)     //
+	track.GET("/detail_invoice", GetDetailInvoiceEndPoint)     //
 	track.GET("/detail_so", GetDetailSoEndPoint)               //**
-	track.GET("/detail_costsheet", GetDetailCostsheetEndPoint) //**
+	track.GET("/detail_costsheet", GetDetailCostsheetEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด
+
+	track.GET("/detail_reciept/change", GetDetailReceiptChangeEndPoint)     //
+	track.GET("/detail_billing/change", GetDetailBillingChangeEndPoint)     //
+	track.GET("/detail_invoice/change", GetDetailInvoiceChangeEndPoint)     //
+	track.GET("/detail_so/change", GetDetailSoChangeEndPoint)               //**
+	track.GET("/detail_costsheet/change", GetDetailCostsheetChangeEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด
+
+	track.GET("/detail_reciept/notchange", GetDetailReceiptNotChangeEndPoint)     //
+	track.GET("/detail_billing/notchange", GetDetailBillingNotChangeEndPoint)     //
+	track.GET("/detail_invoice/notchange", GetDetailInvoiceNotChangeEndPoint)     //
+	track.GET("/detail_so/notchange", GetDetailSoNotChangeEndPoint)               //**
+	track.GET("/detail_costsheet/notchange", GetDetailCostsheetNotChangeEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด
 
 	export := g.Group("/export")
 	export.GET("/pending", GetReportExcelSOPendingEndPoint)
