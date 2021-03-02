@@ -21,11 +21,11 @@ var (
 
 func initDataStore() error {
 	// Database
-	dbEquip = core.NewDatabaseMssql(pkgName, "equip")
-	if err := dbEquip.Connect(); err != nil {
-		log.Errorln(pkgName, err, "Connect to database equip error")
-		return err
-	}
+	// dbEquip = core.NewDatabaseMssql(pkgName, "equip")
+	// if err := dbEquip.Connect(); err != nil {
+	// 	log.Errorln(pkgName, err, "Connect to database equip error")
+	// 	return err
+	// }
 	dbSale = core.NewDatabase(pkgName, "salerank")
 	if err := dbSale.Connect(); err != nil {
 		log.Errorln(pkgName, err, "Connect to database salerank error")
@@ -36,11 +36,11 @@ func initDataStore() error {
 		log.Errorln(pkgName, err, "Connect to database quotation error")
 		return err
 	}
-	dbMssql = core.NewDatabaseMssql(pkgName, "mssql")
-	if err := dbMssql.Connect(); err != nil {
-		log.Errorln(pkgName, err, "Connect to database sql server error")
-		return err
-	}
+	// dbMssql = core.NewDatabaseMssql(pkgName, "mssql")
+	// if err := dbMssql.Connect(); err != nil {
+	// 	log.Errorln(pkgName, err, "Connect to database sql server error")
+	// 	return err
+	// }
 	// Redis cache
 	redis = core.NewRedis()
 	if err := redis.Ping(); err != nil {
@@ -192,6 +192,24 @@ func InitApiRouter(g *echo.Group) error {
 
 	bill := g.Group("/bill")
 	bill.GET("", GetBillingEndPoint)
+	
+	tracking := g.Group("/tracking")
+	tracking.GET("/all", TrackingEndPoint)
+	
+	revanue := g.Group("/revenue")
+	revanue.GET("/all", RevenueEndPoint)
+
+	so_receive := g.Group("/soreceive")
+	so_receive.GET("/all", SOReceiveEndPoint)
+	
+	receive_tracking := g.Group("/receive_tracking")
+	receive_tracking.GET("/costsheet", CostSheet_Status)
+	receive_tracking.GET("/invoice", Invoice_Status)
+	receive_tracking.GET("/billing", Billing_Status)
+	receive_tracking.GET("/reciept", Reciept_Status)
+
+	tracking_costsheet := g.Group("/tracking_costsheet")
+	tracking_costsheet.GET("/Detail", Costsheet_Detail)
 
 	return nil
 }

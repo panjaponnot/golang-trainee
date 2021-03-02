@@ -18,8 +18,8 @@
 # export DB_PASSWORD=mis@Pass01
 export DB_SALE_HOST=203.151.56.242
 export DB_SALE_USERNAME=root
-# export DB_SALE_NAME=ratingscoring_test1
-export DB_SALE_NAME=ratingscoring
+export DB_SALE_NAME=ratingscoring_test1
+# export DB_SALE_NAME=ratingscoring
 export DB_SALE_PASSWORD=mis@Pass01
 
 export DB_QUOTATION_HOST=203.154.135.51
