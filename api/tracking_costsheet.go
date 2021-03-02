@@ -33,6 +33,7 @@ func Costsheet_Detail(c echo.Context) error{
 		Int_INET					string `json:"Int_INET" gorm:"column:Int_INET"`
 		Ext							string `json:"External" gorm:"column:External"`
 		So_amount					string `json:"so_amount" gorm:"column:so_amount"`
+		So_status					string `json:"so_status" gorm:"column:so_status"`
 	}
 
 	var errr int = 0
@@ -54,7 +55,7 @@ func Costsheet_Detail(c echo.Context) error{
 	from 
 	(
 		select ci.doc_number_eform,smt.sonumber,ci.StartDate_P1,
-		 ci.EndDate_P1,ci.status_eform,ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.Sale_Team,
+		 ci.EndDate_P1,ci.status_eform,ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.EmployeeID,ci.Sale_Team,
 		 ci.Sales_Name,ci.Sales_Surname,ci.Int_INET,(ci.Ext_JV+ci.Ext) as External,
 		  (CASE
 			 	WHEN DATEDIFF(ci.EndDate_P1,ci.StartDate_P1)+1 = 0
@@ -70,14 +71,20 @@ func Costsheet_Detail(c echo.Context) error{
 			 	WHEN ci.StartDate_P1 < ? AND ci.EndDate_P1 > ?
 			 	THEN (DATEDIFF(?,?)+1)*(ci.Total_Revenue_Month/(DATEDIFF(ci.EndDate_P1,ci.StartDate_P1)+1))
 			 	ELSE 0 END
-			) as so_amount
+			) as so_amount,
+			(CASE
+				WHEN smt.sonumber is not null or smt.sonumber not like ''
+				THEN 'ออก so เสร็จสิ้น'
+				ELSE 'ยังไม่ออก so'
+			END) so_status
 		from costsheet_info ci
 		LEFT JOIN (
 			select * 
 			from so_mssql_test
+			where SDPropertyCS28 <> ''
 			group by sonumber
 			)smt on ci.doc_number_eform = smt.SDPropertyCS28
-		LEFT JOIN staff_info si on ci.ID_Presale = si.staff_id 
+		LEFT JOIN staff_info si on ci.EmployeeID = si.staff_id 
 		where INSTR(CONCAT_WS('|', ci.tracking_id,ci.doc_id,ci.doc_number_eform,ci.Customer_ID,
 		ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,ci.Sale_Team,
 		ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?)

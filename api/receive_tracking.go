@@ -58,7 +58,7 @@ func CostSheet_Status(c echo.Context) error{
 		var dataRaw []Costsheet_Data
 		sql := `select ci.Total_Revenue_Month
 		from costsheet_info ci
-		left join staff_info si on ci.ID_Presale = si.staff_id
+		left join staff_info si on ci.EmployeeID = si.staff_id
 		LEFT JOIN (
 			select * 
 			from so_mssql_test
@@ -257,7 +257,7 @@ func CostSheet_Status(c echo.Context) error{
 		var dataRaw []Costsheet_Data
 		sql := `select ci.Total_Revenue_Month
 		from costsheet_info ci
-		left join staff_info si on ci.ID_Presale = si.staff_id
+		left join staff_info si on ci.EmployeeID = si.staff_id
 		LEFT JOIN(
 			select * 
 			from so_mssql_test
@@ -617,7 +617,7 @@ func CostSheet_Status(c echo.Context) error{
 		var dataRaw []Costsheet_Data
 		sql := `select ci.Total_Revenue_Month
 		from costsheet_info ci
-		left join staff_info si on ci.ID_Presale = si.staff_id
+		left join staff_info si on ci.EmployeeID = si.staff_id
 		LEFT JOIN (
 			select * 
 			from so_mssql_test
@@ -815,7 +815,7 @@ func CostSheet_Status(c echo.Context) error{
 		var dataRaw []Costsheet_Data
 		sql := `select ci.Total_Revenue_Month
 		from costsheet_info ci
-		left join staff_info si on ci.ID_Presale = si.staff_id
+		left join staff_info si on ci.EmployeeID = si.staff_id
 		LEFT JOIN(
 			select * 
 			from so_mssql_test
@@ -1013,7 +1013,7 @@ func CostSheet_Status(c echo.Context) error{
 		var dataRaw []Costsheet_Data
 		sql := `select ci.Total_Revenue_Month
 		from costsheet_info ci
-		left join staff_info si on ci.ID_Presale = si.staff_id
+		left join staff_info si on ci.EmployeeID = si.staff_id
 		LEFT JOIN(
 			select * 
 			from so_mssql_test
@@ -1211,7 +1211,7 @@ func CostSheet_Status(c echo.Context) error{
 		var dataRaw []Costsheet_Data
 		sql := `select ci.Total_Revenue_Month
 		from costsheet_info ci
-		left join staff_info si on ci.ID_Presale = si.staff_id
+		left join staff_info si on ci.EmployeeID = si.staff_id
 		LEFT JOIN(
 			select * 
 			from so_mssql_test
@@ -2502,7 +2502,7 @@ func Billing_Status(c echo.Context) error{
 				sql = sql+` bi.reason like '`+Reason+`'`
 			}
 		}
-		sql = sql+`) BL`
+		sql = sql+` group by smt.sonumber) BL`
 		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
@@ -2573,7 +2573,7 @@ func Billing_Status(c echo.Context) error{
 				sql = sql+` bi.reason like '`+Reason+`'`
 			}
 		}
-			sql = sql+`) BL`
+			sql = sql+` group by smt.sonumber) BL`
 		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
@@ -2644,7 +2644,7 @@ func Billing_Status(c echo.Context) error{
 				sql = sql+` bi.reason like '`+Reason+`'`
 			}
 		}
-			sql = sql+`) BL`
+			sql = sql+` group by smt.sonumber) BL`
 		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
@@ -2715,7 +2715,7 @@ func Billing_Status(c echo.Context) error{
 				sql = sql+` bi.reason like '`+Reason+`'`
 			}
 		}
-			sql = sql+`) BL`
+			sql = sql+` group by smt.sonumber) BL`
 		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
@@ -2786,7 +2786,7 @@ func Billing_Status(c echo.Context) error{
 				sql = sql+` bi.reason like '`+Reason+`'`
 			}
 		}
-			sql = sql+`) BL`
+			sql = sql+` group by smt.sonumber) BL`
 		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
@@ -2857,7 +2857,7 @@ func Billing_Status(c echo.Context) error{
 				sql = sql+` bi.reason like '`+Reason+`'`
 			}
 		}
-			sql = sql+`) BL`
+			sql = sql+` group by smt.sonumber) BL`
 		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
@@ -2928,7 +2928,7 @@ func Billing_Status(c echo.Context) error{
 				sql = sql+` bi.reason like '`+Reason+`'`
 			}
 		}
-			sql = sql+`) BL`
+			sql = sql+` group by smt.sonumber) BL`
 		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
@@ -2999,7 +2999,7 @@ func Billing_Status(c echo.Context) error{
 				sql = sql+` bi.reason like '`+Reason+`'`
 			}
 		}
-			sql = sql+`) BL`
+			sql = sql+` group by smt.sonumber) BL`
 		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
@@ -3070,7 +3070,7 @@ func Billing_Status(c echo.Context) error{
 				sql = sql+` bi.reason like '`+Reason+`'`
 			}
 		}
-			sql = sql+`) BL`
+			sql = sql+` group by smt.sonumber) BL`
 		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
@@ -3143,7 +3143,8 @@ func Reciept_Status(c echo.Context) error{
 	from so_mssql_test smt
 	LEFT JOIN staff_info si on smt.sale_code = si.staff_id
 	LEFT JOIN billing_info bi on smt.BLSCDocNo = bi.invoice_no
-	where bi.status like '%วางบิลแล้ว%' `
+	where bi.status like '%วางบิลแล้ว%' 
+	GROUP BY smt.sonumber`
 	
 	if St_date != "" || En_date != "" || Staff_id != "" || Invoice_no != "" || 
 			So_number != "" || Status != "" || Reason != ""{
@@ -3200,7 +3201,7 @@ func Reciept_Status(c echo.Context) error{
 	DataA := reciept_Result_Data{
 		CountReciept: strconv.Itoa(Reciept_Data[0].Count_Reciept),
 		TotalPeriodAmount: fmt.Sprintf("%f",Reciept_Data[0].PeriodAmount),
-		Reciept_status: "วาง Reciept เสร้จสิ้น",
+		Reciept_status: "วาง Reciept เสร็จสิ้น",
 	}
 	Reciept_Result_Data = append(Reciept_Result_Data,DataA)
 
