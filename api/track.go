@@ -2797,7 +2797,7 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 		Department     string  `json:"department" gorm:"column:department"`
 		SoAmount       float64 `json:"so_amount" gorm:"column:so_amount"`
 		Amount         float64 `json:"amount" gorm:"column:amount"`
-		StatusEform    string  `json:"status" gorm:"column:status"`
+		StatusEform    string  `json:"status_eform" gorm:"column:status_eform"`
 		CustomerID     string  `json:"Customer_ID" gorm:"column:Customer_ID"`
 		CusnameThai    string  `json:"Cusname_thai" gorm:"column:Cusname_thai"`
 		CusnameEng     string  `json:"Cusname_Eng" gorm:"column:Cusname_Eng"`
@@ -2824,8 +2824,17 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 	cus := []struct {
 		CusnameThai string `json:"Customer_ID" gorm:"column:Customer_ID"`
 	}{}
+	status := struct {
+		CompleteFromPaperless  string `json:"Complete_from_paperless" gorm:"column:Complete_from_paperless"`
+		CompleteFromEform      string `json:"Complete_from_eform" gorm:"column:Complete_from_eform"`
+		OnprocessFromEform     string `json:"Onprocess_from_eform" gorm:"column:Onprocess_from_eform"`
+		RejectFromPaperless    string `json:"Reject_from_paperless" gorm:"column:Reject_from_paperless"`
+		RejectFromEform        string `json:"Reject_from_eform" gorm:"column:Reject_from_eform"`
+		CancelFromEform        string `json:"Cancel_from_eform" gorm:"column:Cancel_from_eform"`
+		OnprocessFromPaperless string `json:"Onprocess_from_paperless" gorm:"column:Onprocess_from_paperless"`
+	}{}
 	wg := sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(4)
 	go func() {
 		sql := `SELECT *,
 		SUM(CASE
@@ -2954,6 +2963,61 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 
 		wg.Done()
 	}()
+	go func() {
+		sql := `
+		SELECT SUM(Complete_from_paperless) as Complete_from_paperless,
+SUM(Complete_from_eform) as Complete_from_eform,
+SUM(Onprocess_from_eform) as Onprocess_from_eform,
+SUM(Reject_from_paperless) as Reject_from_paperless,
+SUM(Reject_from_eform) as Reject_from_eform,
+SUM(Cancel_from_eform) as Cancel_from_eform,
+SUM(Onprocess_from_paperless) as Onprocess_from_paperless
+FROM(
+		SELECT SUM(CASE
+			WHEN status_eform = 'Complete from paperless' THEN 1
+		END) Complete_from_paperless,
+		SUM(CASE
+			WHEN status_eform = 'Complete from eform' THEN 1
+		END) Complete_from_eform,
+			SUM(CASE
+			WHEN status_eform = 'Onprocess from eform' THEN 1
+		END) Onprocess_from_eform,
+		SUM(CASE
+			WHEN status_eform = 'Reject from paperless' THEN 1
+		END) Reject_from_paperless,
+		 SUM(CASE
+			WHEN status_eform = 'Reject from eform' THEN 1
+		END) Reject_from_eform,
+			 SUM(CASE
+			WHEN status_eform = 'Cancel from eform' THEN 1
+		END) Cancel_from_eform,
+		SUM(CASE
+			WHEN status_eform = 'Onprocess from paperless' THEN 1
+		END) Onprocess_from_paperless
+		FROM ( 
+			SELECT status_eform
+			FROM costsheet_info
+		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
+				 WHERE doc_number_eform <> ''
+				 	and StartDate_P1 <= ? and EndDate_P1 >= ?
+					and StartDate_P1 <= EndDate_P1
+					and EmployeeID in (?)
+					and INSTR(CONCAT_WS('|', doc_number_eform, staff_id, fname,lname,nname,department,status,Customer_ID,Cusname_thai,Cusname_Eng), ?)
+					and INSTR(CONCAT_WS('|', doc_number_eform), ?)
+					and INSTR(CONCAT_WS('|', EmployeeID), ?)
+					group by doc_number_eform
+					) as ss
+					group by status_eform
+					) as aa
+					;`
+
+		if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, CsNumber, StaffId).Scan(&status).Error; err != nil {
+			log.Errorln(pkgName, err, "select data error -:")
+			hasErr += 1
+		}
+
+		wg.Done()
+	}()
 	wg.Wait()
 
 	dataMap := map[string]interface{}{
@@ -2961,6 +3025,14 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 		"customer_total": len(cus),
 		"total_so":       soTotal,
 		"detail":         sum,
+		// "CompleteFromPaperless":  status.CompleteFromPaperless,
+		// "CompleteFromEform":      status.CompleteFromEform,
+		// "OnprocessFromEform":     status.OnprocessFromEform,
+		// "RejectFromPaperless":    status.RejectFromPaperless,
+		// "RejectFromEform":        status.RejectFromEform,
+		// "CancelFromEform":        status.CancelFromEform,
+		// "OnprocessFromPaperless": status.OnprocessFromPaperless,
+		"status_eform": status,
 	}
 	return c.JSON(http.StatusOK, dataMap)
 }
