@@ -3308,6 +3308,10 @@ func GetDetailInvoiceEndPoint(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
 	}
 
+	cus := []struct {
+		CusnameThai string `json:"Customer_ID" gorm:"column:Customer_ID"`
+	}{}
+
 	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
 	InvNumber := strings.TrimSpace(c.QueryParam("so_number"))
@@ -3362,7 +3366,7 @@ func GetDetailInvoiceEndPoint(c echo.Context) error {
 	var soTotal []TrackInvoice
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		sql := `		SELECT *,
 					SUM(CASE
@@ -3457,6 +3461,26 @@ func GetDetailInvoiceEndPoint(c echo.Context) error {
 		}
 		wg.Done()
 	}()
+	go func() {
+		sql := `		SELECT distinct Customer_ID
+	 			FROM so_mssql
+				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
+						and PeriodStartDate <= ? and PeriodEndDate >= ?
+						and PeriodStartDate <= PeriodEndDate
+						and sale_code in (?)
+						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail,remark), ?)
+						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
+						and INSTR(CONCAT_WS('|', sale_code), ?)
+						group by BLSCDocNo
+						;`
+
+		if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, InvNumber, StaffId).Scan(&cus).Error; err != nil {
+			log.Errorln(pkgName, err, "select data error -:")
+			hasErr += 1
+		}
+		wg.Done()
+	}()
 	wg.Wait()
 
 	if hasErr != 0 {
@@ -3464,9 +3488,10 @@ func GetDetailInvoiceEndPoint(c echo.Context) error {
 	}
 
 	dataInv := map[string]interface{}{
-		"count_so": len(so),
-		"total_so": soTotal,
-		"detail":   so,
+		"count_so":       len(so),
+		"customer_total": len(cus),
+		"total_so":       soTotal,
+		"detail":         so,
 	}
 
 	return c.JSON(http.StatusOK, dataInv)
@@ -3517,6 +3542,15 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
 	}
+
+	status := struct {
+		HasBilling string `json:"has_billing" gorm:"column:has_billing"`
+		NoBilling  string `json:"no_billing" gorm:"column:no_billing"`
+	}{}
+
+	cus := []struct {
+		CusnameThai string `json:"Customer_ID" gorm:"column:Customer_ID"`
+	}{}
 
 	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
@@ -3574,7 +3608,7 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 	var so []SOCusBill
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(4)
 	go func() {
 		sql := `		SELECT *,
 						SUM(CASE
@@ -3675,6 +3709,65 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 		}
 		wg.Done()
 	}()
+	go func() {
+		sql := `SELECT SUM(has_billing) as has_billing,
+		SUM(no_billing) as no_billing
+		FROM(
+				SELECT
+					SUM(CASE
+					WHEN status = 'วางบิลแล้ว' THEN 1
+				END) has_billing,
+				SUM(CASE
+					WHEN status = 'วางไม่ได้' THEN 1
+				END) no_billing
+				FROM ( 
+							
+			SELECT 
+						status
+					 FROM billing_info
+					  JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
+					  JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+					 WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
+							and PeriodStartDate <= ? and PeriodEndDate >= ?
+							and PeriodStartDate <= PeriodEndDate
+							and sale_code in (?)
+							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,status,staff_id,prefix,fname,lname,position,department), ?)
+							and INSTR(CONCAT_WS('|', sale_code), ?)
+							and INSTR(CONCAT_WS('|', invoice_no), ?)
+							group by BLSCDocNo
+							) as ss
+							group by status
+							) as aa;`
+
+		if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, StaffId, InvNumber).Scan(&status).Error; err != nil {
+			log.Errorln(pkgName, err, "select data error -:")
+			hasErr += 1
+		}
+
+		wg.Done()
+	}()
+	go func() {
+		sql := `		
+			SELECT distinct Customer_ID
+					 FROM billing_info
+					  JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
+					  JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+					 WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
+							and PeriodStartDate <= ? and PeriodEndDate >= ?
+							and PeriodStartDate <= PeriodEndDate
+							and sale_code in (?)
+							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,status,staff_id,prefix,fname,lname,position,department), ?)
+							and INSTR(CONCAT_WS('|', sale_code), ?)
+							and INSTR(CONCAT_WS('|', invoice_no), ?)
+							group by BLSCDocNo;`
+
+		if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, StaffId, InvNumber).Scan(&cus).Error; err != nil {
+			log.Errorln(pkgName, err, "select data error -:")
+			hasErr += 1
+		}
+
+		wg.Done()
+	}()
 	wg.Wait()
 
 	if hasErr != 0 {
@@ -3682,9 +3775,11 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 	}
 
 	dataInv := map[string]interface{}{
-		"count_so": len(so),
-		"total_so": soTotal,
-		"detail":   so,
+		"count_so":       len(so),
+		"customer_total": len(cus),
+		"total_so":       soTotal,
+		"detail":         so,
+		"status":         status,
 	}
 
 	return c.JSON(http.StatusOK, dataInv)
@@ -3764,7 +3859,9 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 		SaleFactor float64 `json:"sale_factor" gorm:"column:sale_factor"`
 		ProRate    float64 `json:"pro_rate" gorm:"column:pro_rate"`
 	}
-
+	cus := []struct {
+		CusnameThai string `json:"Customer_ID" gorm:"column:Customer_ID"`
+	}{}
 	ds := time.Now()
 	de := time.Now()
 	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
@@ -3862,7 +3959,7 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 	var sum []SOCus
 	var soTotal []TrackInvoice
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 
 		sqlSum := `		SELECT *,
@@ -3958,12 +4055,34 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 		}
 		wg.Done()
 	}()
+	go func() {
+
+		sqlSum := `	SELECT distinct Customer_ID
+	 			FROM so_mssql
+				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+						WHERE Active_Inactive = 'Active' 
+						and PeriodStartDate <= ? and PeriodEndDate >= ?
+						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
+						and sale_code in (?)
+						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail), ?)
+						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
+						and INSTR(CONCAT_WS('|', sale_code), ?)
+						group by BLSCDocNo
+					;`
+
+		if err := dbSale.Ctx().Raw(sqlSum, dateTo, dateFrom, listInv, listId, search, InvNumber, StaffId).Scan(&cus).Error; err != nil {
+			log.Errorln(pkgName, err, "select data error -:")
+		}
+
+		wg.Done()
+	}()
 	wg.Wait()
 
 	dataReceipt := map[string]interface{}{
-		"has_receipt": len(sum),
-		"total_so":    soTotal,
-		"detail":      sum,
+		"has_receipt":    len(sum),
+		"customer_total": len(cus),
+		"total_so":       soTotal,
+		"detail":         sum,
 	}
 	return c.JSON(http.StatusOK, dataReceipt)
 }
