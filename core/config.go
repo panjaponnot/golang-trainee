@@ -155,6 +155,7 @@ func CronService() *crontab.Service {
 }
 
 func getDatabaseConfig(packageName string, dbName string) database.Config {
+	// log.Infoln("pkg", "==", util.GetEnv(envDbQuotationHost, "127.0.0.1"), "+=======---- ", dbName)
 	switch dbName {
 	case "quotation":
 		return database.Config{
@@ -167,6 +168,7 @@ func getDatabaseConfig(packageName string, dbName string) database.Config {
 			PackageName: packageName,
 		}
 	case "salerank":
+		// log.Infoln("pkg", "==", util.GetEnv(envDbSaleName, ""), "+=======---- ", util.IsProduction())
 		return database.Config{
 			Host:        util.GetEnv(envDbSaleHost, "127.0.0.1"),
 			Port:        util.GetEnv(envDbSalePort, "3306"),

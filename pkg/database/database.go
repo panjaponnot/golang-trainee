@@ -82,8 +82,11 @@ func (db *Database) Connect() error {
 		dsn = db.config.Filename
 	default:
 		driver = DriverMySQL
+		// dsn = fmt.Sprintf(
+		// 	"root:mis@Pass01@tcp(203.151.56.242:3306)/ratingscoring?charset=utf8mb4&parseTime=true&loc=Local",
+		// )
 		dsn = fmt.Sprintf(
-			"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true&loc=Local",
+			`%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true&loc=Local`,
 			db.config.Username,
 			db.config.Password,
 			db.config.Host,
@@ -91,6 +94,8 @@ func (db *Database) Connect() error {
 			db.config.Name,
 		)
 	}
+	// log.Infoln(db.config.Username, " +=======+ ")
+	// log.Infoln(dsn, " +=======+ ", db.driver)
 	db.dsn = dsn
 	db.ctx, err = gorm.Open(driver, db.dsn)
 	if err != nil {

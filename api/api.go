@@ -61,17 +61,42 @@ func InitApiRouter(g *echo.Group) error {
 	// 	skipper.Add("/api/v2/export", http.MethodGet)
 	// 	return skipper.Test(c)
 	// }}))
-
 	track := g.Group("/track")
-	track.GET("/invoice", GetTrackingInvoiceEndPoint)
-	track.GET("/invoice/so", GetTrackingInvoiceSOEndPoint)
-	track.GET("/bill", GetTrackingBillingEndPoint)
-	track.GET("/receipt", GetTrackingReceiptEndPoint)
-	track.GET("/receipt/so", GetSOTrackingReceiptEndPoint)
-	track.GET("/receipt/so/cs", GetSOTrackingReceiptCsEndPoint)
 	track.GET("/so", GetSummaryCustomerEndPoint)
-	track.GET("/cus/so", GetSOCustomerEndPoint)
-	track.GET("/cus/so/cs", GetSOCustomerCsNumberEndPoint)
+	track.GET("/doc/so", GetSOCustomerEndPoint)            //doc/so  /cus/so
+	track.GET("/doc/so/cs", GetSOCustomerCsNumberEndPoint) //doc/so/cs  /cus/so/cs
+
+	track.GET("/invoice", GetTrackingInvoiceEndPoint)
+	track.GET("/doc/inv", GetDocTrackingInvoiceEndPoint)
+	track.GET("/doc/inv/so", GetDocTrackingInvoiceSOEndPoint)
+
+	track.GET("/bill", GetTrackingBillingEndPoint)
+	track.GET("/doc/bill", GetTrackingBillingStatusEndPoint)        //doc/bill  /bill/status
+	track.GET("/doc/bill/inv", GetTrackingBillingStatusInvEndPoint) //doc/bill/inv
+
+	track.GET("/receipt", GetTrackingReceiptEndPoint)
+	track.GET("/doc/rc", GetSOTrackingReceiptEndPoint)       //doc/rc /receipt/so
+	track.GET("/doc/rc/inv", GetSOTrackingReceiptCsEndPoint) //doc/rc/inv /receipt/so/cs
+
+	track.GET("/doc/cs", GetSOTrackingCsEndPoint) //doc/cs
+
+	track.GET("/detail_reciept", GetDetailReceiptEndPoint)     //
+	track.GET("/detail_billing", GetDetailBillingEndPoint)     //
+	track.GET("/detail_invoice", GetDetailInvoiceEndPoint)     //
+	track.GET("/detail_so", GetDetailSoEndPoint)               //**
+	track.GET("/detail_costsheet", GetDetailCostsheetEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด
+
+	track.GET("/detail_reciept/change", GetDetailReceiptChangeEndPoint)     //
+	track.GET("/detail_billing/change", GetDetailBillingChangeEndPoint)     //
+	track.GET("/detail_invoice/change", GetDetailInvoiceChangeEndPoint)     //
+	track.GET("/detail_so/change", GetDetailSoChangeEndPoint)               //**
+	track.GET("/detail_costsheet/change", GetDetailCostsheetChangeEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด
+
+	track.GET("/detail_reciept/notchange", GetDetailReceiptNotChangeEndPoint)     //
+	track.GET("/detail_billing/notchange", GetDetailBillingNotChangeEndPoint)     //
+	track.GET("/detail_invoice/notchange", GetDetailInvoiceNotChangeEndPoint)     //
+	track.GET("/detail_so/notchange", GetDetailSoNotChangeEndPoint)               //**
+	track.GET("/detail_costsheet/notchange", GetDetailCostsheetNotChangeEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด
 
 	export := g.Group("/export")
 	export.GET("/pending", GetReportExcelSOPendingEndPoint)
@@ -82,6 +107,7 @@ func InitApiRouter(g *echo.Group) error {
 	export.GET("/ranking/key", GettReportExcelRankKeyAccEndPoint)
 	export.GET("/ranking/recovery", GettReportExcelRankRecoveEndPoint)
 	export.GET("/ranking/lead", GetReportExcelRankTeamLeadEndPoint)
+	export.GET("/factor/sale/:id", GetReportExcelSaleFactorEndPoint)
 
 	report := g.Group("/report")
 	report.GET("/org", GetDataOrgChartEndPoint)

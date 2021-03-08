@@ -75,7 +75,7 @@ func Reciept_Detail(c echo.Context) error{
 			THEN (DATEDIFF(?,?)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate,smt.PeriodStartDate)+1))
 			ELSE 0 END
 		) so_amount
-		from so_mssql_test smt
+		from so_mssql smt
 		WHERE smt.Active_Inactive = 'Active'`
 		if St_date != "" || En_date != ""{
 			sql = sql+` AND `

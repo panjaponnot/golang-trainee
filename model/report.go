@@ -41,6 +41,28 @@ type InvBefore struct {
 	CheckData int     `json:"check_data" gorm:"column:checkdata"`
 }
 
+type SoExport struct {
+	CostsheetNumber         string  `json:"costsheet_number" gorm:"column:costsheetnumber"`
+	SoNumber        				string  `json:"so_number" gorm:"column:sonumber"`
+	ContractStartDate    	  string  `json:"ContractStartDate" gorm:"column:ContractStartDate"`
+	ContractEndDate         string  `json:"ContractEndDate" gorm:"column:ContractEndDate"`
+	PriceSale           		float64 `json:"pricesale" gorm:"column:pricesale"`
+	TotalContractAmount  		float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+	SOWebStatus        	 	  string  `json:"SOWebStatus" gorm:"column:SOWebStatus"`
+	CustomerId   	        	string  `json:"Customer_ID" gorm:"column:Customer_ID"`
+	CustomerName          	string  `json:"Customer_Name" gorm:"column:Customer_Name"`
+	SaleCode         				string  `json:"sale_code" gorm:"column:sale_code"`
+	SaleName          			string  `json:"sale_name" gorm:"column:sale_name"`
+	SaleTeam          			string  `json:"sale_team" gorm:"column:sale_team"`
+	PeriodAmount          	float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
+	SaleFactor            	float64 `json:"sale_factor" gorm:"column:sale_factor"`
+	Infactor         				float64 `json:"in_factor" gorm:"column:in_factor"`
+	ExFactor          			float64 `json:"ex_factor" gorm:"column:ex_factor"`
+	SoRefer          				string  `json:"so_refer" gorm:"column:so_refer"`
+	SoType			          	string  `json:"SOType" gorm:"column:SOType"`
+	Detail		            	string  `json:"detail" gorm:"column:detail"`
+}
+
 type SummaryCustomer struct {
 	BLSCDocNo         string  `json:"blsc_doc_no" gorm:"column:BLSCDocNo"`
 	CustomerID        string  `json:"customer_id" gorm:"column:Customer_ID"`
