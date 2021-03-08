@@ -109,11 +109,11 @@ func InitApiRouter(g *echo.Group) error {
 	export.GET("/ranking/lead", GetReportExcelRankTeamLeadEndPoint)
 	export.GET("/factor/sale/:id", GetReportExcelSaleFactorEndPoint)
 
-	export.GET("/detail_reciept", GetExcelDetailReceiptEndPoint) //
-	// export.GET("/detail_billing", GetExcelDetailBillingEndPoint)     //
-	// export.GET("/detail_invoice", GetExcelDetailInvoiceEndPoint)     //
-	// export.GET("/detail_so", GetExcelDetailSoEndPoint)               //**
-	// export.GET("/detail_costsheet", GetExcelDetailCostsheetEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด
+	export.GET("/detail_reciept", GetExcelDetailReceiptEndPoint)     //
+	export.GET("/detail_billing", GetExcelDetailBillingEndPoint)     //
+	export.GET("/detail_invoice", GetExcelDetailInvoiceEndPoint)     //
+	export.GET("/detail_so", GetExcelDetailSoEndPoint)               //**
+	export.GET("/detail_costsheet", GetExcelDetailCostsheetEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด
 
 	report := g.Group("/report")
 	report.GET("/org", GetDataOrgChartEndPoint)
