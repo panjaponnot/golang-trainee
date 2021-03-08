@@ -1622,26 +1622,7 @@ func GetTrackingReceiptEndPoint(c echo.Context) error {
 				FROM (
 					SELECT
 					invoice_no,SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
-						(case
-							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
-							else 0 end
-						) as eng_cost,
-						(CASE
-							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
-							THEN 0
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-							THEN PeriodAmount
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
-							ELSE 0 END
-						) as so_amount
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor
 					FROM (
 						SELECT *,CONCAT(BLSCDocNo) as invoice_no FROM so_mssql
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
@@ -1990,26 +1971,7 @@ func GetSOTrackingReceiptEndPoint(c echo.Context) error {
 				FROM (
 					SELECT
 					invoice_no,SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
-						(case
-							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
-							else 0 end
-						) as eng_cost,
-						SUM(CASE
-							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
-							THEN 0
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-							THEN PeriodAmount
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
-							ELSE 0 END
-						) as so_amount
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor
 					FROM (
 						SELECT *,CONCAT(BLSCDocNo) as invoice_no FROM so_mssql
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
@@ -2314,26 +2276,7 @@ func GetSOTrackingReceiptCsEndPoint(c echo.Context) error {
 				FROM (
 					SELECT
 					invoice_no,SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
-						(case
-							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
-							else 0 end
-						) as eng_cost,
-						SUM(CASE
-							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
-							THEN 0
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-							THEN PeriodAmount
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
-							ELSE 0 END
-						) as so_amount
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor
 					FROM (
 						SELECT *,CONCAT(BLSCDocNo) as invoice_no FROM so_mssql
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
@@ -3884,26 +3827,7 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 				FROM (
 					SELECT
 					invoice_no,SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
-						(case
-							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
-							else 0 end
-						) as eng_cost,
-						SUM(CASE
-							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
-							THEN 0
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-							THEN PeriodAmount
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
-							ELSE 0 END
-						) as so_amount
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor
 					FROM (
 						SELECT *,CONCAT(BLSCDocNo) as invoice_no FROM so_mssql
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
@@ -3915,7 +3839,7 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 				GROUP by BLSCDocNo
 			 `
 
-	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId).Scan(&so).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId).Scan(&so).Error; err != nil {
 		log.Errorln(pkgName, err, "select data error -:")
 		return echo.ErrInternalServerError
 	}
@@ -4184,26 +4108,7 @@ func GetDetailReceiptChangeEndPoint(c echo.Context) error {
 				FROM (
 					SELECT
 					invoice_no,SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
-						(case
-							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
-							else 0 end
-						) as eng_cost,
-						SUM(CASE
-							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
-							THEN 0
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-							THEN PeriodAmount
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
-							ELSE 0 END
-						) as so_amount
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor
 					FROM (
 						SELECT *,CONCAT(BLSCDocNo) as invoice_no FROM so_mssql
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
@@ -4483,26 +4388,7 @@ func GetDetailReceiptNotChangeEndPoint(c echo.Context) error {
 				FROM (
 					SELECT
 					invoice_no,SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,
-						(case
-							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
-							else 0 end
-						) as eng_cost,
-						SUM(CASE
-							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
-							THEN 0
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-							THEN PeriodAmount
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
-							ELSE 0 END
-						) as so_amount
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor
 					FROM (
 						SELECT *,CONCAT(BLSCDocNo) as invoice_no FROM so_mssql
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
