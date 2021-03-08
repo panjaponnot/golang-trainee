@@ -81,10 +81,10 @@ func InitApiRouter(g *echo.Group) error {
 	track.GET("/doc/cs", GetSOTrackingCsEndPoint) //doc/cs
 
 	track.GET("/detail_reciept", GetDetailReceiptEndPoint)     //
-	track.GET("/detail_billing", GetDetailBillingEndPoint)     //
+	track.GET("/detail_billing", GetDetailBillingEndPoint)     //**status
 	track.GET("/detail_invoice", GetDetailInvoiceEndPoint)     //
 	track.GET("/detail_so", GetDetailSoEndPoint)               //**
-	track.GET("/detail_costsheet", GetDetailCostsheetEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด
+	track.GET("/detail_costsheet", GetDetailCostsheetEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด //status
 
 	track.GET("/detail_reciept/change", GetDetailReceiptChangeEndPoint)     //
 	track.GET("/detail_billing/change", GetDetailBillingChangeEndPoint)     //
