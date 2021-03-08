@@ -3767,3 +3767,398 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 	}
 	return c.Blob(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buff.Bytes())
 }
+
+func GetExcelDetailBillingEndPoint(c echo.Context) error {
+
+	// SELECT * FROM `so_mssql` JOIN invoice_status ON so_mssql.BLSCDocNo = invoice_status.inv_no;
+
+	type SOCusBill struct {
+		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
+		ContractStartDate   string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
+		ContractEndDate     string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		BLSCDocNo           string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
+		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
+		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
+		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
+		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
+		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
+		SaleFactor          float64 `json:"sale_factor" gorm:"column:sale_factor"`
+		InFactor            float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor            float64 `json:"ex_factor" gorm:"column:ex_factor"`
+		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
+		SoType              string  `json:"SoType" gorm:"column:SoType"`
+		Detail              string  `json:"detail" gorm:"column:detail"`
+		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount              float64 `json:"amount" gorm:"column:amount"`
+		InvStatusName       string  `json:"status" gorm:"column:status"`
+		Reason              string  `json:"reason" gorm:"column:reason"`
+		StaffID             string  `json:"staff_id" gorm:"column:staff_id"`
+		Prefix              string  `json:"prefix" gorm:"column:prefix"`
+		Fname               string  `json:"fname" gorm:"column:fname"`
+		Lname               string  `json:"lname" gorm:"column:lname"`
+		Position            string  `json:"position" gorm:"column:position"`
+		Department          string  `json:"department" gorm:"column:department"`
+	}
+	type TrackInvoice struct {
+		Amount     float64 `json:"amount" gorm:"column:amount"`
+		InFactor   float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor   float64 `json:"ex_factor" gorm:"column:ex_factor"`
+		SaleFactor float64 `json:"sale_factor" gorm:"column:sale_factor"`
+		ProRate    float64 `json:"pro_rate" gorm:"column:pro_rate"`
+	}
+
+	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	status := struct {
+		HasBilling string `json:"has_billing" gorm:"column:has_billing"`
+		NoBilling  string `json:"no_billing" gorm:"column:no_billing"`
+	}{}
+
+	cus := []struct {
+		CusnameThai string `json:"Customer_ID" gorm:"column:Customer_ID"`
+	}{}
+
+	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
+	search := strings.TrimSpace(c.QueryParam("search"))
+	StaffId := strings.TrimSpace(c.QueryParam("staff_id"))
+	InvNumber := strings.TrimSpace(c.QueryParam("inv_number"))
+
+	//// get staff id ////
+	var user []model.UserInfo
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, saleId).Scan(&user).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user) != 0 {
+		var staffAll []model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.StaffId)
+		}
+	} else {
+		var staffAll model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, saleId).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.StaffChild != "" {
+			data := strings.Split(staffAll.StaffChild, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.StaffId)
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("start_date")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("end_date")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+
+	// var sum []SOCus
+	var soTotal []TrackInvoice
+	var so []SOCusBill
+	hasErr := 0
+	wg := sync.WaitGroup{}
+	wg.Add(4)
+	go func() {
+		sql := `		SELECT *,
+						SUM(CASE
+							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+							THEN 0
+							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+							THEN PeriodAmount
+							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
+							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
+							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
+							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
+							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+							ELSE 0 END
+						) as so_amount,
+						sum(PeriodAmount) as amount,
+						status
+					 FROM billing_info
+					  JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
+					  JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+					 WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
+							and PeriodStartDate <= ? and PeriodEndDate >= ?
+							and PeriodStartDate <= PeriodEndDate
+							and sale_code in (?)
+							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,status,staff_id,prefix,fname,lname,position,department), ?)
+							and INSTR(CONCAT_WS('|', sale_code), ?)
+							and INSTR(CONCAT_WS('|', invoice_no), ?)
+							group by BLSCDocNo
+							;`
+
+		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, StaffId, InvNumber).Scan(&so).Error; err != nil {
+			log.Errorln(pkgName, err, "select data error -:")
+			hasErr += 1
+		}
+
+		wg.Done()
+	}()
+	go func() {
+		sql := `SELECT sum(amount) as amount, 
+		AVG(in_factor) as in_factor,
+		AVG(ex_factor) as ex_factor,
+		sum(ex_factor) as sum_ef, SUM(so_amount) as pro_rate,
+		(sum(amount)/sum(amount_engcost)) as sale_factor
+		from (
+			SELECT
+				sum(TotalContractAmount) as amount,
+				sum(eng_cost) as amount_engcost,
+				sale_factor,
+				in_factor,sale_code,sale_name,ex_factor,PeriodAmount,so_amount
+				FROM (
+					SELECT
+						SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,
+						(case
+							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
+							else 0 end
+						) as eng_cost,
+						(CASE
+							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+							THEN 0
+							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
+							THEN PeriodAmount
+							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
+							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
+							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
+							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
+							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
+							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+							ELSE 0 END
+						) as so_amount
+					FROM (
+						SELECT SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount
+						FROM billing_info
+							JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
+							JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+							WHERE Active_Inactive = 'Active'
+							and BLSCDocNo <> ''
+							and PeriodStartDate <= ? and PeriodEndDate >= ?
+							and PeriodStartDate <= PeriodEndDate
+
+							and sale_code in (?)
+							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,status,staff_id,prefix,fname,lname,position,department), ?)
+							and INSTR(CONCAT_WS('|', sale_code), ?)
+							and INSTR(CONCAT_WS('|', invoice_no), ?)
+					) sub_data
+				) so_group
+				WHERE so_amount <> 0 group by BLSCDocNo
+			) cust_group`
+
+		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, StaffId, InvNumber).Scan(&soTotal).Error; err != nil {
+			log.Errorln(pkgName, err, "select data error -:")
+			hasErr += 1
+		}
+		wg.Done()
+	}()
+	go func() {
+		sql := `SELECT SUM(has_billing) as has_billing,
+		SUM(no_billing) as no_billing
+		FROM(
+				SELECT
+					SUM(CASE
+					WHEN status = 'วางบิลแล้ว' THEN 1
+				END) has_billing,
+				SUM(CASE
+					WHEN status = 'วางไม่ได้' THEN 1
+				END) no_billing
+				FROM ( 
+							
+			SELECT 
+						status
+					 FROM billing_info
+					  JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
+					  JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+					 WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
+							and PeriodStartDate <= ? and PeriodEndDate >= ?
+							and PeriodStartDate <= PeriodEndDate
+							and sale_code in (?)
+							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,status,staff_id,prefix,fname,lname,position,department), ?)
+							and INSTR(CONCAT_WS('|', sale_code), ?)
+							and INSTR(CONCAT_WS('|', invoice_no), ?)
+							group by BLSCDocNo
+							) as ss
+							group by status
+							) as aa;`
+
+		if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, StaffId, InvNumber).Scan(&status).Error; err != nil {
+			log.Errorln(pkgName, err, "select data error -:")
+			hasErr += 1
+		}
+
+		wg.Done()
+	}()
+	go func() {
+		sql := `		
+			SELECT distinct Customer_ID
+					 FROM billing_info
+					  JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
+					  JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
+					 WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
+							and PeriodStartDate <= ? and PeriodEndDate >= ?
+							and PeriodStartDate <= PeriodEndDate
+							and sale_code in (?)
+							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,status,staff_id,prefix,fname,lname,position,department), ?)
+							and INSTR(CONCAT_WS('|', sale_code), ?)
+							and INSTR(CONCAT_WS('|', invoice_no), ?)
+							group by BLSCDocNo;`
+
+		if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, StaffId, InvNumber).Scan(&cus).Error; err != nil {
+			log.Errorln(pkgName, err, "select data error -:")
+			hasErr += 1
+		}
+
+		wg.Done()
+	}()
+	wg.Wait()
+
+	if hasErr != 0 {
+		return echo.ErrInternalServerError
+	}
+
+	// dataInv := map[string]interface{}{
+	// 	"count_so":       len(so),
+	// 	"customer_total": len(cus),
+	// 	"total_so":       soTotal,
+	// 	"detail":         so,
+	// 	"status":         status,
+	// }
+
+	// return c.JSON(http.StatusOK, dataInv)
+	log.Infoln(pkgName, "====  create excel ====")
+	f := excelize.NewFile()
+	// Create a new sheet.
+	mode := "detailbilling"
+	index := f.NewSheet(mode)
+	// Set value of a cell.
+
+	f.SetCellValue(mode, "A1", "SOnumber")
+	f.SetCellValue(mode, "B1", "ContractStartDate")
+	f.SetCellValue(mode, "C1", "ContractEndDate")
+	f.SetCellValue(mode, "D1", "BLSCDocNo")
+	f.SetCellValue(mode, "E1", "Price Sale")
+	f.SetCellValue(mode, "F1", "TotalContract Amount")
+	f.SetCellValue(mode, "G1", "SOWebStatus")
+	f.SetCellValue(mode, "H1", "Customer Id")
+	f.SetCellValue(mode, "I1", "Customer Name")
+	f.SetCellValue(mode, "J1", "Sale Code")
+	f.SetCellValue(mode, "K1", "Sale Name")
+	f.SetCellValue(mode, "L1", "Sale Team")
+	f.SetCellValue(mode, "M1", "Sale Factor")
+	f.SetCellValue(mode, "N1", "In Factor")
+	f.SetCellValue(mode, "O1", "Ex Factor")
+	f.SetCellValue(mode, "P1", "SO Refer")
+	f.SetCellValue(mode, "Q1", "So Type")
+	f.SetCellValue(mode, "R1", "Detail")
+	f.SetCellValue(mode, "S1", "So Amount")
+	f.SetCellValue(mode, "T1", "Amount")
+	f.SetCellValue(mode, "U1", "InvStatus Name")
+	f.SetCellValue(mode, "V1", "Reason")
+	f.SetCellValue(mode, "W1", "StaffID")
+	f.SetCellValue(mode, "X1", "Prefix")
+	f.SetCellValue(mode, "Y1", "First Name")
+	f.SetCellValue(mode, "Z1", "Last Name")
+	f.SetCellValue(mode, "AA1", "Position")
+	f.SetCellValue(mode, "AB1", "Department")
+
+	colSOnumber := "A"
+	colContractStartDate := "B"
+	colContractEndDate := "C"
+	colBLSCDocNo := "D"
+	colPriceSale := "E"
+	colTotalContractAmount := "F"
+	colSOWebStatus := "G"
+	colCustomerId := "H"
+	colCustomerName := "I"
+	colSaleCode := "J"
+	colSaleName := "K"
+	colSaleTeam := "L"
+	colSaleFactor := "M"
+	colInFactor := "N"
+	colExFactor := "O"
+	colSORefer := "P"
+	colSoType := "Q"
+	colDetail := "R"
+	colSoAmount := "S"
+	colAmount := "T"
+	colInvStatusName := "U"
+	colReason := "V"
+	colStaffID := "W"
+	colPrefix := "X"
+	colFirstName := "Y"
+	colLastName := "Z"
+	colPosition := "AA"
+	colDepartment := "AB"
+
+	for k, v := range so {
+		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
+		f.SetCellValue(mode, fmt.Sprint(colSOnumber, k+2), v.SOnumber)
+		f.SetCellValue(mode, fmt.Sprint(colContractStartDate, k+2), v.ContractStartDate)
+		f.SetCellValue(mode, fmt.Sprint(colContractEndDate, k+2), v.ContractEndDate)
+		f.SetCellValue(mode, fmt.Sprint(colBLSCDocNo, k+2), v.BLSCDocNo)
+		f.SetCellValue(mode, fmt.Sprint(colPriceSale, k+2), v.PriceSale)
+		f.SetCellValue(mode, fmt.Sprint(colTotalContractAmount, k+2), v.TotalContractAmount)
+		f.SetCellValue(mode, fmt.Sprint(colSOWebStatus, k+2), v.SOWebStatus)
+		f.SetCellValue(mode, fmt.Sprint(colCustomerId, k+2), v.CustomerId)
+		f.SetCellValue(mode, fmt.Sprint(colCustomerName, k+2), v.CustomerName)
+		f.SetCellValue(mode, fmt.Sprint(colSaleCode, k+2), v.SaleCode)
+		f.SetCellValue(mode, fmt.Sprint(colSaleName, k+2), v.SaleName)
+		f.SetCellValue(mode, fmt.Sprint(colSaleTeam, k+2), v.SaleTeam)
+		f.SetCellValue(mode, fmt.Sprint(colSaleFactor, k+2), v.SaleFactor)
+		f.SetCellValue(mode, fmt.Sprint(colInFactor, k+2), v.InFactor)
+		f.SetCellValue(mode, fmt.Sprint(colExFactor, k+2), v.ExFactor)
+		f.SetCellValue(mode, fmt.Sprint(colSORefer, k+2), v.SORefer)
+		f.SetCellValue(mode, fmt.Sprint(colSoType, k+2), v.SoType)
+		f.SetCellValue(mode, fmt.Sprint(colDetail, k+2), v.Detail)
+		f.SetCellValue(mode, fmt.Sprint(colSoAmount, k+2), v.SoAmount)
+		f.SetCellValue(mode, fmt.Sprint(colAmount, k+2), v.Amount)
+		f.SetCellValue(mode, fmt.Sprint(colInvStatusName, k+2), v.InvStatusName)
+		f.SetCellValue(mode, fmt.Sprint(colReason, k+2), v.Reason)
+		f.SetCellValue(mode, fmt.Sprint(colStaffID, k+2), v.StaffID)
+		f.SetCellValue(mode, fmt.Sprint(colPrefix, k+2), v.Prefix)
+		f.SetCellValue(mode, fmt.Sprint(colFirstName, k+2), v.Fname)
+		f.SetCellValue(mode, fmt.Sprint(colLastName, k+2), v.Lname)
+		f.SetCellValue(mode, fmt.Sprint(colPosition, k+2), v.Position)
+		f.SetCellValue(mode, fmt.Sprint(colDepartment, k+2), v.Department)
+
+	}
+
+	f.SetActiveSheet(index)
+	f.DeleteSheet("Sheet1")
+
+	buff, err := f.WriteToBuffer()
+	if err != nil {
+		log.Errorln("XLSX export error ->", err)
+		return c.JSON(http.StatusInternalServerError, model.Result{Error: "export error"})
+	}
+	return c.Blob(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buff.Bytes())
+}
