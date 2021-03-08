@@ -80,7 +80,7 @@ func Costsheet_Detail(c echo.Context) error{
 		from costsheet_info ci
 		LEFT JOIN (
 			select * 
-			from so_mssql_test
+			from so_mssql
 			where SDPropertyCS28 <> ''
 			group by sonumber
 			)smt on ci.doc_number_eform = smt.SDPropertyCS28

@@ -67,7 +67,7 @@ func Invoice_Detail(c echo.Context) error{
 			THEN (DATEDIFF(?,?)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate,smt.PeriodStartDate)+1))
 			ELSE 0 END
 		) so_amount
-		from so_mssql_test smt
+		from so_mssql smt
 		WHERE smt.Active_Inactive = 'Active' 
 		AND smt.sonumber is not null 
 		AND smt.sonumber not like ''`
