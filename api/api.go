@@ -109,6 +109,12 @@ func InitApiRouter(g *echo.Group) error {
 	export.GET("/ranking/lead", GetReportExcelRankTeamLeadEndPoint)
 	export.GET("/factor/sale/:id", GetReportExcelSaleFactorEndPoint)
 
+	export.GET("/detail_reciept", GetExcelDetailReceiptEndPoint) //
+	// export.GET("/detail_billing", GetExcelDetailBillingEndPoint)     //
+	// export.GET("/detail_invoice", GetExcelDetailInvoiceEndPoint)     //
+	// export.GET("/detail_so", GetExcelDetailSoEndPoint)               //**
+	// export.GET("/detail_costsheet", GetExcelDetailCostsheetEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด
+
 	report := g.Group("/report")
 	report.GET("/org", GetDataOrgChartEndPoint)
 	report.GET("/pending", GetReportSOPendingEndPoint)
@@ -192,16 +198,16 @@ func InitApiRouter(g *echo.Group) error {
 
 	bill := g.Group("/bill")
 	bill.GET("", GetBillingEndPoint)
-	
+
 	tracking := g.Group("/tracking")
 	tracking.GET("/all", TrackingEndPoint)
-	
+
 	revanue := g.Group("/revenue")
 	revanue.GET("/all", RevenueEndPoint)
 
 	so_receive := g.Group("/soreceive")
 	so_receive.GET("/all", SOReceiveEndPoint)
-	
+
 	receive_tracking := g.Group("/receive_tracking")
 	receive_tracking.GET("/costsheet", CostSheet_Status)
 	receive_tracking.GET("/invoice", Invoice_Status)
@@ -210,7 +216,7 @@ func InitApiRouter(g *echo.Group) error {
 
 	tracking_costsheet := g.Group("/tracking_costsheet")
 	tracking_costsheet.GET("/Detail", Costsheet_Detail)
-	
+
 	tracking_invoice := g.Group("/tracking_invoice")
 	tracking_invoice.GET("/Detail", SO_Detail)
 
