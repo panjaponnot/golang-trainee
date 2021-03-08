@@ -3,29 +3,29 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"strings"
-	"strconv"
-	"time"
 	"sale_ranking/pkg/util"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
 
-func Reciept_Detail(c echo.Context) error{
+func Reciept_Detail(c echo.Context) error {
 	type Invoice_Data struct {
-		So_number			string	`json:"sonumber" gorm:"column:sonumber"`
-		Invoice_no			string	`json:"invoice_no" gorm:"column:invoice_no"`
-		INCSCDocNo			string	`json:"INCSCDocNo" gorm:"column:INCSCDocNo"`
-		Status				string	`json:"status" gorm:"column:status"`
-		Reason				string	`json:"reason" gorm:"column:reason"`
-		Customer_ID			string	`json:"Customer_ID" gorm:"column:Customer_ID"`
-		Customer_Name		string	`json:"Customer_Name" gorm:"column:Customer_Name"`
-		Sale_team			string	`json:"sale_team" gorm:"column:sale_team"`
-		Sale_name			string	`json:"sale_name" gorm:"column:sale_name"`
-		In_factor			string	`json:"in_factor" gorm:"column:in_factor"`
-		Ex_factor			string	`json:"ex_factor" gorm:"column:ex_factor"`
-		So_amount			string	`json:"so_amount" gorm:"column:so_amount"`
-		Reciept_status		string	`json:"reciept_status" gorm:"column:reciept_status"`
+		So_number      string `json:"sonumber" gorm:"column:sonumber"`
+		Invoice_no     string `json:"invoice_no" gorm:"column:invoice_no"`
+		INCSCDocNo     string `json:"INCSCDocNo" gorm:"column:INCSCDocNo"`
+		Status         string `json:"status" gorm:"column:status"`
+		Reason         string `json:"reason" gorm:"column:reason"`
+		Customer_ID    string `json:"Customer_ID" gorm:"column:Customer_ID"`
+		Customer_Name  string `json:"Customer_Name" gorm:"column:Customer_Name"`
+		Sale_team      string `json:"sale_team" gorm:"column:sale_team"`
+		Sale_name      string `json:"sale_name" gorm:"column:sale_name"`
+		In_factor      string `json:"in_factor" gorm:"column:in_factor"`
+		Ex_factor      string `json:"ex_factor" gorm:"column:ex_factor"`
+		So_amount      string `json:"so_amount" gorm:"column:so_amount"`
+		Reciept_status string `json:"reciept_status" gorm:"column:reciept_status"`
 	}
 
 	var dataRaw []Invoice_Data
@@ -75,24 +75,24 @@ func Reciept_Detail(c echo.Context) error{
 			THEN (DATEDIFF(?,?)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate,smt.PeriodStartDate)+1))
 			ELSE 0 END
 		) so_amount
-		from so_mssql_test smt
+		from so_mssql smt
 		WHERE smt.Active_Inactive = 'Active'`
-		if St_date != "" || En_date != ""{
-			sql = sql+` AND `
-			if St_date != ""{
-				sql = sql+` PeriodStartDate >= '`+St_date+`' AND PeriodStartDate <= '`+En_date+`' `
-				if En_date != "" {
-					sql = sql+` AND `
-				}
+	if St_date != "" || En_date != "" {
+		sql = sql + ` AND `
+		if St_date != "" {
+			sql = sql + ` PeriodStartDate >= '` + St_date + `' AND PeriodStartDate <= '` + En_date + `' `
+			if En_date != "" {
+				sql = sql + ` AND `
 			}
-			if En_date != ""{
-				sql = sql+` PeriodEndDate <= '`+En_date+`' AND PeriodEndDate >= '`+St_date+`' `
-			}
-		}else{
-			St_date = dateFrom.String()
-			En_date = dateTo.String()
 		}
-		sql = sql+` group by smt.sonumber
+		if En_date != "" {
+			sql = sql + ` PeriodEndDate <= '` + En_date + `' AND PeriodEndDate >= '` + St_date + `' `
+		}
+	} else {
+		St_date = dateFrom.String()
+		En_date = dateTo.String()
+	}
+	sql = sql + ` group by smt.sonumber
 	) BL
 	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
 	LEFT JOIN billing_info bi on BL.BLSCDocNo = bi.invoice_no
@@ -100,14 +100,13 @@ func Reciept_Detail(c echo.Context) error{
 	INSTR(CONCAT_WS('|',bi.invoice_no,BL.sonumber,BL.INCSCDocNo,bi.status,bi.reason,BL.Customer_ID,
 	BL.Customer_Name,BL.sale_team,BL.sale_name), ?)`
 
-
-	if err := dbSale.Ctx().Raw(sql,St_date,En_date,St_date,En_date,En_date,St_date,En_date,En_date, 
-		En_date, St_date,En_date,St_date,St_date,St_date,St_date,St_date,En_date, 
-		En_date, St_date,staff_id,search).Scan(&dataRaw).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, St_date, En_date, St_date, En_date, En_date, St_date, En_date, En_date,
+		En_date, St_date, En_date, St_date, St_date, St_date, St_date, St_date, En_date,
+		En_date, St_date, staff_id, search).Scan(&dataRaw).Error; err != nil {
 		errr += 1
 	}
 
 	fmt.Println("--------------------------------")
-	
-	return c.JSON(http.StatusOK,dataRaw)
+
+	return c.JSON(http.StatusOK, dataRaw)
 }

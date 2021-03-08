@@ -115,6 +115,11 @@ func InitApiRouter(g *echo.Group) error {
 	export.GET("/detail_so", GetExcelDetailSoEndPoint)               //**
 	export.GET("/detail_costsheet", GetExcelDetailCostsheetEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด
 
+	export.GET("/tracking_costsheet", GetExcelTrackingCostsheetEndPoint)
+	export.GET("/tracking_invoice", GetExcelTrackingInvoiceEndPoint)
+	export.GET("/tracking_billing", GetExcelTrackingBillingEndPoint)
+	export.GET("/tracking_reciept", GetExcelTrackingRecieptEndPoint)
+
 	report := g.Group("/report")
 	report.GET("/org", GetDataOrgChartEndPoint)
 	report.GET("/pending", GetReportSOPendingEndPoint)
