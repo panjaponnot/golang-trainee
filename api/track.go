@@ -2768,13 +2768,21 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 		CusnameThai string `json:"Customer_ID" gorm:"column:Customer_ID"`
 	}{}
 	status := struct {
-		CompleteFromPaperless  string `json:"Complete_from_paperless" gorm:"column:Complete_from_paperless"`
-		CompleteFromEform      string `json:"Complete_from_eform" gorm:"column:Complete_from_eform"`
-		OnprocessFromEform     string `json:"Onprocess_from_eform" gorm:"column:Onprocess_from_eform"`
-		RejectFromPaperless    string `json:"Reject_from_paperless" gorm:"column:Reject_from_paperless"`
-		RejectFromEform        string `json:"Reject_from_eform" gorm:"column:Reject_from_eform"`
-		CancelFromEform        string `json:"Cancel_from_eform" gorm:"column:Cancel_from_eform"`
-		OnprocessFromPaperless string `json:"Onprocess_from_paperless" gorm:"column:Onprocess_from_paperless"`
+		CompleteFromPaperless  float64 `json:"Complete_from_paperless" gorm:"column:Complete_from_paperless"`
+		CompleteFromEform      float64 `json:"Complete_from_eform" gorm:"column:Complete_from_eform"`
+		OnprocessFromEform     float64 `json:"Onprocess_from_eform" gorm:"column:Onprocess_from_eform"`
+		RejectFromPaperless    float64 `json:"Reject_from_paperless" gorm:"column:Reject_from_paperless"`
+		RejectFromEform        float64 `json:"Reject_from_eform" gorm:"column:Reject_from_eform"`
+		CancelFromEform        float64 `json:"Cancel_from_eform" gorm:"column:Cancel_from_eform"`
+		OnprocessFromPaperless float64 `json:"Onprocess_from_paperless" gorm:"column:Onprocess_from_paperless"`
+
+		CompleteFromPaperlessAmount  float64 `json:"Complete_from_paperless_amount" gorm:"column:Complete_from_paperless_amount"`
+		CompleteFromEformAmount      float64 `json:"Complete_from_eform_amount" gorm:"column:Complete_from_eform_amount"`
+		OnprocessFromEformAmount     float64 `json:"Onprocess_from_eform_amount" gorm:"column:Onprocess_from_eform_amount"`
+		RejectFromPaperlessAmount    float64 `json:"Reject_from_paperless_amount" gorm:"column:Reject_from_paperless_amount"`
+		RejectFromEformAmount        float64 `json:"Reject_from_eform_amount" gorm:"column:Reject_from_eform_amount"`
+		CancelFromEformAmount        float64 `json:"Cancel_from_eform_amount" gorm:"column:Cancel_from_eform_amount"`
+		OnprocessFromPaperlessAmount float64 `json:"Onprocess_from_paperless_amount" gorm:"column:Onprocess_from_paperless_amount"`
 	}{}
 	wg := sync.WaitGroup{}
 	wg.Add(4)
@@ -2914,7 +2922,15 @@ SUM(Onprocess_from_eform) as Onprocess_from_eform,
 SUM(Reject_from_paperless) as Reject_from_paperless,
 SUM(Reject_from_eform) as Reject_from_eform,
 SUM(Cancel_from_eform) as Cancel_from_eform,
-SUM(Onprocess_from_paperless) as Onprocess_from_paperless
+SUM(Onprocess_from_paperless) as Onprocess_from_paperless,
+
+SUM(Complete_from_paperless_amount) as Complete_from_paperless_amount,
+SUM(Complete_from_eform_amount) as Complete_from_eform_amount,
+SUM(Onprocess_from_eform_amount) as Onprocess_from_eform_amount,
+SUM(Reject_from_paperless_amount) as Reject_from_paperless_amount,
+SUM(Reject_from_eform_amount) as Reject_from_eform_amount,
+SUM(Cancel_from_eform_amount) as Cancel_from_eform_amount,
+SUM(Onprocess_from_paperless_amount) as Onprocess_from_paperless_amount
 FROM(
 		SELECT SUM(CASE
 			WHEN status_eform = 'Complete from paperless' THEN 1
@@ -2936,9 +2952,33 @@ FROM(
 		END) Cancel_from_eform,
 		SUM(CASE
 			WHEN status_eform = 'Onprocess from paperless' THEN 1
-		END) Onprocess_from_paperless
+		END) Onprocess_from_paperless,
+		
+
+		SUM(CASE
+			WHEN status_eform = 'Complete from paperless' THEN Total_Revenue_Month
+		END) Complete_from_paperless_amount,
+		SUM(CASE
+			WHEN status_eform = 'Complete from eform' THEN Total_Revenue_Month
+		END) Complete_from_eform_amount,
+			SUM(CASE
+			WHEN status_eform = 'Onprocess from eform' THEN Total_Revenue_Month
+		END) Onprocess_from_eform_amount,
+		SUM(CASE
+			WHEN status_eform = 'Reject from paperless' THEN Total_Revenue_Month
+		END) Reject_from_paperless_amount,
+		 SUM(CASE
+			WHEN status_eform = 'Reject from eform' THEN Total_Revenue_Month
+		END) Reject_from_eform_amount,
+			 SUM(CASE
+			WHEN status_eform = 'Cancel from eform' THEN Total_Revenue_Month
+		END) Cancel_from_eform_amount,
+		SUM(CASE
+			WHEN status_eform = 'Onprocess from paperless' THEN Total_Revenue_Month
+		END) Onprocess_from_paperless_amount
+
 		FROM ( 
-			SELECT status_eform
+			SELECT status_eform,Total_Revenue_Month
 			FROM costsheet_info
 		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
 				 WHERE doc_number_eform <> ''
