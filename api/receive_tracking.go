@@ -3,23 +3,50 @@ package api
 import (
 	"net/http"
 	"sale_ranking/pkg/log"
+	"sale_ranking/pkg/util"
+	"sale_ranking/pkg/server"
 	"strconv"
 	"strings"
-
-	// "time"
 	"sync"
+	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo/v4"
 )
 
 func CostSheet_Status(c echo.Context) error {
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
 	StaffID := strings.TrimSpace(c.QueryParam("staffid"))
+	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	Search := strings.TrimSpace(c.QueryParam("search"))
+
+	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("startdate")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("enddate")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
 	type Costsheet_Data struct {
 		Total_Revenue_Month string `json:"Total_Revenue_Month" gorm:"column:Total_Revenue_Month"`
+	}
+
+	type Users_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+	}
+
+	type Staffs_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+		Staff_child string `json:"staff_child" gorm:"column:staff_child"`
 	}
 
 	dataResult := struct {
@@ -57,6 +84,39 @@ func CostSheet_Status(c echo.Context) error {
 	hasErr := 0
 	wg := sync.WaitGroup{}
 	wg.Add(9)
+	
+	var user_data_raw []Users_Data
+
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, SaleID).Scan(&user_data_raw).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user_data_raw) != 0 {
+		var staffAll []Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.Staff_id)
+		}
+	} else {
+		var staffAll Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, SaleID).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.Staff_child != "" {
+			data := strings.Split(staffAll.Staff_child, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.Staff_id)
+	}
 
 	go func() {
 		var TRM_All float64 = 0.0
@@ -70,26 +130,15 @@ func CostSheet_Status(c echo.Context) error {
 			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
-		where ci.status_eform like '%Complete from paperless%' AND smt.SDPropertyCS28 is not null 
-		AND smt.SDPropertyCS28 not like '' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		where ci.status_eform like '%Complete from paperless%' AND 
+		smt.SDPropertyCS28 is not null AND ci.EmployeeID in (?) AND
+		smt.SDPropertyCS28 not like '' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
-		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?)`
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if St_date != "" || En_date != ""{
-			sql = sql+` AND `
-			if St_date != ""{
-				sql = sql+` ci.StartDate_P1 >= '`+St_date+`' AND ci.StartDate_P1 <= '`+En_date+`' `
-				if En_date != "" {
-					sql = sql+` AND `
-				}
-			}
-			if En_date != ""{
-				sql = sql+` ci.EndDate_P1 <= '`+En_date+`' AND ci.EndDate_P1 >= '`+St_date+`' `
-			}
-		}
-
-		if err := dbSale.Ctx().Raw(sql,StaffID,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -120,25 +169,14 @@ func CostSheet_Status(c echo.Context) error {
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
 		where ci.status_eform like '%Complete from paperless%' AND smt.SDPropertyCS28 is null AND 
-		INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		ci.EmployeeID in (?) AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
-		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?)`
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
 		
-		if St_date != "" || En_date != ""{
-			sql = sql+` AND `
-			if St_date != ""{
-				sql = sql+` ci.StartDate_P1 >= '`+St_date+`' AND ci.StartDate_P1 <= '`+En_date+`' `
-				if En_date != "" {
-					sql = sql+` AND `
-				}
-			}
-			if En_date != ""{
-				sql = sql+` ci.EndDate_P1 <= '`+En_date+`' AND ci.EndDate_P1 >= '`+St_date+`' `
-			}
-		}
 
-		if err := dbSale.Ctx().Raw(sql,StaffID,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -167,12 +205,14 @@ func CostSheet_Status(c echo.Context) error {
 			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
-		where ci.status_eform like '%Complete from eform%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		where ci.status_eform like '%Complete from eform%' AND ci.EmployeeID in (?) AND 
+		INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
-		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?)`
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,StaffID,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -201,12 +241,14 @@ func CostSheet_Status(c echo.Context) error {
 			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
-		where ci.status_eform like '%Onprocess from paperless%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		where ci.status_eform like '%Onprocess from paperless%' AND ci.EmployeeID in (?) AND 
+		INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
-		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) `
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,StaffID,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -235,12 +277,14 @@ func CostSheet_Status(c echo.Context) error {
 			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
-		where ci.status_eform like '%Onprocess from eform%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		where ci.status_eform like '%Onprocess from eform%' AND ci.EmployeeID in (?) AND 
+		INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
-		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) `
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,StaffID,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -269,12 +313,14 @@ func CostSheet_Status(c echo.Context) error {
 			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
-		where ci.status_eform like '%Cancel from paperless%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		where ci.status_eform like '%Cancel from paperless%' AND ci.EmployeeID in (?) 
+		AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
-		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) `
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,StaffID,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -303,12 +349,14 @@ func CostSheet_Status(c echo.Context) error {
 			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
-		where ci.status_eform like '%Cancel from eform%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		where ci.status_eform like '%Cancel from eform%' AND ci.EmployeeID in (?) 
+		AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
-		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) `
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,StaffID,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -337,12 +385,14 @@ func CostSheet_Status(c echo.Context) error {
 			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28
-		where ci.status_eform like '%Reject from paperless%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		where ci.status_eform like '%Reject from paperless%' AND ci.EmployeeID in (?) 
+		AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
-		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) `
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,StaffID,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -371,12 +421,14 @@ func CostSheet_Status(c echo.Context) error {
 			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28
-		where ci.status_eform like '%Reject from eform%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		where ci.status_eform like '%Reject from eform%' AND ci.EmployeeID in (?) 
+		AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
-		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) `
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,StaffID,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -408,14 +460,38 @@ func CostSheet_Status(c echo.Context) error {
 }
 
 func Invoice_Status(c echo.Context) error {
-
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
 	Search := strings.TrimSpace(c.QueryParam("search"))
-	Staff_id := strings.TrimSpace(c.QueryParam("staff_id"))
+	Staffid := strings.TrimSpace(c.QueryParam("staffid"))
+	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
+
+	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("startdate")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("enddate")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
 	type Invoice_Data struct {
 		PeriodAmount float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
+	}
+
+	type Users_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+	}
+
+	type Staffs_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+		Staff_child string `json:"staff_child" gorm:"column:staff_child"`
 	}
 
 	dataCount := struct {
@@ -435,32 +511,55 @@ func Invoice_Status(c echo.Context) error {
 	hasErr := 0
 	wg := sync.WaitGroup{}
 	wg.Add(3)
+
+	var user_data_raw []Users_Data
+	
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, SaleID).Scan(&user_data_raw).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user_data_raw) != 0 {
+		var staffAll []Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.Staff_id)
+		}
+	} else {
+		var staffAll Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, SaleID).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.Staff_child != "" {
+			data := strings.Split(staffAll.Staff_child, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.Staff_id)
+	}
+
 	go func() {
 		var Total_PA float64 = 0.0
 		Count_Invoice := 0
 		var dataRaw []Invoice_Data
 		sql := `select smt.PeriodAmount from so_mssql smt
 		LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-		where smt.GetCN is not null AND smt.GetCN not like '' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+		where smt.GetCN is not null AND smt.GetCN not like '' AND smt.sale_code in (?) AND 
+		INSTR(CONCAT_WS('|', si.staff_id), ?) AND
 		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
 		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?)`
-		if St_date != "" || En_date != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != ""  {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `'`
-				
-			}
-		}
+		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? 
+		and smt.PeriodStartDate <= smt.PeriodEndDate`
 		sql = sql + ` GROUP BY smt.sonumber` 
 
-		if err := dbSale.Ctx().Raw(sql,Staff_id,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,Staffid,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -483,31 +582,20 @@ func Invoice_Status(c echo.Context) error {
 		sql := `select smt.PeriodAmount from so_mssql smt 
 		LEFT JOIN staff_info si on smt.sale_code = si.staff_id 
 		where smt.GetCN is null AND smt.BLSCDocNo is not null AND smt.BLSCDocNo not like '' AND 
-		INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		smt.sale_code in (?) AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
 		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
 		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) 
+		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? 
+		and smt.PeriodEndDate >= ? and smt.PeriodStartDate <= smt.PeriodEndDate
 		OR smt.GetCN like '' AND smt.BLSCDocNo is not null AND smt.BLSCDocNo not like '' AND 
-		INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		smt.sale_code in (?) AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
 		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
 		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?)`
-		if St_date != "" || En_date != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != ""  {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `'`
-				
-			}
-		}
-		sql = sql + ` GROUP BY smt.sonumber`
+		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? 
+		and smt.PeriodEndDate >= ? and smt.PeriodStartDate <= smt.PeriodEndDate`
 
-		if err := dbSale.Ctx().Raw(sql,Staff_id,Search,Staff_id,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,Staffid,Search,dateTo,dateFrom,
+			listId,Staffid,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -529,39 +617,36 @@ func Invoice_Status(c echo.Context) error {
 		var dataRaw []Invoice_Data
 		sql := `select smt.PeriodAmount from so_mssql smt
 		LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-		where smt.GetCN is null AND smt.BLSCDocNo is null AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+		where smt.GetCN is null AND smt.BLSCDocNo is null AND smt.sale_code in (?) AND 
+		INSTR(CONCAT_WS('|', si.staff_id), ?) AND
 		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
 		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?)`
-		if St_date != "" || En_date != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != ""  {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `'`
-				
-			}
-		}
-		sql = sql + ` OR smt.GetCN like '' AND smt.BLSCDocNo is null AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? 
+		and smt.PeriodStartDate <= smt.PeriodEndDate`
+		sql = sql + ` OR smt.GetCN like '' AND smt.BLSCDocNo is null AND smt.sale_code in (?) AND 
+		INSTR(CONCAT_WS('|', si.staff_id), ?) AND
 		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
 		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?)`
-		sql = sql + ` OR smt.GetCN like '' AND smt.BLSCDocNo like '' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? 
+		and smt.PeriodStartDate <= smt.PeriodEndDate`
+		sql = sql + ` OR smt.GetCN like '' AND smt.BLSCDocNo like '' AND smt.sale_code in (?) AND 
+		INSTR(CONCAT_WS('|', si.staff_id), ?) AND
 		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
 		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?)`
-		sql = sql + ` OR smt.GetCN is null AND smt.BLSCDocNo like ''  AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? 
+		and smt.PeriodStartDate <= smt.PeriodEndDate`
+		sql = sql + ` OR smt.GetCN is null AND smt.BLSCDocNo like '' AND smt.sale_code in (?) AND 
+		INSTR(CONCAT_WS('|', si.staff_id), ?) AND
 		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
 		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?)`
+		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? 
+		and smt.PeriodStartDate <= smt.PeriodEndDate`
 		sql = sql + ` GROUP BY smt.sonumber `
 
-		if err := dbSale.Ctx().Raw(sql,Staff_id,Search,Staff_id,Search,Staff_id,
-			Search,Staff_id,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,Staffid,Search,dateTo,dateFrom,
+			listId,Staffid,Search,dateTo,dateFrom,
+			listId,Staffid,Search,dateTo,dateFrom,
+			listId,Staffid,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -592,10 +677,36 @@ func Invoice_Status(c echo.Context) error {
 }
 
 func Billing_Status(c echo.Context) error {
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
-	Staff_id := strings.TrimSpace(c.QueryParam("staffid"))
+	Staffid := strings.TrimSpace(c.QueryParam("staffid"))
 	Search := strings.TrimSpace(c.QueryParam("search"))
+	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
+
+	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("startdate")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("enddate")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+
+	type Staffs_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+		Staff_child string `json:"staff_child" gorm:"column:staff_child"`
+	}
+
+	type Users_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+	}
+
 	type Billing_Data struct {
 		PeriodAmount float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
 	}
@@ -613,6 +724,40 @@ func Billing_Status(c echo.Context) error {
 	hasErr := 0
 	wg := sync.WaitGroup{}
 	wg.Add(2)
+
+	var user_data_raw []Users_Data
+
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, SaleID).Scan(&user_data_raw).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user_data_raw) != 0 {
+		var staffAll []Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.Staff_id)
+		}
+	} else {
+		var staffAll Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, SaleID).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.Staff_child != "" {
+			data := strings.Split(staffAll.Staff_child, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.Staff_id)
+	}
+
 	go func() {
 		var TotalPeriodAmount float64 = 0.0
 		CountBilling := 0
@@ -623,24 +768,13 @@ func Billing_Status(c echo.Context) error {
 			from so_mssql smt
 			LEFT JOIN staff_info si on smt.sale_code = si.staff_id
 			LEFT JOIN billing_info bi on smt.BLSCDocNo = bi.invoice_no
-			where bi.status like '%วางบิลแล้ว%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-			INSTR(CONCAT_WS('|', bi.invoice_no,bi.so_number,bi.status,bi.reason), ?)`
-		
-		if St_date != "" || En_date != ""  {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != ""  {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `' `
-			}
-		}
+			where bi.status like '%วางบิลแล้ว%' AND smt.sale_code in (?) AND 
+			INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+			INSTR(CONCAT_WS('|', bi.invoice_no,bi.so_number,bi.status,bi.reason), ?) 
+			and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? and smt.PeriodStartDate <= smt.PeriodEndDate`
 
 		sql = sql + ` group by smt.sonumber) BL`
-		if err := dbSale.Ctx().Raw(sql,Staff_id,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,Staffid,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -667,24 +801,13 @@ func Billing_Status(c echo.Context) error {
 			from so_mssql smt
 			LEFT JOIN staff_info si on smt.sale_code = si.staff_id
 			LEFT JOIN billing_info bi on smt.BLSCDocNo = bi.invoice_no
-			where bi.status like '%วางไม่ได้%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-			INSTR(CONCAT_WS('|', bi.invoice_no,bi.so_number,bi.status,bi.reason), ?)`
-		
-			if St_date != "" || En_date != ""  {
-				sql = sql + ` AND `
-				if St_date != "" {
-					sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-					if En_date != ""  {
-						sql = sql + ` AND `
-					}
-				}
-				if En_date != "" {
-					sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `' `
-				}
-			}
+			where bi.status like '%วางไม่ได้%' AND smt.sale_code in (?) AND 
+			INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+			INSTR(CONCAT_WS('|', bi.invoice_no,bi.so_number,bi.status,bi.reason), ?) 
+			and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? and smt.PeriodStartDate <= smt.PeriodEndDate`
 		
 		sql = sql + ` group by smt.sonumber) BL`
-		if err := dbSale.Ctx().Raw(sql,Staff_id,Search).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,Staffid,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -715,10 +838,26 @@ func Billing_Status(c echo.Context) error {
 }
 
 func Reciept_Status(c echo.Context) error {
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
-	Staff_id := strings.TrimSpace(c.QueryParam("staffid"))
+	Staffid := strings.TrimSpace(c.QueryParam("staffid"))
+	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	Search := strings.TrimSpace(c.QueryParam("search"))
+
+	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("startdate")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("enddate")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
 	Reciept_Data := []struct {
 		PeriodAmount   float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
@@ -733,6 +872,48 @@ func Reciept_Status(c echo.Context) error {
 		CountReciept      int     `json:"CountReciept"`
 		TotalPeriodAmount float64 `json:"TotalPeriodAmount"`
 		Reciept_status    string  `json:"Reciept_status"`
+	}
+
+	type Staffs_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+		Staff_child string `json:"staff_child" gorm:"column:staff_child"`
+	}
+
+	type Users_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+	}
+
+	var user_data_raw []Users_Data
+
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, SaleID).Scan(&user_data_raw).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user_data_raw) != 0 {
+		var staffAll []Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.Staff_id)
+		}
+	} else {
+		var staffAll Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, SaleID).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.Staff_child != "" {
+			data := strings.Split(staffAll.Staff_child, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.Staff_id)
 	}
 
 	var Reciept_Result_Data []reciept_Result_Data
@@ -763,25 +944,13 @@ func Reciept_Status(c echo.Context) error {
 	from so_mssql smt
 	LEFT JOIN staff_info si on smt.sale_code = si.staff_id
 	LEFT JOIN billing_info bi on smt.BLSCDocNo = bi.invoice_no
-	where bi.status like '%วางบิลแล้ว%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-	INSTR(CONCAT_WS('|', bi.invoice_no,bi.so_number,bi.status,bi.reason), ?)`
-
-	if St_date != "" || En_date != ""  {
-		sql = sql + ` AND `
-		if St_date != "" {
-			sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-			if En_date != ""  {
-				sql = sql + ` AND `
-			}
-		}
-		if En_date != "" {
-			sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `' `
-		}
-	}
-
+	where bi.status like '%วางบิลแล้ว%' AND smt.sale_code in (?) AND
+	INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+	INSTR(CONCAT_WS('|', bi.invoice_no,bi.so_number,bi.status,bi.reason), ?) 
+	and PeriodStartDate <= ? and PeriodEndDate >= ? and PeriodStartDate <= PeriodEndDate`
 	sql = sql + ` GROUP BY smt.sonumber)RE`
 
-	if err := dbSale.Ctx().Raw(sql,Staff_id,Search).Scan(&Reciept_Data).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql,listId,Staffid,Search,dateTo,dateFrom).Scan(&Reciept_Data).Error; err != nil {
 		log.Errorln("GettrackingList error :-", err)
 	}
 
