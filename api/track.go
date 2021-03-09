@@ -3487,8 +3487,10 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 	}
 
 	status := struct {
-		HasBilling string `json:"has_billing" gorm:"column:has_billing"`
-		NoBilling  string `json:"no_billing" gorm:"column:no_billing"`
+		HasBilling       float64 `json:"has_billing" gorm:"column:has_billing"`
+		NoBilling        float64 `json:"no_billing" gorm:"column:no_billing"`
+		HasBillingAmount float64 `json:"has_billing_amount" gorm:"column:has_billing_amount"`
+		NoBillingAmount  float64 `json:"no_billing_amount" gorm:"column:no_billing_amount"`
 	}{}
 
 	cus := []struct {
@@ -3654,7 +3656,9 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 	}()
 	go func() {
 		sql := `SELECT SUM(has_billing) as has_billing,
-		SUM(no_billing) as no_billing
+		SUM(no_billing) as no_billing,
+		SUM(has_billing_amount) as has_billing_amount,
+		SUM(no_billing_amount) as no_billing_amount
 		FROM(
 				SELECT
 					SUM(CASE
@@ -3662,7 +3666,13 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 				END) has_billing,
 				SUM(CASE
 					WHEN status = 'วางไม่ได้' THEN 1
-				END) no_billing
+				END) no_billing,
+				SUM(CASE
+						WHEN status = 'วางบิลแล้ว' THEN TotalContractAmount
+				END) has_billing_amount,
+				SUM(CASE
+						WHEN status = 'วางไม่ได้' THEN TotalContractAmount
+				END) no_billing_amount
 				FROM ( 
 							
 			SELECT 
