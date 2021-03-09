@@ -15,6 +15,8 @@ import (
 )
 
 func CostSheet_Status(c echo.Context) error {
+	Startdate := strings.TrimSpace(c.QueryParam("startdate"))
+	Enddate := strings.TrimSpace(c.QueryParam("enddate"))
 	StaffID := strings.TrimSpace(c.QueryParam("staffid"))
 	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	Search := strings.TrimSpace(c.QueryParam("search"))
@@ -33,6 +35,11 @@ func CostSheet_Status(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+	
+	if Startdate == "" || Enddate == ""{
+		dayStart = 1
+	}
+
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
@@ -460,6 +467,8 @@ func CostSheet_Status(c echo.Context) error {
 }
 
 func Invoice_Status(c echo.Context) error {
+	Startdate := strings.TrimSpace(c.QueryParam("startdate"))
+	Enddate := strings.TrimSpace(c.QueryParam("enddate"))
 	Search := strings.TrimSpace(c.QueryParam("search"))
 	Staffid := strings.TrimSpace(c.QueryParam("staffid"))
 	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
@@ -478,6 +487,11 @@ func Invoice_Status(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+	
+	if Startdate == "" || Enddate == ""{
+		dayStart = 1
+	}
+
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
@@ -677,6 +691,8 @@ func Invoice_Status(c echo.Context) error {
 }
 
 func Billing_Status(c echo.Context) error {
+	Startdate := strings.TrimSpace(c.QueryParam("startdate"))
+	Enddate := strings.TrimSpace(c.QueryParam("enddate"))
 	Staffid := strings.TrimSpace(c.QueryParam("staffid"))
 	Search := strings.TrimSpace(c.QueryParam("search"))
 	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
@@ -695,6 +711,11 @@ func Billing_Status(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+
+	if Startdate == "" || Enddate == ""{
+		dayStart = 1
+	}
+
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
@@ -838,6 +859,8 @@ func Billing_Status(c echo.Context) error {
 }
 
 func Reciept_Status(c echo.Context) error {
+	Startdate := strings.TrimSpace(c.QueryParam("startdate"))
+	Enddate := strings.TrimSpace(c.QueryParam("enddate"))
 	Staffid := strings.TrimSpace(c.QueryParam("staffid"))
 	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	Search := strings.TrimSpace(c.QueryParam("search"))
@@ -856,6 +879,11 @@ func Reciept_Status(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+
+	if Startdate == "" || Enddate == ""{
+		dayStart = 1
+	}
+
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
