@@ -3488,6 +3488,9 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+		dayStart = 1
+	}
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 	so := []struct {
@@ -3871,6 +3874,9 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+		dayStart = 1
+	}
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
@@ -4253,6 +4259,9 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+		dayStart = 1
+	}
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 	var so []SOCus
@@ -5225,6 +5234,9 @@ func GetExcelTrackingCostsheetEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+		dayStart = 1
+	}
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
@@ -5408,6 +5420,9 @@ func GetExcelTrackingInvoiceEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+		dayStart = 1
+	}
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
@@ -5567,6 +5582,9 @@ func GetExcelTrackingBillingEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+		dayStart = 1
+	}
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
@@ -5718,6 +5736,9 @@ func GetExcelTrackingRecieptEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+		dayStart = 1
+	}
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 

@@ -44,6 +44,9 @@ func Invoice_Detail(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+		dayStart = 1
+	}
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
