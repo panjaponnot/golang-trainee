@@ -7,15 +7,22 @@ import (
 	"strconv"
 	"strings"
 	"sale_ranking/pkg/util"
+	"sale_ranking/pkg/server"
 
+	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo/v4"
 )
 
 func Costsheet_Detail(c echo.Context) error{
 	St_date := strings.TrimSpace(c.QueryParam("startdate"))
 	En_date := strings.TrimSpace(c.QueryParam("enddate"))
-	staffid := strings.TrimSpace(c.QueryParam("staff_id"))
+	staffid := strings.TrimSpace(c.QueryParam("staffid"))
+	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	search := strings.TrimSpace(c.QueryParam("search"))
+
+	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
 
 	type Costsheet_Val struct {
 		Doc_number_eform			string `json:"doc_number_eform" gorm:"column:doc_number_eform"`
@@ -36,6 +43,15 @@ func Costsheet_Detail(c echo.Context) error{
 		So_status					string `json:"so_status" gorm:"column:so_status"`
 	}
 
+	type Users_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+	}
+
+	type Staffs_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+		Staff_child string `json:"staff_child" gorm:"column:staff_child"`
+	}
+
 	var errr int = 0
 	var dataRaw []Costsheet_Val
 	ds := time.Now()
@@ -48,8 +64,46 @@ func Costsheet_Detail(c echo.Context) error{
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+	
+	if St_date == "" || En_date == ""{
+		dayStart = 1
+	}
+
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+
+	var user_data_raw []Users_Data
+
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, SaleID).Scan(&user_data_raw).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user_data_raw) != 0 {
+		var staffAll []Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.Staff_id)
+		}
+	} else {
+		var staffAll Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, SaleID).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.Staff_child != "" {
+			data := strings.Split(staffAll.Staff_child, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.Staff_id)
+	}
 
 	sql := `select QW.*
 	from 
@@ -88,37 +142,16 @@ func Costsheet_Detail(c echo.Context) error{
 		where INSTR(CONCAT_WS('|', ci.tracking_id,ci.doc_id,ci.doc_number_eform,ci.Customer_ID,
 		ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,ci.Sale_Team,
 		ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?)
-		and INSTR(CONCAT_WS('|', si.staff_id), ?) `
-	if St_date != "" || En_date != ""{
-		sql = sql+` AND `
-		if St_date != ""{
-			sql = sql+` ci.StartDate_P1 >= '`+St_date+`' AND ci.StartDate_P1 <= '`+En_date+`' `
-			if En_date != "" {
-				sql = sql+` AND `
-			}
-		}
-		if En_date != ""{
-			sql = sql+` ci.EndDate_P1 <= '`+En_date+`' AND ci.EndDate_P1 >= '`+St_date+`' `
-		}
-		sql = sql+`) QW`
-
-		if err := dbSale.Ctx().Raw(sql, St_date,En_date,En_date, St_date,En_date, 
-			En_date,En_date, St_date, En_date,St_date,St_date,St_date,St_date, 
-			St_date, En_date,En_date,St_date,search,staffid).Scan(&dataRaw).Error; err != nil {
-			errr += 1
-			return echo.ErrInternalServerError
-		}
-	}else{
-		sql = sql+`) QW`
-
-		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, 
-			dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, 
-			dateFrom,search,staffid).Scan(&dataRaw).Error; err != nil {
-			errr += 1
-			return echo.ErrInternalServerError
-		}
+		and INSTR(CONCAT_WS('|', si.staff_id), ?) AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? 
+		and ci.StartDate_P1 <= ci.EndDate_P1 and ci.EmployeeID in (?)`
+	sql = sql+`) QW`
+	
+	if err := dbSale.Ctx().Raw(sql,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo, 
+		dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo, 
+		dateTo,dateFrom,search,staffid,dateTo,dateFrom,listId).Scan(&dataRaw).Error; err != nil {
+		errr += 1
 	}
-
+	
 	fmt.Println(dateFrom)
 	fmt.Println(dateTo)
 
