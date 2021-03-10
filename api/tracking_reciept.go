@@ -7,7 +7,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"sale_ranking/pkg/util"
+	"sale_ranking/pkg/server"
 
+	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo/v4"
 )
 
@@ -28,12 +31,26 @@ func Reciept_Detail(c echo.Context) error {
 		Reciept_status string `json:"reciept_status" gorm:"column:reciept_status"`
 	}
 
+	type Users_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+	}
+
+	type Staffs_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+		Staff_child string `json:"staff_child" gorm:"column:staff_child"`
+	}
+
 	var dataRaw []Invoice_Data
 
 	St_date := strings.TrimSpace(c.QueryParam("startdate"))
 	En_date := strings.TrimSpace(c.QueryParam("enddate"))
-	staff_id := strings.TrimSpace(c.QueryParam("staff_id"))
+	staffid := strings.TrimSpace(c.QueryParam("staffid"))
+	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	search := strings.TrimSpace(c.QueryParam("search"))
+
+	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
 
 	var errr int = 0
 	ds := time.Now()
@@ -46,8 +63,46 @@ func Reciept_Detail(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
+
+	if St_date == "" || En_date == ""{
+		dayStart = 1
+	}
+
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+
+	var user_data_raw []Users_Data
+
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, SaleID).Scan(&user_data_raw).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user_data_raw) != 0 {
+		var staffAll []Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.Staff_id)
+		}
+	} else {
+		var staffAll Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, SaleID).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.Staff_child != "" {
+			data := strings.Split(staffAll.Staff_child, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.Staff_id)
+	}
 
 	sql := `select bi.invoice_no,BL.sonumber,BL.INCSCDocNo,bi.status,bi.reason,BL.Customer_ID,BL.Customer_Name,
 	BL.sale_team,BL.sale_name,BL.in_factor,BL.ex_factor,BL.so_amount,
@@ -76,33 +131,22 @@ func Reciept_Detail(c echo.Context) error {
 			ELSE 0 END
 		) so_amount
 		from so_mssql smt
-		WHERE smt.Active_Inactive = 'Active'`
-	if St_date != "" || En_date != "" {
-		sql = sql + ` AND `
-		if St_date != "" {
-			sql = sql + ` PeriodStartDate >= '` + St_date + `' AND PeriodStartDate <= '` + En_date + `' `
-			if En_date != "" {
-				sql = sql + ` AND `
-			}
-		}
-		if En_date != "" {
-			sql = sql + ` PeriodEndDate <= '` + En_date + `' AND PeriodEndDate >= '` + St_date + `' `
-		}
-	} else {
-		St_date = dateFrom.String()
-		En_date = dateTo.String()
-	}
-	sql = sql + ` group by smt.sonumber
+		WHERE smt.Active_Inactive = 'Active'
+		and PeriodStartDate <= ?
+		and PeriodEndDate >= ?
+		and PeriodStartDate <= PeriodEndDate`
+		sql = sql+` group by smt.sonumber
 	) BL
 	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
 	LEFT JOIN billing_info bi on BL.BLSCDocNo = bi.invoice_no
-	WHERE bi.status like '%วางบิลแล้ว%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+	WHERE bi.status like '%วางบิลแล้ว%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
 	INSTR(CONCAT_WS('|',bi.invoice_no,BL.sonumber,BL.INCSCDocNo,bi.status,bi.reason,BL.Customer_ID,
-	BL.Customer_Name,BL.sale_team,BL.sale_name), ?)`
+	BL.Customer_Name,BL.sale_team,BL.sale_name), ?) AND BL.sale_code in (?)`
 
-	if err := dbSale.Ctx().Raw(sql, St_date, En_date, St_date, En_date, En_date, St_date, En_date, En_date,
-		En_date, St_date, En_date, St_date, St_date, St_date, St_date, St_date, En_date,
-		En_date, St_date, staff_id, search).Scan(&dataRaw).Error; err != nil {
+
+	if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo,
+		dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo,
+		dateTo,dateFrom,dateTo,dateFrom,staffid,search,listId).Scan(&dataRaw).Error; err != nil {
 		errr += 1
 	}
 
