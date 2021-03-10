@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"sale_ranking/pkg/util"
 	"sale_ranking/pkg/server"
 
 	"github.com/jinzhu/gorm"

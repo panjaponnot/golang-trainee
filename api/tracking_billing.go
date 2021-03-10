@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"sale_ranking/pkg/util"
 	"sale_ranking/pkg/server"
 
 	"github.com/jinzhu/gorm"
@@ -40,8 +39,8 @@ func Invoice_Detail(c echo.Context) error {
 
 	var dataRaw []Invoice_Data
 
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
+	// St_date := strings.TrimSpace(c.QueryParam("startdate"))
+	// En_date := strings.TrimSpace(c.QueryParam("enddate"))
 	staffid := strings.TrimSpace(c.QueryParam("staffid"))
 	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	search := strings.TrimSpace(c.QueryParam("search"))
