@@ -26,7 +26,6 @@ func SO_Detail(c echo.Context) error{
 		Sale_name			string	`json:"sale_name" gorm:"column:sale_name"`
 		In_factor			string	`json:"in_factor" gorm:"column:in_factor"`
 		Ex_factor			string	`json:"ex_factor" gorm:"column:ex_factor"`
-		Active_so_status	string	`json:"active_so_status" gorm:"column:active_so_status"`
 		So_amount			string	`json:"so_amount" gorm:"column:so_amount"`
 		Inv_status			string	`json:"inv_status" gorm:"column:inv_status"`
 	}
@@ -106,11 +105,6 @@ func SO_Detail(c echo.Context) error{
 
 	sql := `select SOO.sonumber,SOO.BLSCDocNo,SOO.PeriodStartDate,SOO.PeriodEndDate,SOO.Customer_ID,
 	SOO.Customer_Name,SOO.sale_code,SOO.sale_team,SOO.sale_name,SOO.in_factor,SOO.ex_factor,inv_status,
-	(CASE
-		WHEN BLSCDocNo is not null or BLSCDocNo not like ''
-		THEN 'ออก invoice เสร็จสิ้น'
-		ELSE 'ยังไม่ออก invoice'
-	END) active_so_status,
 	(CASE
 		WHEN DATEDIFF(?, ?) = 0
 		THEN 0
