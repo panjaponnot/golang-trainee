@@ -28,6 +28,7 @@ func SO_Detail(c echo.Context) error{
 		Ex_factor			string	`json:"ex_factor" gorm:"column:ex_factor"`
 		Active_so_status	string	`json:"active_so_status" gorm:"column:active_so_status"`
 		So_amount			string	`json:"so_amount" gorm:"column:so_amount"`
+		Inv_status			string	`json:"inv_status" gorm:"column:inv_status"`
 	}
 	
 	type Users_Data struct {
@@ -44,6 +45,7 @@ func SO_Detail(c echo.Context) error{
 	staffid := strings.TrimSpace(c.QueryParam("staffid"))
 	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	search := strings.TrimSpace(c.QueryParam("search"))
+	Status := strings.TrimSpace(c.QueryParam("status"))
 
 	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
@@ -103,7 +105,7 @@ func SO_Detail(c echo.Context) error{
 	}
 
 	sql := `select SOO.sonumber,SOO.BLSCDocNo,SOO.PeriodStartDate,SOO.PeriodEndDate,SOO.Customer_ID,
-	SOO.Customer_Name,SOO.sale_code,SOO.sale_team,SOO.sale_name,SOO.in_factor,SOO.ex_factor,
+	SOO.Customer_Name,SOO.sale_code,SOO.sale_team,SOO.sale_name,SOO.in_factor,SOO.ex_factor,inv_status,
 	(CASE
 		WHEN BLSCDocNo is not null or BLSCDocNo not like ''
 		THEN 'ออก invoice เสร็จสิ้น'
@@ -128,7 +130,16 @@ func SO_Detail(c echo.Context) error{
 	) so_amount
 	FROM (
 		SELECT sonumber,BLSCDocNo,PeriodStartDate,PeriodEndDate,PeriodAmount,Customer_ID,
-		Customer_Name,sale_code,sale_team,sale_name,in_factor,ex_factor 
+		Customer_Name,sale_code,sale_team,sale_name,in_factor,ex_factor,
+		(CASE
+			WHEN GetCN is not null AND GetCN not like '' 
+			THEN 'ลดหนี้' 
+			WHEN GetCN is null AND BLSCDocNo is not null AND BLSCDocNo not like '' 
+			OR GetCN like '' AND BLSCDocNo is not null AND BLSCDocNo not like '' 
+			THEN 'ออก invoice เสร็จสิ้น' 
+			ELSE 'ยังไม่ออก invoice' 
+			END 
+		) inv_status 
 		FROM so_mssql
 		WHERE Active_Inactive = 'Active' and PeriodStartDate <= ? and PeriodEndDate >= ? 
 		and PeriodStartDate <= PeriodEndDate`
@@ -137,11 +148,11 @@ func SO_Detail(c echo.Context) error{
 	LEFT JOIN (select staff_id from staff_info) si on SOO.sale_code = si.staff_id
 	WHERE INSTR(CONCAT_WS('|', si.staff_id), ?) AND
 	INSTR(CONCAT_WS('|', SOO.sonumber,SOO.BLSCDocNo,SOO.Customer_ID,SOO.Customer_Name,SOO.sale_code,
-	SOO.sale_team,SOO.sale_name), ?) AND SOO.sale_code in (?)`
+	SOO.sale_team,SOO.sale_name), ?) AND SOO.sale_code in (?) AND INSTR(CONCAT_WS('|', inv_status), ?)`
 
 	if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo, 
 		dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo, 
-		dateTo,dateFrom,dateTo,dateFrom,staffid,search,listId).Scan(&dataRaw).Error; err != nil {
+		dateTo,dateFrom,dateTo,dateFrom,staffid,search,listId,Status).Scan(&dataRaw).Error; err != nil {
 		errr += 1
 	}
 

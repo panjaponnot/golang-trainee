@@ -19,6 +19,7 @@ func Costsheet_Detail(c echo.Context) error{
 	staffid := strings.TrimSpace(c.QueryParam("staffid"))
 	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	search := strings.TrimSpace(c.QueryParam("search"))
+	Status := strings.TrimSpace(c.QueryParam("status"))
 
 	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
@@ -141,14 +142,14 @@ func Costsheet_Detail(c echo.Context) error{
 		LEFT JOIN staff_info si on ci.EmployeeID = si.staff_id 
 		where INSTR(CONCAT_WS('|', ci.tracking_id,ci.doc_id,ci.doc_number_eform,ci.Customer_ID,
 		ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,ci.Sale_Team,
-		ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?)
+		ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID), ?)
 		and INSTR(CONCAT_WS('|', si.staff_id), ?) AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? 
-		and ci.StartDate_P1 <= ci.EndDate_P1 and ci.EmployeeID in (?)`
+		and ci.StartDate_P1 <= ci.EndDate_P1 and ci.EmployeeID in (?) AND INSTR(CONCAT_WS('|', ci.status_eform), ?)`
 	sql = sql+`) QW`
 	
 	if err := dbSale.Ctx().Raw(sql,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo, 
 		dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo, 
-		dateTo,dateFrom,search,staffid,dateTo,dateFrom,listId).Scan(&dataRaw).Error; err != nil {
+		dateTo,dateFrom,search,staffid,dateTo,dateFrom,listId,Status).Scan(&dataRaw).Error; err != nil {
 		errr += 1
 	}
 	
