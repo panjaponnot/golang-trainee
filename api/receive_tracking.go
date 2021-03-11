@@ -619,7 +619,7 @@ func Invoice_Status(c echo.Context) error {
 		dataCount.Hasinvoice = map[string]interface{}{
 			"Count":  Count_Invoice,
 			"total":  Total_PA,
-			"status": "ออก invoice เสร้จสิ้น",
+			"status": "ออก invoice เสร็จสิ้น",
 		}
 		Counthasinvoice = Count_Invoice
 		totalhasinvoice = Total_PA

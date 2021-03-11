@@ -44,6 +44,7 @@ func Invoice_Detail(c echo.Context) error {
 	staffid := strings.TrimSpace(c.QueryParam("staffid"))
 	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	search := strings.TrimSpace(c.QueryParam("search"))
+	Status := strings.TrimSpace(c.QueryParam("status"))
 
 	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
@@ -131,12 +132,12 @@ func Invoice_Detail(c echo.Context) error {
 	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
 	LEFT JOIN billing_info bi on BL.BLSCDocNo = bi.invoice_no
 	WHERE  INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-	INSTR(CONCAT_WS('|',bi.invoice_no,BL.sonumber,bi.status,bi.reason,BL.Customer_ID,BL.Customer_Name,
-	BL.sale_team,BL.sale_name), ?) AND BL.sale_code in (?)`
+	INSTR(CONCAT_WS('|',bi.invoice_no,BL.sonumber,bi.reason,BL.Customer_ID,BL.Customer_Name,
+	BL.sale_team,BL.sale_name), ?) AND BL.sale_code in (?) AND INSTR(CONCAT_WS('|', bi.status), ?) `
 
 	if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo,
 		dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo,
-		dateTo,dateFrom,dateTo,dateFrom,staffid,search,listId).Scan(&dataRaw).Error; err != nil {
+		dateTo,dateFrom,dateTo,dateFrom,staffid,search,listId,Status).Scan(&dataRaw).Error; err != nil {
 		errr += 1
 	}
 
