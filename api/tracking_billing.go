@@ -102,7 +102,14 @@ func Invoice_Detail(c echo.Context) error{
 		listId = append(listId, staffAll.Staff_id)
 	}
 
-	sql := `select bi.invoice_no,BL.sonumber,bi.status,bi.reason,BL.Customer_ID,BL.Customer_Name,
+	sql := `select bi.invoice_no,BL.sonumber,
+	(CASE 
+		WHEN bi.status is not null AND bi.status not like ''
+		THEN bi.status
+		ELSE 'วางไม่ได้'
+		END
+	) status
+	,bi.reason,BL.Customer_ID,BL.Customer_Name,
 	BL.sale_team,BL.sale_name,BL.in_factor,BL.ex_factor,BL.so_amount
 	from (select *,
 		(CASE
