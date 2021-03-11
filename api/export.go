@@ -5701,7 +5701,7 @@ func GetExcelTrackingBillingEndPoint(c echo.Context) error {
 
 }
 
-func GetExcelTrackingRecieptEndPoint(c echo.Context) error {
+func GetExcelTrackingReceiptEndPoint(c echo.Context) error {
 	type Invoice_Data struct {
 		So_number      string `json:"sonumber" gorm:"column:sonumber"`
 		Invoice_no     string `json:"invoice_no" gorm:"column:invoice_no"`

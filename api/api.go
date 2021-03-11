@@ -80,19 +80,19 @@ func InitApiRouter(g *echo.Group) error {
 
 	track.GET("/doc/cs", GetSOTrackingCsEndPoint) //doc/cs
 
-	track.GET("/detail_reciept", GetDetailReceiptEndPoint)     //
+	track.GET("/detail_receipt", GetDetailReceiptEndPoint)     //
 	track.GET("/detail_billing", GetDetailBillingEndPoint)     //**status
 	track.GET("/detail_invoice", GetDetailInvoiceEndPoint)     //
 	track.GET("/detail_so", GetDetailSoEndPoint)               //**
 	track.GET("/detail_costsheet", GetDetailCostsheetEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด //status
 
-	track.GET("/detail_reciept/change", GetDetailReceiptChangeEndPoint)     //
+	track.GET("/detail_receipt/change", GetDetailReceiptChangeEndPoint)     //
 	track.GET("/detail_billing/change", GetDetailBillingChangeEndPoint)     //
 	track.GET("/detail_invoice/change", GetDetailInvoiceChangeEndPoint)     //
 	track.GET("/detail_so/change", GetDetailSoChangeEndPoint)               //**
 	track.GET("/detail_costsheet/change", GetDetailCostsheetChangeEndPoint) //**ต้องกรอกวันที่ เพราะในdbเขากรอกผิด
 
-	track.GET("/detail_reciept/notchange", GetDetailReceiptNotChangeEndPoint)     //
+	track.GET("/detail_receipt/notchange", GetDetailReceiptNotChangeEndPoint)     //
 	track.GET("/detail_billing/notchange", GetDetailBillingNotChangeEndPoint)     //
 	track.GET("/detail_invoice/notchange", GetDetailInvoiceNotChangeEndPoint)     //
 	track.GET("/detail_so/notchange", GetDetailSoNotChangeEndPoint)               //**
@@ -109,7 +109,7 @@ func InitApiRouter(g *echo.Group) error {
 	export.GET("/ranking/lead", GetReportExcelRankTeamLeadEndPoint)
 	export.GET("/factor/sale/:id", GetReportExcelSaleFactorEndPoint)
 
-	export.GET("/detail_reciept", GetExcelDetailReceiptEndPoint)     //
+	export.GET("/detail_receipt", GetExcelDetailReceiptEndPoint)     //
 	export.GET("/detail_billing", GetExcelDetailBillingEndPoint)     //
 	export.GET("/detail_invoice", GetExcelDetailInvoiceEndPoint)     //
 	export.GET("/detail_so", GetExcelDetailSoEndPoint)               //**
@@ -118,7 +118,7 @@ func InitApiRouter(g *echo.Group) error {
 	export.GET("/tracking_costsheet", GetExcelTrackingCostsheetEndPoint)
 	export.GET("/tracking_invoice", GetExcelTrackingInvoiceEndPoint)
 	export.GET("/tracking_billing", GetExcelTrackingBillingEndPoint)
-	export.GET("/tracking_reciept", GetExcelTrackingRecieptEndPoint)
+	export.GET("/tracking_receipt", GetExcelTrackingReceiptEndPoint)
 
 	report := g.Group("/report")
 	report.GET("/org", GetDataOrgChartEndPoint)
