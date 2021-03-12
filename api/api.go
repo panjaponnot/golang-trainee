@@ -36,11 +36,11 @@ func initDataStore() error {
 		log.Errorln(pkgName, err, "Connect to database quotation error")
 		return err
 	}
-	// dbMssql = core.NewDatabaseMssql(pkgName, "mssql")
-	// if err := dbMssql.Connect(); err != nil {
-	// 	log.Errorln(pkgName, err, "Connect to database sql server error")
-	// 	return err
-	// }
+	dbMssql = core.NewDatabaseMssql(pkgName, "mssql")
+	if err := dbMssql.Connect(); err != nil {
+		log.Errorln(pkgName, err, "Connect to database sql server error")
+		return err
+	}
 	// Redis cache
 	redis = core.NewRedis()
 	if err := redis.Ping(); err != nil {
