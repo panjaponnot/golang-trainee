@@ -472,6 +472,7 @@ func Invoice_Status(c echo.Context) error {
 	Search := strings.TrimSpace(c.QueryParam("search"))
 	Staffid := strings.TrimSpace(c.QueryParam("staffid"))
 	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
+	Status := strings.TrimSpace(c.QueryParam("status"))
 
 	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
@@ -497,6 +498,7 @@ func Invoice_Status(c echo.Context) error {
 
 	type Invoice_Data struct {
 		PeriodAmount float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
+		Inv_status string `json:"inv_status" gorm:"column:inv_status"`
 	}
 
 	type Users_Data struct {
@@ -558,125 +560,71 @@ func Invoice_Status(c echo.Context) error {
 		}
 		listId = append(listId, staffAll.Staff_id)
 	}
-
-	go func() {
-		var Total_PA float64 = 0.0
-		Count_Invoice := 0
-		var dataRaw []Invoice_Data
-		sql := `select smt.PeriodAmount from so_mssql smt
-		LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-		where smt.GetCN is not null AND smt.GetCN not like '' AND smt.sale_code in (?) AND 
-		INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
-		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? 
-		and smt.PeriodStartDate <= smt.PeriodEndDate`
-		sql = sql + ` GROUP BY smt.sonumber` 
-
-		if err := dbSale.Ctx().Raw(sql,listId,Staffid,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
-			hasErr += 1
-		}
-		for _, v := range dataRaw {
-			Total_PA += v.PeriodAmount
-			Count_Invoice += 1
-		}
-		dataCount.Reduce = map[string]interface{}{
-			"Count":  Count_Invoice,
-			"total":  Total_PA,
-			"status": "ลดหนี้",
-		}
-		CountReduce = Count_Invoice
-		totalReduce = Total_PA
-		wg.Done()
-	}()
-	go func() {
 		var dataRaw []Invoice_Data
 		var Total_PA float64 = 0.0
 		Count_Invoice := 0
-		sql := `select smt.PeriodAmount from so_mssql smt 
-		LEFT JOIN staff_info si on smt.sale_code = si.staff_id 
-		where smt.GetCN is null AND smt.BLSCDocNo is not null AND smt.BLSCDocNo not like '' AND 
-		smt.sale_code in (?) AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
-		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
-		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? 
-		and smt.PeriodEndDate >= ? and smt.PeriodStartDate <= smt.PeriodEndDate
-		OR smt.GetCN like '' AND smt.BLSCDocNo is not null AND smt.BLSCDocNo not like '' AND 
-		smt.sale_code in (?) AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
-		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
-		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? 
-		and smt.PeriodEndDate >= ? and smt.PeriodStartDate <= smt.PeriodEndDate`
+		var Total_PA_B float64 = 0.0
+		Count_Invoice_B := 0
+		var Total_PA_C float64 = 0.0
+		Count_Invoice_C := 0
+		sql := `select SOO.PeriodAmount,SOO.inv_status 
+		FROM (
+			SELECT sonumber,BLSCDocNo,PeriodStartDate,PeriodEndDate,PeriodAmount,Customer_ID,
+			Customer_Name,sale_code,sale_team,sale_name,in_factor,ex_factor,Active_Inactive,
+			(CASE
+				WHEN GetCN is null AND BLSCDocNo is not null AND BLSCDocNo not like '' 
+				OR GetCN like '' AND BLSCDocNo is not null AND BLSCDocNo not like '' 
+				THEN 'ออก invoice เสร็จสิ้น'
+				WHEN GetCN is not null AND GetCN not like '' 
+				THEN 'ลดหนี้'  
+				ELSE 'ยังไม่ออก invoice' 
+				END 
+			) inv_status 
+			FROM so_mssql ) SOO
+		LEFT JOIN (select staff_id from staff_info) si on SOO.sale_code = si.staff_id 
+		WHERE SOO.Active_Inactive = 'Active' and SOO.PeriodStartDate <= ? and SOO.PeriodEndDate >= ? 
+		and SOO.PeriodStartDate <= SOO.PeriodEndDate AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+		INSTR(CONCAT_WS('|', SOO.sonumber,SOO.BLSCDocNo,SOO.Customer_ID,SOO.Customer_Name,SOO.sale_code,
+		SOO.sale_team,SOO.sale_name), ?) AND SOO.sale_code in (?) AND INSTR(CONCAT_WS('|', inv_status), ?) 
+		group by SOO.sonumber`
 
-		if err := dbSale.Ctx().Raw(sql,listId,Staffid,Search,dateTo,dateFrom,
-			listId,Staffid,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,Staffid,Search,listId,Status).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
-		for _, v := range dataRaw {
-			Total_PA += v.PeriodAmount
-			Count_Invoice += 1
+		for i, v := range dataRaw {
+			if dataRaw[i].Inv_status == "ออก invoice เสร็จสิ้น"{
+				Total_PA += v.PeriodAmount
+				Count_Invoice += 1
+			}else if dataRaw[i].Inv_status == "ลดหนี้"{
+				Total_PA_B += v.PeriodAmount
+				Count_Invoice_B += 1
+			}else if dataRaw[i].Inv_status == "ยังไม่ออก invoice"{
+				Total_PA_C += v.PeriodAmount
+				Count_Invoice_C += 1
+			}
 		}
 		dataCount.Hasinvoice = map[string]interface{}{
 			"Count":  Count_Invoice,
 			"total":  Total_PA,
 			"status": "ออก invoice เสร็จสิ้น",
 		}
-		Counthasinvoice = Count_Invoice
-		totalhasinvoice = Total_PA
-		wg.Done()
-	}()
-	go func() {
-		var Total_PA float64 = 0.0
-		Count_Invoice := 0
-		var dataRaw []Invoice_Data
-		sql := `select smt.PeriodAmount from so_mssql smt
-		LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-		where smt.GetCN is null AND smt.BLSCDocNo is null AND smt.sale_code in (?) AND 
-		INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
-		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? 
-		and smt.PeriodStartDate <= smt.PeriodEndDate`
-		sql = sql + ` OR smt.GetCN like '' AND smt.BLSCDocNo is null AND smt.sale_code in (?) AND 
-		INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
-		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? 
-		and smt.PeriodStartDate <= smt.PeriodEndDate`
-		sql = sql + ` OR smt.GetCN like '' AND smt.BLSCDocNo like '' AND smt.sale_code in (?) AND 
-		INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
-		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? 
-		and smt.PeriodStartDate <= smt.PeriodEndDate`
-		sql = sql + ` OR smt.GetCN is null AND smt.BLSCDocNo like '' AND smt.sale_code in (?) AND 
-		INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-		INSTR(CONCAT_WS('|', smt.sonumber,smt.SDPropertyCS28,smt.SoWebStatus,smt.BLSCDocNo,smt.GetCN,
-		smt.INCSCDocNo,smt.Customer_ID,smt.Customer_Name,smt.sale_code,smt.sale_name,smt.sale_team,
-		smt.sale_lead,smt.Active_Inactive,smt.so_refer), ?) and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? 
-		and smt.PeriodStartDate <= smt.PeriodEndDate`
-		sql = sql + ` GROUP BY smt.sonumber `
-
-		if err := dbSale.Ctx().Raw(sql,listId,Staffid,Search,dateTo,dateFrom,
-			listId,Staffid,Search,dateTo,dateFrom,
-			listId,Staffid,Search,dateTo,dateFrom,
-			listId,Staffid,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
-			hasErr += 1
-		}
-		for _, v := range dataRaw {
-			Total_PA += v.PeriodAmount
-			Count_Invoice += 1
+		dataCount.Reduce = map[string]interface{}{
+			"Count":  Count_Invoice_B,
+			"total":  Total_PA_B,
+			"status": "ลดหนี้",
 		}
 		dataCount.Noinvoice = map[string]interface{}{
-			"Count":  Count_Invoice,
-			"total":  Total_PA,
+			"Count":  Count_Invoice_C,
+			"total":  Total_PA_C,
 			"status": "ยังไม่ออก invoice",
 		}
-		Countnoinvoice = Count_Invoice
-		totalnoinvoice = Total_PA
-		wg.Done()
-	}()
-	wg.Wait()
+		Counthasinvoice = Count_Invoice
+		totalhasinvoice = Total_PA
+		CountReduce = Count_Invoice_B
+		totalReduce = Total_PA_B
+		Countnoinvoice = Count_Invoice_C
+		totalnoinvoice = Total_PA_C
+
 
 	status := map[string]interface{}{
 		"total": totalhasinvoice + totalReduce + totalnoinvoice,
@@ -696,6 +644,7 @@ func Billing_Status(c echo.Context) error {
 	Staffid := strings.TrimSpace(c.QueryParam("staffid"))
 	Search := strings.TrimSpace(c.QueryParam("search"))
 	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
+	Status := strings.TrimSpace(c.QueryParam("status"))
 
 	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
@@ -720,7 +669,7 @@ func Billing_Status(c echo.Context) error {
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
 	type Staffs_Data struct {
-		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+		Staff_id 	string `json:"staff_id" gorm:"column:staff_id"`
 		Staff_child string `json:"staff_child" gorm:"column:staff_child"`
 	}
 
@@ -730,6 +679,7 @@ func Billing_Status(c echo.Context) error {
 
 	type Billing_Data struct {
 		PeriodAmount float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
+		Status 		 string `json:"status" gorm:"column:status"`
 	}
 	dataCount := struct {
 		Hasbilling interface{}
@@ -743,9 +693,6 @@ func Billing_Status(c echo.Context) error {
 	totalnobilling := float64(0)
 
 	hasErr := 0
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-
 	var user_data_raw []Users_Data
 
 	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, SaleID).Scan(&user_data_raw).Error; err != nil {
@@ -779,72 +726,78 @@ func Billing_Status(c echo.Context) error {
 		listId = append(listId, staffAll.Staff_id)
 	}
 
-	go func() {
-		var TotalPeriodAmount float64 = 0.0
-		CountBilling := 0
-		var dataRaw []Billing_Data
-		sql := `select BL.PeriodAmount
-			from
-			(select smt.PeriodAmount,smt.INCSCDocNo
-			from so_mssql smt
-			LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-			LEFT JOIN billing_info bi on smt.BLSCDocNo = bi.invoice_no
-			where bi.status like '%วางบิลแล้ว%' AND smt.sale_code in (?) AND 
-			INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-			INSTR(CONCAT_WS('|', bi.invoice_no,bi.so_number,bi.status,bi.reason), ?) 
-			and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? and smt.PeriodStartDate <= smt.PeriodEndDate`
-
-		sql = sql + ` group by smt.sonumber) BL`
-		if err := dbSale.Ctx().Raw(sql,listId,Staffid,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
-			hasErr += 1
-		}
-		for _, v := range dataRaw {
+	var TotalPeriodAmount float64 = 0.0
+	CountBilling := 0
+	var TotalPeriodAmountB float64 = 0.0
+	CountBillingB := 0
+	var dataRaw []Billing_Data
+	sql := `select BL.PeriodAmount,
+	(CASE 
+		WHEN bi.status is not null AND bi.status not like ''
+		THEN bi.status
+		ELSE 'วางไม่ได้'
+		END
+	) status
+	from (select *,
+		(CASE
+			WHEN DATEDIFF(?, ?) = 0
+			THEN 0
+			WHEN DATEDIFF(smt.PeriodEndDate,smt.PeriodStartDate)+1 = 0
+			THEN 0
+			WHEN smt.PeriodStartDate >= ? AND smt.PeriodStartDate <= ? AND smt.PeriodEndDate <= ?
+			THEN PeriodAmount
+			WHEN smt.PeriodStartDate >= ? AND smt.PeriodStartDate <= ? AND smt.PeriodEndDate > ?
+			THEN (DATEDIFF(?, smt.PeriodStartDate)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate, smt.PeriodStartDate)+1))
+			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate <= ? AND smt.PeriodEndDate > ?
+			THEN (DATEDIFF(smt.PeriodEndDate, ?)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate, smt.PeriodStartDate)+1))
+			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate = ?
+			THEN 1*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate, smt.PeriodStartDate)+1))
+			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate > ?
+			THEN (DATEDIFF(?,?)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate,smt.PeriodStartDate)+1))
+			ELSE 0 END
+		) so_amount
+		from so_mssql smt
+		WHERE smt.Active_Inactive = 'Active' 
+		AND smt.sonumber is not null 
+		AND smt.sonumber not like '' 
+		and PeriodStartDate <= ? 
+		and PeriodEndDate >= ? 
+		and PeriodStartDate <= PeriodEndDate
+		group by smt.sonumber
+	) BL
+	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
+	LEFT JOIN billing_info bi on BL.BLSCDocNo = bi.invoice_no
+	WHERE  INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+	INSTR(CONCAT_WS('|',bi.invoice_no,BL.sonumber,bi.reason,BL.Customer_ID,BL.Customer_Name,
+	BL.sale_team,BL.sale_name), ?) AND BL.sale_code in (?) AND INSTR(CONCAT_WS('|', bi.status), ?) `
+	if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo, 
+		dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo, 
+		dateTo,dateFrom,dateTo,dateFrom,Staffid,Search,listId,Status).Scan(&dataRaw).Error; err != nil {
+		hasErr += 1
+	}
+	for i, v := range dataRaw {
+		if dataRaw[i].Status == "วางบิลแล้ว"{
 			TotalPeriodAmount += v.PeriodAmount
 			CountBilling += 1
+		}else if dataRaw[i].Status == "วางไม่ได้"{
+			TotalPeriodAmountB += v.PeriodAmount
+			CountBillingB += 1
 		}
-		dataCount.Hasbilling = map[string]interface{}{
-			"Count":  CountBilling,
-			"total":  TotalPeriodAmount,
-			"status": "วางบิลแล้ว",
-		}
-
-		Counthasbilling = CountBilling
-		totalhasbilling = TotalPeriodAmount
-		wg.Done()
-	}()
-	go func() {
-		var TotalPeriodAmount float64 = 0.0
-		CountBilling := 0
-		var dataRaw []Billing_Data
-		sql := `select BL.PeriodAmount
-			from
-			(select smt.PeriodAmount,smt.INCSCDocNo
-			from so_mssql smt
-			LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-			LEFT JOIN billing_info bi on smt.BLSCDocNo = bi.invoice_no
-			where bi.status like '%วางไม่ได้%' AND smt.sale_code in (?) AND 
-			INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-			INSTR(CONCAT_WS('|', bi.invoice_no,bi.so_number,bi.status,bi.reason), ?) 
-			and smt.PeriodStartDate <= ? and smt.PeriodEndDate >= ? and smt.PeriodStartDate <= smt.PeriodEndDate`
-		
-		sql = sql + ` group by smt.sonumber) BL`
-		if err := dbSale.Ctx().Raw(sql,listId,Staffid,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
-			hasErr += 1
-		}
-		for _, v := range dataRaw {
-			TotalPeriodAmount += v.PeriodAmount
-			CountBilling += 1
-		}
-		dataCount.Nobilling = map[string]interface{}{
-			"Count":  CountBilling,
-			"total":  TotalPeriodAmount,
-			"status": "วางไม่ได้",
-		}
-		Countnobilling = CountBilling
-		totalnobilling = TotalPeriodAmount
-		wg.Done()
-	}()
-	wg.Wait()
+	}
+	dataCount.Hasbilling = map[string]interface{}{
+		"Count":  CountBilling,
+		"total":  TotalPeriodAmount,
+		"status": "วางบิลแล้ว",
+	}
+	dataCount.Nobilling = map[string]interface{}{
+		"Count":  CountBillingB,
+		"total":  TotalPeriodAmountB,
+		"status": "วางไม่ได้",
+	}
+	Counthasbilling = CountBilling
+	totalhasbilling = TotalPeriodAmount
+	Countnobilling = CountBillingB
+	totalnobilling = TotalPeriodAmountB
 
 	status := map[string]interface{}{
 		"total": totalhasbilling + totalnobilling,
@@ -864,6 +817,7 @@ func Reciept_Status(c echo.Context) error {
 	Staffid := strings.TrimSpace(c.QueryParam("staffid"))
 	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	Search := strings.TrimSpace(c.QueryParam("search"))
+	Status := strings.TrimSpace(c.QueryParam("status"))
 
 	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
@@ -883,24 +837,19 @@ func Reciept_Status(c echo.Context) error {
 	if Startdate == "" || Enddate == ""{
 		dayStart = 1
 	}
-
+	
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
-	Reciept_Data := []struct {
-		PeriodAmount   float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
-		Count_Reciept  int     `json:"Count_Reciept" gorm:"column:Count_Reciept"`
-		PeriodAmountF  float64 `json:"PeriodAmountF" gorm:"column:PeriodAmountF"`
-		Count_RecieptF int     `json:"Count_RecieptF" gorm:"column:Count_RecieptF"`
-		// Invoice_status_name	string	`json:"invoice_status_name" gorm:"column:invoice_status_name"`
-		// INCSCDocNo			string	`json:"INCSCDocNo" gorm:"column:INCSCDocNo"`
-	}{}
-
 	type reciept_Result_Data struct {
-		CountReciept      int     `json:"CountReciept"`
-		TotalPeriodAmount float64 `json:"TotalPeriodAmount"`
-		Reciept_status    string  `json:"Reciept_status"`
+		PeriodAmount 	  float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
+		Reciept_status    string  `json:"reciept_status" gorm:"column:reciept_status"`
 	}
+
+	dataCount := struct {
+		HasReciept interface{}
+		NoReciept  interface{}
+	}{}
 
 	type Staffs_Data struct {
 		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
@@ -944,66 +893,68 @@ func Reciept_Status(c echo.Context) error {
 		listId = append(listId, staffAll.Staff_id)
 	}
 
-	var Reciept_Result_Data []reciept_Result_Data
+	var TotalPeriodAmount float64 = 0.0
+	CountReciept := 0
+	var TotalPeriodAmountB float64 = 0.0
+	CountRecieptB := 0
+	var dataRaw []reciept_Result_Data
 
-	sql := `select
-	SUM(CASE
-		WHEN RE.INCSCDocNo is not null AND RE.INCSCDocNo NOT LIKE ''
-		THEN RE.PeriodAmount
-		ELSE NULL
-	END) as PeriodAmount, 
-	COUNT(CASE
-		WHEN RE.INCSCDocNo is not null AND RE.INCSCDocNo NOT LIKE ''
-		THEN 1
-		ELSE NULL
-	END) as Count_Reciept,
-	SUM(CASE
-		WHEN RE.INCSCDocNo is null OR RE.INCSCDocNo LIKE ''
-		THEN RE.PeriodAmount
-		ELSE NULL
-	END) as PeriodAmountF, 
-	COUNT(CASE
-		WHEN RE.INCSCDocNo is null OR RE.INCSCDocNo LIKE ''
-		THEN 1
-		ELSE NULL
-	END) as Count_RecieptF
+	sql := `select BL.PeriodAmount,BL.reciept_status
 	from
-	(select smt.PeriodAmount,smt.INCSCDocNo
-	from so_mssql smt
-	LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-	LEFT JOIN billing_info bi on smt.BLSCDocNo = bi.invoice_no
-	where bi.status like '%วางบิลแล้ว%' AND smt.sale_code in (?) AND
-	INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-	INSTR(CONCAT_WS('|', bi.invoice_no,bi.so_number,bi.status,bi.reason), ?) 
-	and PeriodStartDate <= ? and PeriodEndDate >= ? and PeriodStartDate <= PeriodEndDate`
-	sql = sql + ` GROUP BY smt.sonumber)RE`
+	(select *,
+		(CASE
+			WHEN INCSCDocNo is not null AND INCSCDocNo not like ''
+			THEN 'วาง Reciept เสร็จสิ้น'
+			ELSE 'ยังไม่วาง Reciept'
+			END
+		) reciept_status 
+		from so_mssql smt
+		WHERE smt.Active_Inactive = 'Active'
+		and PeriodStartDate <= ? 
+		and PeriodEndDate >= ? 
+		and PeriodStartDate <= PeriodEndDate
+		group by smt.sonumber
+	) BL
+	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
+	LEFT JOIN billing_info bi on BL.BLSCDocNo = bi.invoice_no
+	WHERE bi.status like '%วางบิลแล้ว%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+	INSTR(CONCAT_WS('|',bi.invoice_no,BL.sonumber,BL.INCSCDocNo,bi.status,bi.reason,BL.Customer_ID,
+	BL.Customer_Name,BL.sale_team,BL.sale_name), ?) AND BL.sale_code in (?) AND 
+	INSTR(CONCAT_WS('|', BL.reciept_status), ?)`
 
-	if err := dbSale.Ctx().Raw(sql,listId,Staffid,Search,dateTo,dateFrom).Scan(&Reciept_Data).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,Staffid,Search,listId,Status).Scan(&dataRaw).Error; err != nil {
 		log.Errorln("GettrackingList error :-", err)
 	}
 
-	DataA := reciept_Result_Data{
-		CountReciept:      Reciept_Data[0].Count_Reciept,
-		TotalPeriodAmount: Reciept_Data[0].PeriodAmount,
-		Reciept_status:    "วาง Reciept เสร็จสิ้น",
+	for i, v := range dataRaw {
+		if dataRaw[i].Reciept_status == "วาง Reciept เสร็จสิ้น"{
+			TotalPeriodAmount += v.PeriodAmount
+			CountReciept += 1
+		}else if dataRaw[i].Reciept_status == "ยังไม่วาง Reciept"{
+			TotalPeriodAmountB += v.PeriodAmount
+			CountRecieptB += 1
+		}
 	}
-	Reciept_Result_Data = append(Reciept_Result_Data, DataA)
 
-	DataB := reciept_Result_Data{
-		CountReciept:      Reciept_Data[0].Count_RecieptF,
-		TotalPeriodAmount: Reciept_Data[0].PeriodAmountF,
-		Reciept_status:    "ยังไม่วาง Reciept",
+	dataCount.HasReciept = map[string]interface{}{
+		"Count":  CountReciept,
+		"total":  TotalPeriodAmount,
+		"status": "วาง Reciept เสร็จสิ้น",
 	}
-	Reciept_Result_Data = append(Reciept_Result_Data, DataB)
-
+	dataCount.NoReciept = map[string]interface{}{
+		"Count":  CountRecieptB,
+		"total":  TotalPeriodAmountB,
+		"status": "ยังไม่วาง Reciept",
+	}
 	status := map[string]interface{}{
-		"total": Reciept_Data[0].PeriodAmount + Reciept_Data[0].PeriodAmountF,
-		"count": Reciept_Data[0].Count_RecieptF + Reciept_Data[0].Count_Reciept,
+		"total": TotalPeriodAmount+TotalPeriodAmountB,
+		"count": CountReciept + CountRecieptB,
 	}
 	Result := map[string]interface{}{
-		"detail": Reciept_Result_Data,
+		"detail": dataCount,
 		"total":  status,
 	}
+
 	return c.JSON(http.StatusOK, Result)
 
 	// return c.JSON(http.StatusOK, Reciept_Result_Data)

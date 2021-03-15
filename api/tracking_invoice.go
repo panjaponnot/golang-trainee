@@ -124,25 +124,22 @@ func SO_Detail(c echo.Context) error{
 	) so_amount
 	FROM (
 		SELECT sonumber,BLSCDocNo,PeriodStartDate,PeriodEndDate,PeriodAmount,Customer_ID,
-		Customer_Name,sale_code,sale_team,sale_name,in_factor,ex_factor,
+		Customer_Name,sale_code,sale_team,sale_name,in_factor,ex_factor,Active_Inactive,
 		(CASE
+			WHEN GetCN like '' AND BLSCDocNo is not null AND BLSCDocNo not like '' 
+			THEN 'ออก invoice เสร็จสิ้น'
 			WHEN GetCN is not null AND GetCN not like '' 
-			THEN 'ลดหนี้' 
-			WHEN GetCN is null AND BLSCDocNo is not null AND BLSCDocNo not like '' 
-			OR GetCN like '' AND BLSCDocNo is not null AND BLSCDocNo not like '' 
-			THEN 'ออก invoice เสร็จสิ้น' 
+			THEN 'ลดหนี้'  
 			ELSE 'ยังไม่ออก invoice' 
 			END 
 		) inv_status 
-		FROM so_mssql
-		WHERE Active_Inactive = 'Active' and PeriodStartDate <= ? and PeriodEndDate >= ? 
-		and PeriodStartDate <= PeriodEndDate`
-		sql = sql +` group by sonumber
-	) SOO
-	LEFT JOIN (select staff_id from staff_info) si on SOO.sale_code = si.staff_id
-	WHERE INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+		FROM so_mssql ) SOO
+	LEFT JOIN (select staff_id from staff_info) si on SOO.sale_code = si.staff_id 
+	WHERE SOO.Active_Inactive = 'Active' and SOO.PeriodStartDate <= ? and SOO.PeriodEndDate >= ? 
+	and SOO.PeriodStartDate <= SOO.PeriodEndDate AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
 	INSTR(CONCAT_WS('|', SOO.sonumber,SOO.BLSCDocNo,SOO.Customer_ID,SOO.Customer_Name,SOO.sale_code,
-	SOO.sale_team,SOO.sale_name), ?) AND SOO.sale_code in (?) AND INSTR(CONCAT_WS('|', inv_status), ?)`
+	SOO.sale_team,SOO.sale_name), ?) AND SOO.sale_code in (?) AND INSTR(CONCAT_WS('|', inv_status), ?)
+	group by SOO.sonumber`
 
 	if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo, 
 		dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo, 
