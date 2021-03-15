@@ -128,7 +128,8 @@ func Costsheet_Detail(c echo.Context) error{
 			 	ELSE 0 END
 			) as so_amount,
 			(CASE
-				WHEN smt.sonumber is not null AND smt.sonumber not like ''
+				WHEN smt.SDPropertyCS28 is not null AND smt.SDPropertyCS28 not like '' 
+				AND ci.status_eform like '%Complete from paperless%'
 				THEN 'ออก so เสร็จสิ้น'
 				ELSE 'ยังไม่ออก so'
 			END) so_status
@@ -146,7 +147,8 @@ func Costsheet_Detail(c echo.Context) error{
 		and INSTR(CONCAT_WS('|', si.staff_id), ?) AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? 
 		and ci.StartDate_P1 <= ci.EndDate_P1 and ci.EmployeeID in (?) `
 	if Status == "SO Compelte" || Status == "ออก so เสร็จสิ้น"{
-		sql = sql+` AND smt.sonumber is not null AND smt.sonumber not like ''`
+		sql = sql+` smt.SDPropertyCS28 is not null AND smt.SDPropertyCS28 not like '' 
+		AND ci.status_eform like '%Complete from paperless%'`
 	}else{
 		sql = sql+` AND INSTR(CONCAT_WS('|', ci.status_eform), ?) `
 	}
