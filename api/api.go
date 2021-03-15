@@ -139,6 +139,7 @@ func InitApiRouter(g *echo.Group) error {
 
 	quotation := g.Group("/quotation")
 	quotation.GET("/summary", GetSummaryQuotationEndPoint)
+	quotation.GET("/status", GetStatusSummaryQuotationEndPoint)
 	quotation.PUT("/log", CreateLogQuotationEndPoint)
 	quotation.GET("/log/:id", GetLogQuotationEndPoint)
 

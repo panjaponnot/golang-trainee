@@ -70,7 +70,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		month = fmt.Sprintf("AND MONTH(start_date) = %s", strings.TrimSpace(c.QueryParam("month")))
 	}
 	if strings.TrimSpace(c.QueryParam("search")) != "" {
-		search = fmt.Sprintf("AND INSTR(CONCAT_WS('|', company_name, service, employee_code, salename, team,quatation_th.doc_number_eform), '%s')", strings.TrimSpace(c.QueryParam("search")))
+		search = fmt.Sprintf("AND INSTR(CONCAT_WS('|', company_name, service, employee_code, salename, team,quatation_th.doc_number_eform,status), '%s')", strings.TrimSpace(c.QueryParam("search")))
 	}
 	if strings.TrimSpace(c.QueryParam("staff_id")) != "" {
 		StaffId = fmt.Sprintf("AND INSTR(CONCAT_WS('|', employee_code), '%s')", strings.TrimSpace(c.QueryParam("staff_id")))
@@ -84,7 +84,9 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		Count        int
 		Total        interface{}
 		Cancel       interface{}
-		NotWork      interface{}
+		// NotWork      interface{}
+		Extent      interface{}
+		Expire      interface{}
 		Win          interface{}
 		Lost         interface{}
 		Resend       interface{}
@@ -94,6 +96,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		CountService interface{}
 		CountCompany interface{}
 		CountType    interface{}
+		Reason    interface{}
 		CountTeam    interface{}
 	}{}
 
@@ -133,7 +136,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(13)
+	wg.Add(15)
 	go func() {
 		// cancle
 		var dataRaw []QuotationJoin
@@ -214,44 +217,76 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		// not work
+// 		// not work not use
+// 		var dataRaw []QuotationJoin
+// 		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th
+// 		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+// 		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
+// WHERE quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
+// AND (total IS NOT NULL OR total_discount IS NOT NULL) AND sales_approve.status_sale IS NULL
+// AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, StaffId)
+// 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
+// 			hasErr += 1
+// 		}
+
+// 		TotalPrice := float64(0)
+// 		for _, v := range dataRaw {
+// 			TotalPrice += v.TotalPrice
+// 		}
+// 		dataCount.NotWork = map[string]interface{}{
+// 			"total_price": TotalPrice,
+// 			"count":       len(dataRaw),
+// 		}
+		
+// 		wg.Done()
+
+//Extent
 		var dataRaw []QuotationJoin
 		sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th
 		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
 		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
-WHERE quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
+WHERE sales_approve.status_sale = 'Extent'
 AND (total IS NOT NULL OR total_discount IS NOT NULL) AND sales_approve.status_sale IS NULL
 AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, StaffId)
 		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 
-		// if len(dataRaw) > (page * 20) {
-		// 	start := (page - 1) * 20
-		// 	end := (page * 20)
 		TotalPrice := float64(0)
 		for _, v := range dataRaw {
 			TotalPrice += v.TotalPrice
 		}
-		dataCount.NotWork = map[string]interface{}{
+		dataCount.Extent = map[string]interface{}{
 			"total_price": TotalPrice,
 			"count":       len(dataRaw),
 		}
-		// } else {
-		// 	start := (page * 20) - (20)
-		// 	TotalPrice := float64(0)
-		// 	for _, v := range dataRaw[start:] {
-		// 		TotalPrice += v.TotalPrice
-		// 	}
-		// 	dataCount.NotWork = map[string]interface{}{
-		// 		"total_price": TotalPrice,
-		// 		"count":       len(dataRaw),
-		// 	}
-		// }
-
-		// dataCount.NotWork = len(dataRaw)
+		
 		wg.Done()
 	}()
+	go func() {
+		//Expire
+				var dataRaw []QuotationJoin
+				sql := fmt.Sprintf(`SELECT *,(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price FROM quatation_th
+				LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+				ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
+		WHERE sales_approve.status_sale = 'Expire'
+		AND (total IS NOT NULL OR total_discount IS NOT NULL) AND sales_approve.status_sale IS NULL
+		AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, StaffId)
+				if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
+					hasErr += 1
+				}
+		
+				TotalPrice := float64(0)
+				for _, v := range dataRaw {
+					TotalPrice += v.TotalPrice
+				}
+				dataCount.Expire = map[string]interface{}{
+					"total_price": TotalPrice,
+					"count":       len(dataRaw),
+				}
+				
+				wg.Done()
+			}()
 	go func() {
 		// win
 		var dataRaw []QuotationJoin
@@ -425,6 +460,41 @@ AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, S
 		wg.Done()
 	}()
 	go func() {
+		//reason
+		// var dataRaw []struct {
+		// 	TotalPrice float64 `json:"total_price"`
+		// 	TotalType  int     `json:"total_reason"`
+		// 	Type       string  `json:"reason"`
+		// }
+		// sql := fmt.Sprintf(`SELECT SUM(CASE WHEN total IS NULL THEN total_discount ELSE total end) as total_price,COUNT(reason) as total_reason,reason FROM quatation_th
+		// LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		// ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
+		// WHERE  quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL AND (total IS NOT NULL OR total_discount IS NOT NULL)
+		// AND YEAR(start_date) = ? %s %s %s %s %s  GROUP BY reason`, textStaffId, quarter, month, search, StaffId)
+		// if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
+		// 	hasErr += 1
+		// }
+		// dataCount.Reason = dataRaw
+		// wg.Done()
+
+		var dataRaw []struct {
+			TotalReason int    `json:"total_reason_resend" gorm:"column:total_reason_resend"`
+			Reason      string `json:"reason"`
+		}
+		sql := fmt.Sprintf(`SELECT sales_approve.reason,COUNT(sales_approve.reason) as total_reason_resend FROM quatation_th
+		LEFT JOIN (SELECT doc_number_eform,reason,status as status_sale FROM sales_approve) as sales_approve
+		ON quatation_th.doc_number_eform = sales_approve.doc_number_eform
+		WHERE sales_approve.reason IS NOT NULL
+		AND quatation_th.doc_number_eform IS NOT NULL AND employee_code IS NOT NULL
+		AND (total IS NOT NULL OR total_discount IS NOT NULL)
+		AND YEAR(start_date) = ? %s %s %s %s %s  GROUP BY sales_approve.reason`, textStaffId, quarter, month, search, StaffId)
+		if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
+			hasErr += 1
+		}
+		dataCount.Reason = dataRaw
+		wg.Done()
+	}()
+	go func() {
 		// count service
 		var dataRaw []struct {
 			TotalPrice float64 `json:"total_price"`
@@ -516,7 +586,9 @@ AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, S
 			"cancel":    dataCount.Cancel,
 			"win":       dataCount.Win,
 			"lost":      dataCount.Lost,
-			"not_check": dataCount.NotWork,
+			// "not_check": dataCount.NotWork,
+			"extent": dataCount.Extent,
+			"expire": dataCount.Expire,
 			"resend":    dataCount.Resend,
 			// "total_all":    dataCount.Resend,
 			// "total_win":    dataCount.Resend,
@@ -530,9 +602,28 @@ AND YEAR(start_date) = ? %s %s %s %s %s`, textStaffId, quarter, month, search, S
 		"service":       dataCount.CountService,
 		"company":       dataCount.CountCompany,
 		"type":          dataCount.CountType,
+		"reason_all":          dataCount.Reason,
 		"team":          dataCount.CountTeam,
 	}
 	return c.JSON(http.StatusOK, dataResult)
+}
+
+func GetStatusSummaryQuotationEndPoint(c echo.Context) error {
+
+		var dataRaw []struct {
+			Status string    `json:"status" gorm:"column:status"`
+		}
+		var dataRawStatus []string
+		sql := fmt.Sprintf(`SELECT DISTINCT status FROM sales_approve`)
+		if err := dbQuataion.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select status error"})
+		}
+
+		for _, v := range dataRaw {
+			dataRawStatus = append(dataRawStatus,v.Status)
+		}
+
+	return c.JSON(http.StatusOK, dataRawStatus)
 }
 
 func CreateLogQuotationEndPoint(c echo.Context) error {
