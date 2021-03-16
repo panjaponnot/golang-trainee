@@ -63,12 +63,19 @@ func SO_Detail(c echo.Context) error{
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
 
+	dateFrom :=  ""
+	dateTo := ""
+
 	if St_date == "" || En_date == ""{
 		dayStart = 1
+		dateFromA := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+		dateToA := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+		dateFrom =  dateFromA.String()
+		dateTo = dateToA.String()
+	}else{
+		dateFrom = St_date
+		dateTo = En_date
 	}
-
-	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
-	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
 	var user_data_raw []Users_Data
 
@@ -135,15 +142,19 @@ func SO_Detail(c echo.Context) error{
 		) inv_status 
 		FROM so_mssql ) SOO
 	LEFT JOIN (select staff_id from staff_info) si on SOO.sale_code = si.staff_id 
-	WHERE SOO.Active_Inactive = 'Active' and SOO.PeriodStartDate <= ? and SOO.PeriodEndDate >= ? 
-	and SOO.PeriodStartDate <= SOO.PeriodEndDate AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+	WHERE SOO.Active_Inactive = 'Active' and 
+	SOO.PeriodStartDate >= ? and SOO.PeriodStartDate <= ?
+	AND SOO.PeriodEndDate >= ? and SOO.PeriodEndDate <= ?
+	and SOO.PeriodStartDate <= SOO.PeriodEndDate 
+	AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
 	INSTR(CONCAT_WS('|', SOO.sonumber,SOO.BLSCDocNo,SOO.Customer_ID,SOO.Customer_Name,SOO.sale_code,
 	SOO.sale_team,SOO.sale_name), ?) AND SOO.sale_code in (?) AND INSTR(CONCAT_WS('|', inv_status), ?)
 	group by SOO.sonumber`
 
-	if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo, 
-		dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo, 
-		dateTo,dateFrom,dateTo,dateFrom,staffid,search,listId,Status).Scan(&dataRaw).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql,
+		dateFrom, dateTo,dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, 
+		dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom,dateFrom,dateTo,dateFrom,dateTo,
+		staffid,search,listId,Status).Scan(&dataRaw).Error; err != nil {
 		errr += 1
 	}
 

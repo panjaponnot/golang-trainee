@@ -64,12 +64,19 @@ func Reciept_Detail(c echo.Context) error{
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
 
+	dateFrom :=  ""
+	dateTo := ""
+
 	if St_date == "" || En_date == ""{
 		dayStart = 1
+		dateFromA := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+		dateToA := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+		dateFrom =  dateFromA.String()
+		dateTo = dateToA.String()
+	}else{
+		dateFrom = St_date
+		dateTo = En_date
 	}
-
-	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
-	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
 	var user_data_raw []Users_Data
 
@@ -132,9 +139,9 @@ func Reciept_Detail(c echo.Context) error{
 		) reciept_status 
 		from so_mssql smt
 		WHERE smt.Active_Inactive = 'Active'
-		and PeriodStartDate <= ? 
-		and PeriodEndDate >= ? 
-		and PeriodStartDate <= PeriodEndDate`
+		AND PeriodStartDate >= ? and PeriodStartDate <= ?
+		AND PeriodEndDate >= ? and PeriodEndDate <= ?
+		AND PeriodStartDate <= PeriodEndDate`
 		sql = sql+` group by smt.sonumber
 	) BL
 	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
@@ -144,10 +151,9 @@ func Reciept_Detail(c echo.Context) error{
 	BL.Customer_Name,BL.sale_team,BL.sale_name), ?) AND BL.sale_code in (?) AND 
 	INSTR(CONCAT_WS('|', BL.reciept_status), ?)`
 
-
 	if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo, 
 		dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo, 
-		dateTo,dateFrom,dateTo,dateFrom,staffid,search,listId,Status).Scan(&dataRaw).Error; err != nil {
+		dateTo,dateFrom,dateFrom,dateTo,dateFrom,dateTo,staffid,search,listId,Status).Scan(&dataRaw).Error; err != nil {
 		errr += 1
 	}
 
