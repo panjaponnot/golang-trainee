@@ -39,8 +39,8 @@ func Invoice_Detail(c echo.Context) error {
 
 	var dataRaw []Invoice_Data
 
-	// St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	// En_date := strings.TrimSpace(c.QueryParam("enddate"))
+	St_date := strings.TrimSpace(c.QueryParam("startdate"))
+	En_date := strings.TrimSpace(c.QueryParam("enddate"))
 	staffid := strings.TrimSpace(c.QueryParam("staffid"))
 	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	search := strings.TrimSpace(c.QueryParam("search"))
@@ -53,10 +53,10 @@ func Invoice_Detail(c echo.Context) error {
 	var errr int = 0
 	ds := time.Now()
 	de := time.Now()
-	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("startdate")), 10); err == nil {
+	if f, err := strconv.ParseFloat((St_date), 10); err == nil {
 		ds = time.Unix(util.ConvertTimeStamp(f), 0)
 	}
-	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("enddate")), 10); err == nil {
+	if f, err := strconv.ParseFloat((En_date), 10); err == nil {
 		de = time.Unix(util.ConvertTimeStamp(f), 0)
 	}
 	yearStart, monthStart, dayStart := ds.Date()

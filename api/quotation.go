@@ -74,7 +74,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		search = fmt.Sprintf("AND INSTR(CONCAT_WS('|', company_name, service, employee_code, salename, team,quatation_th.doc_number_eform,status), '%s')", strings.TrimSpace(c.QueryParam("search")))
 	}
 	if strings.TrimSpace(c.QueryParam("status")) != "" {
-		status = fmt.Sprintf("AND INSTR(CONCAT_WS('|', status), '%s')", strings.TrimSpace(c.QueryParam("status")))
+		status = fmt.Sprintf("AND INSTR(CONCAT_WS('|', status_sale), '%s')", strings.TrimSpace(c.QueryParam("status")))
 	}
 	if strings.TrimSpace(c.QueryParam("staff_id")) != "" {
 		StaffId = fmt.Sprintf("AND INSTR(CONCAT_WS('|', employee_code), '%s')", strings.TrimSpace(c.QueryParam("staff_id")))
@@ -241,7 +241,7 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 // 			"total_price": TotalPrice,
 // 			"count":       len(dataRaw),
 // 		}
-		
+
 // 		wg.Done()
 
 //Extent
@@ -264,7 +264,7 @@ AND YEAR(start_date) = ? %s %s %s %s %s %s`, textStaffId, quarter, month, search
 			"total_price": TotalPrice,
 			"count":       len(dataRaw),
 		}
-		
+
 		wg.Done()
 	}()
 	go func() {
@@ -279,7 +279,7 @@ AND YEAR(start_date) = ? %s %s %s %s %s %s`, textStaffId, quarter, month, search
 				if err := dbQuataion.Ctx().Raw(sql, year).Scan(&dataRaw).Error; err != nil {
 					hasErr += 1
 				}
-		
+
 				TotalPrice := float64(0)
 				for _, v := range dataRaw {
 					TotalPrice += v.TotalPrice
@@ -288,7 +288,7 @@ AND YEAR(start_date) = ? %s %s %s %s %s %s`, textStaffId, quarter, month, search
 					"total_price": TotalPrice,
 					"count":       len(dataRaw),
 				}
-				
+
 				wg.Done()
 			}()
 	go func() {
