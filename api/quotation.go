@@ -71,10 +71,10 @@ func GetSummaryQuotationEndPoint(c echo.Context) error {
 		month = fmt.Sprintf("AND MONTH(start_date) = %s", strings.TrimSpace(c.QueryParam("month")))
 	}
 	if strings.TrimSpace(c.QueryParam("search")) != "" {
-		search = fmt.Sprintf("AND INSTR(CONCAT_WS('|', company_name, service, employee_code, salename, team,quatation_th.doc_number_eform,status), '%s')", strings.TrimSpace(c.QueryParam("search")))
+		search = fmt.Sprintf("AND INSTR(CONCAT_WS('|', company_name, service, employee_code, salename, team,quatation_th.doc_number_eform,status_sale), '%s')", strings.TrimSpace(c.QueryParam("search")))
 	}
 	if strings.TrimSpace(c.QueryParam("status")) != "" {
-		status = fmt.Sprintf("AND INSTR(CONCAT_WS('|', status), '%s')", strings.TrimSpace(c.QueryParam("status")))
+		status = fmt.Sprintf("AND INSTR(CONCAT_WS('|', status_sale), '%s')", strings.TrimSpace(c.QueryParam("status")))
 	}
 	if strings.TrimSpace(c.QueryParam("staff_id")) != "" {
 		StaffId = fmt.Sprintf("AND INSTR(CONCAT_WS('|', employee_code), '%s')", strings.TrimSpace(c.QueryParam("staff_id")))
