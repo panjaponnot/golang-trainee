@@ -36,12 +36,19 @@ func CostSheet_Status(c echo.Context) error {
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
 	
+	dateFrom :=  ""
+	dateTo := ""
+
 	if Startdate == "" || Enddate == ""{
 		dayStart = 1
+		dateFromA := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+		dateToA := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+		dateFrom =  dateFromA.String()
+		dateTo = dateToA.String()
+	}else{
+		dateFrom = Startdate
+		dateTo = Enddate
 	}
-
-	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
-	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
 	type Costsheet_Data struct {
 		Total_Revenue_Month string `json:"Total_Revenue_Month" gorm:"column:Total_Revenue_Month"`
@@ -143,9 +150,11 @@ func CostSheet_Status(c echo.Context) error {
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
 		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
-		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -180,10 +189,12 @@ func CostSheet_Status(c echo.Context) error {
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
 		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
-		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 		
 
-		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -217,9 +228,11 @@ func CostSheet_Status(c echo.Context) error {
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
 		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
-		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -253,9 +266,11 @@ func CostSheet_Status(c echo.Context) error {
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
 		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
-		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -289,9 +304,11 @@ func CostSheet_Status(c echo.Context) error {
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
 		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
-		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -325,9 +342,11 @@ func CostSheet_Status(c echo.Context) error {
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
 		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
-		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -361,9 +380,11 @@ func CostSheet_Status(c echo.Context) error {
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
 		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
-		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -397,9 +418,11 @@ func CostSheet_Status(c echo.Context) error {
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
 		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
-		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -433,9 +456,11 @@ func CostSheet_Status(c echo.Context) error {
 		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
 		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
 		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
-		AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? and ci.StartDate_P1 <= ci.EndDate_P1`
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateTo,dateFrom).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -489,12 +514,19 @@ func Invoice_Status(c echo.Context) error {
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
 	
+	dateFrom :=  ""
+	dateTo := ""
+
 	if Startdate == "" || Enddate == ""{
 		dayStart = 1
+		dateFromA := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+		dateToA := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+		dateFrom =  dateFromA.String()
+		dateTo = dateToA.String()
+	}else{
+		dateFrom = Startdate
+		dateTo = Enddate
 	}
-
-	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
-	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
 	type Invoice_Data struct {
 		PeriodAmount float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
@@ -582,13 +614,17 @@ func Invoice_Status(c echo.Context) error {
 			) inv_status 
 			FROM so_mssql ) SOO
 		LEFT JOIN (select staff_id from staff_info) si on SOO.sale_code = si.staff_id 
-		WHERE SOO.Active_Inactive = 'Active' and SOO.PeriodStartDate <= ? and SOO.PeriodEndDate >= ? 
-		and SOO.PeriodStartDate <= SOO.PeriodEndDate AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+		WHERE SOO.Active_Inactive = 'Active' and 
+		SOO.PeriodStartDate >= ? and SOO.PeriodStartDate <= ?
+		AND SOO.PeriodEndDate >= ? and SOO.PeriodEndDate <= ?
+		and SOO.PeriodStartDate <= SOO.PeriodEndDate 
+		AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
 		INSTR(CONCAT_WS('|', SOO.sonumber,SOO.BLSCDocNo,SOO.Customer_ID,SOO.Customer_Name,SOO.sale_code,
 		SOO.sale_team,SOO.sale_name), ?) AND SOO.sale_code in (?) AND INSTR(CONCAT_WS('|', inv_status), ?) 
 		group by SOO.sonumber`
 
-		if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,Staffid,Search,listId,Status).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,dateFrom,dateTo,dateFrom,dateTo,
+			Staffid,Search,listId,Status).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for i, v := range dataRaw {
@@ -661,12 +697,19 @@ func Billing_Status(c echo.Context) error {
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
 
+	dateFrom :=  ""
+	dateTo := ""
+
 	if Startdate == "" || Enddate == ""{
 		dayStart = 1
+		dateFromA := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+		dateToA := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+		dateFrom =  dateFromA.String()
+		dateTo = dateToA.String()
+	}else{
+		dateFrom = Startdate
+		dateTo = Enddate
 	}
-
-	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
-	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
 	type Staffs_Data struct {
 		Staff_id 	string `json:"staff_id" gorm:"column:staff_id"`
@@ -759,10 +802,10 @@ func Billing_Status(c echo.Context) error {
 		from so_mssql smt
 		WHERE smt.Active_Inactive = 'Active' 
 		AND smt.sonumber is not null 
-		AND smt.sonumber not like '' 
-		and PeriodStartDate <= ? 
-		and PeriodEndDate >= ? 
-		and PeriodStartDate <= PeriodEndDate
+		AND smt.sonumber not like ''
+		AND PeriodStartDate >= ? and PeriodStartDate <= ?
+		AND PeriodEndDate >= ? and PeriodEndDate <= ?
+		AND PeriodStartDate <= PeriodEndDate
 		group by smt.sonumber
 	) BL
 	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
@@ -772,7 +815,7 @@ func Billing_Status(c echo.Context) error {
 	BL.sale_team,BL.sale_name), ?) AND BL.sale_code in (?) AND INSTR(CONCAT_WS('|', bi.status), ?) `
 	if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo, 
 		dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo, 
-		dateTo,dateFrom,dateTo,dateFrom,Staffid,Search,listId,Status).Scan(&dataRaw).Error; err != nil {
+		dateTo,dateFrom,dateFrom,dateTo,dateFrom,dateTo,Staffid,Search,listId,Status).Scan(&dataRaw).Error; err != nil {
 		hasErr += 1
 	}
 	for i, v := range dataRaw {
@@ -834,12 +877,19 @@ func Reciept_Status(c echo.Context) error {
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
 
+	dateFrom :=  ""
+	dateTo := ""
+
 	if Startdate == "" || Enddate == ""{
 		dayStart = 1
+		dateFromA := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+		dateToA := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+		dateFrom =  dateFromA.String()
+		dateTo = dateToA.String()
+	}else{
+		dateFrom = Startdate
+		dateTo = Enddate
 	}
-	
-	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
-	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
 	type reciept_Result_Data struct {
 		PeriodAmount 	  float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
@@ -910,9 +960,9 @@ func Reciept_Status(c echo.Context) error {
 		) reciept_status 
 		from so_mssql smt
 		WHERE smt.Active_Inactive = 'Active'
-		and PeriodStartDate <= ? 
-		and PeriodEndDate >= ? 
-		and PeriodStartDate <= PeriodEndDate
+		AND PeriodStartDate >= ? and PeriodStartDate <= ?
+		AND PeriodEndDate >= ? and PeriodEndDate <= ?
+		AND PeriodStartDate <= PeriodEndDate
 		group by smt.sonumber
 	) BL
 	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
@@ -922,7 +972,8 @@ func Reciept_Status(c echo.Context) error {
 	BL.Customer_Name,BL.sale_team,BL.sale_name), ?) AND BL.sale_code in (?) AND 
 	INSTR(CONCAT_WS('|', BL.reciept_status), ?)`
 
-	if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,Staffid,Search,listId,Status).Scan(&dataRaw).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql,dateFrom,dateTo,dateFrom,dateTo,
+		Staffid,Search,listId,Status).Scan(&dataRaw).Error; err != nil {
 		log.Errorln("GettrackingList error :-", err)
 	}
 

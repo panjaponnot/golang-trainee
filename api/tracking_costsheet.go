@@ -66,12 +66,19 @@ func Costsheet_Detail(c echo.Context) error{
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
 	
+	dateFrom :=  ""
+	dateTo := ""
+
 	if St_date == "" || En_date == ""{
 		dayStart = 1
+		dateFromA := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+		dateToA := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+		dateFrom =  dateFromA.String()
+		dateTo = dateToA.String()
+	}else{
+		dateFrom = St_date
+		dateTo = En_date
 	}
-
-	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
-	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
 	var user_data_raw []Users_Data
 
@@ -144,8 +151,11 @@ func Costsheet_Detail(c echo.Context) error{
 		where INSTR(CONCAT_WS('|', ci.tracking_id,ci.doc_id,ci.doc_number_eform,ci.Customer_ID,
 		ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,ci.Sale_Team,
 		ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID), ?)
-		and INSTR(CONCAT_WS('|', si.staff_id), ?) AND ci.StartDate_P1 <= ? and ci.EndDate_P1 >= ? 
-		and ci.StartDate_P1 <= ci.EndDate_P1 and ci.EmployeeID in (?) `
+		and INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1
+		and ci.EmployeeID in (?) `
 	if Status == "SO Compelte" || Status == "ออก so เสร็จสิ้น"{
 		sql = sql+` smt.SDPropertyCS28 is not null AND smt.SDPropertyCS28 not like '' 
 		AND ci.status_eform like '%Complete from paperless%'`
@@ -157,13 +167,15 @@ func Costsheet_Detail(c echo.Context) error{
 	if Status == "SO Compelte" || Status == "ออก so เสร็จสิ้น"{
 		if err := dbSale.Ctx().Raw(sql,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo, 
 			dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo, 
-			dateTo,dateFrom,search,staffid,dateTo,dateFrom,listId).Scan(&dataRaw).Error; err != nil {
+			dateTo,dateFrom,search,staffid,dateFrom,dateTo,dateFrom,
+			dateTo,listId).Scan(&dataRaw).Error; err != nil {
 			errr += 1
 		}
 	}else{
 		if err := dbSale.Ctx().Raw(sql,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo, 
 			dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo, 
-			dateTo,dateFrom,search,staffid,dateTo,dateFrom,listId,Status).Scan(&dataRaw).Error; err != nil {
+			dateTo,dateFrom,search,staffid,dateFrom,dateTo,dateFrom,
+			dateTo,listId,Status).Scan(&dataRaw).Error; err != nil {
 			errr += 1
 		}
 	}
