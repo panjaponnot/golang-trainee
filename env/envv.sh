@@ -1,10 +1,10 @@
 export DB_SALE_HOST=172.24.7.243
 export DB_SALE_USERNAME=root
-export DB_SALE_NAME=ratingscoring_test1
+export DB_SALE_NAME=ratingscoring
 export DB_SALE_PASSWORD=mis@Pass01
 export DB_QUOTATION_HOST=203.154.135.51
 export DB_QUOTATION_USERNAME=root
-export DB_QUOTATION_NAME=quatation_test03
+export DB_QUOTATION_NAME=quatation
 export DB_QUOTATION_PASSWORD=118E84FDC1207D817492A
 export DB_QUOTATION_PORT=3313
 export DB_MSSQL_HOST=203.150.11.51
