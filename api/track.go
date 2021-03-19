@@ -103,7 +103,7 @@ func GetTrackingInvoiceEndPoint(c echo.Context) error {
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate
-					
+
 					) sub_data
 				) so_group
 				WHERE so_amount <> 0 group by sonumber
@@ -178,7 +178,7 @@ func GetTrackingInvoiceEndPoint(c echo.Context) error {
 						WHERE Active_Inactive = 'Active' and BLSCDocNo = ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate
-						
+
 					) sub_data
 				) so_group
 				WHERE so_amount <> 0 group by sonumber
@@ -253,7 +253,7 @@ func GetTrackingInvoiceEndPoint(c echo.Context) error {
 						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate
-						
+
 					) sub_data
 				) so_group
 				WHERE so_amount <> 0 group by sonumber
@@ -413,7 +413,7 @@ func GetDocTrackingInvoiceEndPoint(c echo.Context) error {
 						and PeriodStartDate <= PeriodEndDate
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
-						
+
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 						group by sonumber
 						;`
@@ -492,7 +492,7 @@ func GetDocTrackingInvoiceEndPoint(c echo.Context) error {
 
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', Customer_ID, Customer_Name, sale_code,BLSCDocNo), ?)
-						
+
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 					) sub_data
 				) so_group
@@ -915,7 +915,7 @@ func GetTrackingBillingEndPoint(c echo.Context) error {
 						) as so_amount
 					FROM (
 						SELECT * FROM so_mssql
-						WHERE Active_Inactive = 'Active' 
+						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?)
 					) sub_data
@@ -988,7 +988,7 @@ func GetTrackingBillingEndPoint(c echo.Context) error {
 						) as so_amount
 					FROM (
 						SELECT * FROM so_mssql
-						WHERE Active_Inactive = 'Active' 
+						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?)
 					) sub_data
@@ -1061,7 +1061,7 @@ func GetTrackingBillingEndPoint(c echo.Context) error {
 						) as so_amount
 					FROM (
 						SELECT * FROM so_mssql
-						WHERE Active_Inactive = 'Active' 
+						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?)
 					) sub_data
@@ -1767,7 +1767,7 @@ func GetTrackingReceiptEndPoint(c echo.Context) error {
 						) as so_amount
 					FROM (
 						SELECT * FROM so_mssql
-						WHERE Active_Inactive = 'Active' 
+						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) and INCSCDocNo <> ''
 					) sub_data
@@ -1843,7 +1843,7 @@ func GetTrackingReceiptEndPoint(c echo.Context) error {
 						) as so_amount
 					FROM (
 						SELECT * FROM so_mssql
-						WHERE Active_Inactive = 'Active' 
+						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) and INCSCDocNo = ''
 					) sub_data
@@ -2080,7 +2080,7 @@ func GetSOTrackingReceiptEndPoint(c echo.Context) error {
 					sum(PeriodAmount) as amount
 	 			FROM so_mssql
 				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active' 
+						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) and INCSCDocNo <> ''
 						and sale_code in (?)
@@ -2383,7 +2383,7 @@ func GetSOTrackingReceiptCsEndPoint(c echo.Context) error {
 					sum(PeriodAmount) as amount
 	 			FROM so_mssql
 				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active' 
+						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
 						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) and INCSCDocNo <> ''
 						and sale_code in (?)
@@ -2632,7 +2632,7 @@ func GetSOTrackingCsEndPoint(c echo.Context) error {
 			ELSE 0 END
 		) as so_amount,
 		sum(Total_Revenue_Month) as amount,
-		sum(COALESCE(Int_INET, 0))/100 as in_factor, 
+		sum(COALESCE(Int_INET, 0))/100 as in_factor,
 		sum((COALESCE(Ext_JV, 0) + COALESCE(Ext, 0)))/100 as ex_factor
 		FROM costsheet_info
 		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
@@ -2856,7 +2856,7 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 			ELSE 0 END
 		) as so_amount,
 		sum(Total_Revenue_Month) as amount,
-		sum(COALESCE(Int_INET, 0))/100 as in_factor, 
+		sum(COALESCE(Int_INET, 0))/100 as in_factor,
 		sum((COALESCE(Ext_JV, 0) + COALESCE(Ext, 0)))/100 as ex_factor
 		FROM costsheet_info
 		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
@@ -2878,10 +2878,10 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, 
+		sql := `SELECT sum(amount) as amount,
 		AVG(in_factor)/100 as in_factor,
 		AVG(ex_factor)/100 as ex_factor,
-		(sum(amount)/sum(amount_engcost)) as SaleFactors , 
+		(sum(amount)/sum(amount_engcost)) as SaleFactors ,
 		SUM(so_amount) as pro_rate
 		from (
 			SELECT
@@ -2899,8 +2899,8 @@ func GetDetailCostsheetEndPoint(c echo.Context) error {
 				FROM (
 					SELECT
 					doc_number_eform,StartDate_P1,EndDate_P1,Customer_ID,Cusname_thai,
-					EmployeeID,	Sales_Name,Sale_Team,Total_Revenue_Month, SaleFactors, 
-					COALESCE(Int_INET, 0) as in_factor, 
+					EmployeeID,	Sales_Name,Sale_Team,Total_Revenue_Month, SaleFactors,
+					COALESCE(Int_INET, 0) as in_factor,
 					(COALESCE(Ext_JV, 0) + COALESCE(Ext, 0)) as ex_factor,
 						(case
 							when Total_Revenue_Month is not null and SaleFactors is not null then Total_Revenue_Month/SaleFactors
@@ -3005,7 +3005,7 @@ FROM(
 		SUM(CASE
 			WHEN status_eform = 'Onprocess from paperless' THEN 1
 		END) Onprocess_from_paperless,
-		
+
 
 		SUM(CASE
 			WHEN status_eform = 'Complete from paperless' THEN Total_Revenue_Month
@@ -3029,7 +3029,7 @@ FROM(
 			WHEN status_eform = 'Onprocess from paperless' THEN Total_Revenue_Month
 		END) Onprocess_from_paperless_amount
 
-		FROM ( 
+		FROM (
 			SELECT status_eform,Total_Revenue_Month
 			FROM costsheet_info
 		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
@@ -3216,9 +3216,9 @@ func GetDetailSoEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, 
+		sql := `SELECT sum(amount) as amount,
 		AVG(in_factor) as in_factor,
-		AVG(ex_factor) as ex_factor, 
+		AVG(ex_factor) as ex_factor,
 		SUM(so_amount) as pro_rate,
 		(sum(amount)/sum(amount_engcost)) as sale_factor
 		from (
@@ -3230,7 +3230,7 @@ func GetDetailSoEndPoint(c echo.Context) error {
 				FROM (
 					SELECT
 						SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,	
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,
 						(case
 							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
 							else 0 end
@@ -3442,8 +3442,8 @@ func GetDetailInvoiceEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT 
-		sum(amount) as amount, 
+		sql := `SELECT
+		sum(amount) as amount,
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor,
 		SUM(so_amount) as pro_rate,
@@ -3693,7 +3693,7 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, 
+		sql := `SELECT sum(amount) as amount,
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor,
 		sum(ex_factor) as sum_ef, SUM(so_amount) as pro_rate,
@@ -3772,9 +3772,9 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 				SUM(CASE
 						WHEN status = 'วางไม่ได้' THEN TotalContractAmount
 				END) no_billing_amount
-				FROM ( 
-							
-			SELECT 
+				FROM (
+
+			SELECT
 						status,TotalContractAmount
 					 FROM billing_info
 					  JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
@@ -3799,7 +3799,7 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `		
+		sql := `
 			SELECT distinct Customer_ID
 					 FROM billing_info
 					  JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
@@ -4017,9 +4017,9 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 					sum(PeriodAmount) as amount
 	 			FROM so_mssql
 				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active' 
+						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
+						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?)
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail), ?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
@@ -4035,7 +4035,7 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 	}()
 	go func() {
 		sql := `SELECT
-		sum(amount) as amount, 
+		sum(amount) as amount,
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor,
 		SUM(so_amount) as pro_rate,
@@ -4074,7 +4074,7 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
+						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?)
 
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail), ?)
@@ -4096,9 +4096,9 @@ func GetDetailReceiptEndPoint(c echo.Context) error {
 		sqlSum := `	SELECT distinct Customer_ID
 	 			FROM so_mssql
 				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active' 
+						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
+						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?)
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail), ?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
@@ -4282,8 +4282,8 @@ func GetDetailReceiptChangeEndPoint(c echo.Context) error {
 	wg.Add(2)
 	go func() {
 
-		sqlSum := `		
-		select * 
+		sqlSum := `
+		select *
 		from (
 			SELECT *,
 					(CASE
@@ -4301,7 +4301,7 @@ func GetDetailReceiptChangeEndPoint(c echo.Context) error {
 						THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
 						ELSE 0 END
 					) as so_amount,
-					sum(PeriodAmount) as amount, 
+					sum(PeriodAmount) as amount,
 					(CASE
 						WHEN sale_code = owner and owner_old <> '' and PeriodStartDate < cc.update_date and owner <> owner_old Then 'change'
 						WHEN sale_code <> owner Then 'not change'
@@ -4310,9 +4310,9 @@ func GetDetailReceiptChangeEndPoint(c echo.Context) error {
 	 			FROM so_mssql
 				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 				 left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_mssql.Customer_ID = cc.cc_customer_id
-						WHERE Active_Inactive = 'Active' 
+						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
+						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?)
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail), ?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
@@ -4320,7 +4320,7 @@ func GetDetailReceiptChangeEndPoint(c echo.Context) error {
 						group by BLSCDocNo
 		) data
 		where status_code = 'change'
-		
+
 					;`
 
 		if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, InvNumber, StaffId).Scan(&sum).Error; err != nil {
@@ -4331,7 +4331,7 @@ func GetDetailReceiptChangeEndPoint(c echo.Context) error {
 	}()
 	go func() {
 		sql := `SELECT
-		sum(amount) as amount, 
+		sum(amount) as amount,
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor,
 		SUM(so_amount) as pro_rate,
@@ -4376,7 +4376,7 @@ func GetDetailReceiptChangeEndPoint(c echo.Context) error {
 						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_mssql.Customer_ID = cc.cc_customer_id
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
+						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?)
 
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail), ?)
@@ -4384,10 +4384,10 @@ func GetDetailReceiptChangeEndPoint(c echo.Context) error {
 						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
 					) sub_data
 				) so_group
-				WHERE so_amount <> 0 
+				WHERE so_amount <> 0
 				and status_code = 'change'
 				group by BLSCDocNo
-				
+
 			) cust_group`
 
 		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, StaffId, InvNumber).Scan(&soTotal).Error; err != nil {
@@ -4565,8 +4565,8 @@ func GetDetailReceiptNotChangeEndPoint(c echo.Context) error {
 	wg.Add(2)
 	go func() {
 
-		sqlSum := `		
-		select * 
+		sqlSum := `
+		select *
 		from (
 			SELECT *,
 					(CASE
@@ -4584,7 +4584,7 @@ func GetDetailReceiptNotChangeEndPoint(c echo.Context) error {
 						THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
 						ELSE 0 END
 					) as so_amount,
-					sum(PeriodAmount) as amount, 
+					sum(PeriodAmount) as amount,
 					(CASE
 						WHEN sale_code = owner and owner_old <> '' and PeriodStartDate < cc.update_date and owner <> owner_old Then 'change'
 						WHEN sale_code <> owner Then 'not change'
@@ -4593,9 +4593,9 @@ func GetDetailReceiptNotChangeEndPoint(c echo.Context) error {
 	 			FROM so_mssql
 				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 				 left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_mssql.Customer_ID = cc.cc_customer_id
-						WHERE Active_Inactive = 'Active' 
+						WHERE Active_Inactive = 'Active'
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
+						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?)
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail), ?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
@@ -4603,7 +4603,7 @@ func GetDetailReceiptNotChangeEndPoint(c echo.Context) error {
 						group by BLSCDocNo
 		) data
 		where status_code = 'not change'
-		
+
 					;`
 
 		if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, InvNumber, StaffId).Scan(&sum).Error; err != nil {
@@ -4614,7 +4614,7 @@ func GetDetailReceiptNotChangeEndPoint(c echo.Context) error {
 	}()
 	go func() {
 		sql := `SELECT
-		sum(amount) as amount, 
+		sum(amount) as amount,
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor,
 		SUM(so_amount) as pro_rate,
@@ -4654,13 +4654,13 @@ func GetDetailReceiptNotChangeEndPoint(c echo.Context) error {
 							Else 'not change' END
 						) as status_code
 					FROM (
-						SELECT * 
+						SELECT *
 						FROM so_mssql
 						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_mssql.Customer_ID = cc.cc_customer_id
 						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
 						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
+						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?)
 
 						and sale_code in (?)
 						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail), ?)
@@ -4796,7 +4796,7 @@ func GetDetailBillingChangeEndPoint(c echo.Context) error {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		sql := `	
+		sql := `
 		select sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail,so_amount,amount,status,reason,staff_id,prefix,fname,lname,position,department
 		from (
 		SELECT sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail,reason,staff_id,prefix,fname,lname,position,department,
@@ -4846,7 +4846,7 @@ func GetDetailBillingChangeEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, 
+		sql := `SELECT sum(amount) as amount,
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor,
 		sum(ex_factor) as sum_ef, SUM(so_amount) as pro_rate,
@@ -4904,7 +4904,7 @@ func GetDetailBillingChangeEndPoint(c echo.Context) error {
 					) sub_data
 				) so_group
 				WHERE so_amount <> 0
-				and status_code = 'change' 
+				and status_code = 'change'
 				group by BLSCDocNo
 			) cust_group`
 
@@ -5037,7 +5037,7 @@ func GetDetailBillingNotChangeEndPoint(c echo.Context) error {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		sql := `	
+		sql := `
 		select sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail,so_amount,amount,status,reason,staff_id,prefix,fname,lname,position,department
 		from (
 		SELECT sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,pricesale,TotalContractAmount,SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,sale_factor,in_factor,ex_factor,so_refer,SoType,detail,reason,staff_id,prefix,fname,lname,position,department,
@@ -5087,7 +5087,7 @@ func GetDetailBillingNotChangeEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, 
+		sql := `SELECT sum(amount) as amount,
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor,
 		sum(ex_factor) as sum_ef, SUM(so_amount) as pro_rate,
@@ -5145,7 +5145,7 @@ func GetDetailBillingNotChangeEndPoint(c echo.Context) error {
 					) sub_data
 				) so_group
 				WHERE so_amount <> 0
-				and status_code = 'not change' 
+				and status_code = 'not change'
 				group by BLSCDocNo
 			) cust_group`
 
@@ -5267,8 +5267,8 @@ func GetDetailInvoiceChangeEndPoint(c echo.Context) error {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		sql := `select * 
-		from (		
+		sql := `select *
+		from (
 					SELECT *,
 								SUM(CASE
 									WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
@@ -5312,8 +5312,8 @@ func GetDetailInvoiceChangeEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT 
-		sum(amount) as amount, 
+		sql := `SELECT
+		sum(amount) as amount,
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor,
 		SUM(so_amount) as pro_rate,
@@ -5366,7 +5366,7 @@ func GetDetailInvoiceChangeEndPoint(c echo.Context) error {
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 					) sub_data
 				) so_group
-				WHERE so_amount <> 0 
+				WHERE so_amount <> 0
 				and status_code = 'change'
 				group by BLSCDocNo
 			) cust_group`
@@ -5489,8 +5489,8 @@ func GetDetailInvoiceNotChangeEndPoint(c echo.Context) error {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		sql := `select * 
-		from (		
+		sql := `select *
+		from (
 					SELECT *,
 								SUM(CASE
 									WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
@@ -5534,8 +5534,8 @@ func GetDetailInvoiceNotChangeEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT 
-		sum(amount) as amount, 
+		sql := `SELECT
+		sum(amount) as amount,
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor,
 		SUM(so_amount) as pro_rate,
@@ -5588,7 +5588,7 @@ func GetDetailInvoiceNotChangeEndPoint(c echo.Context) error {
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 					) sub_data
 				) so_group
-				WHERE so_amount <> 0 
+				WHERE so_amount <> 0
 				and status_code = 'not change'
 				group by BLSCDocNo
 			) cust_group`
@@ -5719,10 +5719,10 @@ func GetDetailSoChangeEndPoint(c echo.Context) error {
 	wg.Add(3)
 	go func() {
 
-		sql := `select * 
+		sql := `select *
 		from (
-		
-		
+
+
 		SELECT *,
 		SUM(CASE
 			WHEN DATEDIFF(ContractEndDate, ContractStartDate)+1 = 0
@@ -5771,9 +5771,9 @@ where status_code = 'change'
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, 
+		sql := `SELECT sum(amount) as amount,
 		AVG(in_factor) as in_factor,
-		AVG(ex_factor) as ex_factor, 
+		AVG(ex_factor) as ex_factor,
 		SUM(so_amount) as pro_rate,
 		(sum(amount)/sum(amount_engcost)) as sale_factor
 		from (
@@ -5785,7 +5785,7 @@ where status_code = 'change'
 				FROM (
 					SELECT
 						SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,	
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,
 						(case
 							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
 							else 0 end
@@ -5810,9 +5810,9 @@ where status_code = 'change'
 																WHEN sale_code <> owner Then 'not change'
 																Else 'not change' END
 															) as status_code
-													   
+
 					FROM (
-						SELECT * 
+						SELECT *
 						FROM so_mssql
 						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_mssql.Customer_ID = cc.cc_customer_id
@@ -5827,7 +5827,7 @@ where status_code = 'change'
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 					) sub_data
 				) so_group
-				WHERE so_amount <> 0 
+				WHERE so_amount <> 0
 				and status_code = 'change'
 				group by sonumber
 			) cust_group`
@@ -5841,8 +5841,8 @@ where status_code = 'change'
 	go func() {
 
 		sql := `
-		
-select * 
+
+select *
 from (
 		SELECT distinct Customer_ID,(CASE
 			WHEN sale_code = owner and owner_old <> '' and PeriodStartDate < cc.update_date and owner <> owner_old Then 'change'
@@ -5861,7 +5861,7 @@ from (
 					and INSTR(CONCAT_WS('|', sonumber), ?)
 					and INSTR(CONCAT_WS('|', sale_code), ?)
 					group by sonumber
-					
+
 ) data
 where status_code = 'change'
 					 ;`
@@ -5989,10 +5989,10 @@ func GetDetailSoNotChangeEndPoint(c echo.Context) error {
 	wg.Add(3)
 	go func() {
 
-		sql := `select * 
+		sql := `select *
 		from (
-		
-		
+
+
 		SELECT *,
 		SUM(CASE
 			WHEN DATEDIFF(ContractEndDate, ContractStartDate)+1 = 0
@@ -6041,9 +6041,9 @@ where status_code = 'not change'
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, 
+		sql := `SELECT sum(amount) as amount,
 		AVG(in_factor) as in_factor,
-		AVG(ex_factor) as ex_factor, 
+		AVG(ex_factor) as ex_factor,
 		SUM(so_amount) as pro_rate,
 		(sum(amount)/sum(amount_engcost)) as sale_factor
 		from (
@@ -6055,7 +6055,7 @@ where status_code = 'not change'
 				FROM (
 					SELECT
 						SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,	
+						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,
 						(case
 							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
 							else 0 end
@@ -6080,9 +6080,9 @@ where status_code = 'not change'
 																WHEN sale_code <> owner Then 'not change'
 																Else 'not change' END
 															) as status_code
-													   
+
 					FROM (
-						SELECT * 
+						SELECT *
 						FROM so_mssql
 						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
 						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_mssql.Customer_ID = cc.cc_customer_id
@@ -6097,7 +6097,7 @@ where status_code = 'not change'
 						and INSTR(CONCAT_WS('|', sale_code), ?)
 					) sub_data
 				) so_group
-				WHERE so_amount <> 0 
+				WHERE so_amount <> 0
 				and status_code = 'not change'
 				group by sonumber
 			) cust_group`
@@ -6111,8 +6111,8 @@ where status_code = 'not change'
 	go func() {
 
 		sql := `
-		
-select * 
+
+select *
 from (
 		SELECT distinct Customer_ID,(CASE
 			WHEN sale_code = owner and owner_old <> '' and PeriodStartDate < cc.update_date and owner <> owner_old Then 'change'
@@ -6131,7 +6131,7 @@ from (
 					and INSTR(CONCAT_WS('|', sonumber), ?)
 					and INSTR(CONCAT_WS('|', sale_code), ?)
 					group by sonumber
-					
+
 ) data
 where status_code = 'not change'
 					 ;`
@@ -6257,8 +6257,8 @@ func GetDetailCostsheetChangeEndPoint(c echo.Context) error {
 	wg.Add(3)
 	go func() {
 		sql := `
-		
-select * 
+
+select *
 from (
 	SELECT *,
 		SUM(CASE
@@ -6277,7 +6277,7 @@ from (
 			ELSE 0 END
 		) as so_amount,
 		sum(Total_Revenue_Month) as amount,
-		sum(COALESCE(Int_INET, 0))/100 as in_factor, 
+		sum(COALESCE(Int_INET, 0))/100 as in_factor,
 		sum((COALESCE(Ext_JV, 0) + COALESCE(Ext, 0)))/100 as ex_factor,
 		(CASE
 			WHEN 	EmployeeID = owner and owner_old <> '' and StartDate_P1 < cc.update_date and owner <> owner_old Then 'change'
@@ -6308,10 +6308,10 @@ where status_code = 'change'
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, 
+		sql := `SELECT sum(amount) as amount,
 		AVG(in_factor)/100 as in_factor,
 		AVG(ex_factor)/100 as ex_factor,
-		(sum(amount)/sum(amount_engcost)) as SaleFactors , 
+		(sum(amount)/sum(amount_engcost)) as SaleFactors ,
 		SUM(so_amount) as pro_rate
 		from (
 			SELECT
@@ -6329,8 +6329,8 @@ where status_code = 'change'
 				FROM (
 					SELECT
 					doc_number_eform,StartDate_P1,EndDate_P1,Customer_ID,Cusname_thai,
-					EmployeeID,	Sales_Name,Sale_Team,Total_Revenue_Month, SaleFactors, 
-					COALESCE(Int_INET, 0) as in_factor, 
+					EmployeeID,	Sales_Name,Sale_Team,Total_Revenue_Month, SaleFactors,
+					COALESCE(Int_INET, 0) as in_factor,
 					(COALESCE(Ext_JV, 0) + COALESCE(Ext, 0)) as ex_factor,
 						(case
 							when Total_Revenue_Month is not null and SaleFactors is not null then Total_Revenue_Month/SaleFactors
@@ -6351,7 +6351,7 @@ where status_code = 'change'
 							THEN (DATEDIFF(?,?)+1)*(Total_Revenue_Month/(DATEDIFF(EndDate_P1,StartDate_P1)+1))
 							ELSE 0 END
 						) as so_amount,
-						
+
 (CASE
 	WHEN 	EmployeeID = owner and owner_old <> '' and StartDate_P1 < sub_data.update_date and owner <> owner_old Then 'change'
 	WHEN 	EmployeeID <> owner Then 'not change'
@@ -6386,14 +6386,14 @@ where status_code = 'change'
 	}()
 	go func() {
 		sql := `
-		select * 
+		select *
 		from (
 			SELECT distinct Customer_ID,(CASE
 			WHEN 	EmployeeID = owner and owner_old <> '' and StartDate_P1 < cc.update_date and owner <> owner_old Then 'change'
 			WHEN 	EmployeeID <> owner Then 'not change'
 			Else 'not change' END
 		) as status_code
-   
+
 		FROM costsheet_info
 		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
 		left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on costsheet_info.Customer_ID = cc.cc_customer_id
@@ -6530,8 +6530,8 @@ func GetDetailCostsheetNotChangeEndPoint(c echo.Context) error {
 	wg.Add(3)
 	go func() {
 		sql := `
-		
-select * 
+
+select *
 from (
 	SELECT *,
 		SUM(CASE
@@ -6550,7 +6550,7 @@ from (
 			ELSE 0 END
 		) as so_amount,
 		sum(Total_Revenue_Month) as amount,
-		sum(COALESCE(Int_INET, 0))/100 as in_factor, 
+		sum(COALESCE(Int_INET, 0))/100 as in_factor,
 		sum((COALESCE(Ext_JV, 0) + COALESCE(Ext, 0)))/100 as ex_factor,
 		(CASE
 			WHEN 	EmployeeID = owner and owner_old <> '' and StartDate_P1 < cc.update_date and owner <> owner_old Then 'change'
@@ -6581,10 +6581,10 @@ where status_code = 'not change'
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, 
+		sql := `SELECT sum(amount) as amount,
 		AVG(in_factor)/100 as in_factor,
 		AVG(ex_factor)/100 as ex_factor,
-		(sum(amount)/sum(amount_engcost)) as SaleFactors , 
+		(sum(amount)/sum(amount_engcost)) as SaleFactors ,
 		SUM(so_amount) as pro_rate
 		from (
 			SELECT
@@ -6602,8 +6602,8 @@ where status_code = 'not change'
 				FROM (
 					SELECT
 					doc_number_eform,StartDate_P1,EndDate_P1,Customer_ID,Cusname_thai,
-					EmployeeID,	Sales_Name,Sale_Team,Total_Revenue_Month, SaleFactors, 
-					COALESCE(Int_INET, 0) as in_factor, 
+					EmployeeID,	Sales_Name,Sale_Team,Total_Revenue_Month, SaleFactors,
+					COALESCE(Int_INET, 0) as in_factor,
 					(COALESCE(Ext_JV, 0) + COALESCE(Ext, 0)) as ex_factor,
 						(case
 							when Total_Revenue_Month is not null and SaleFactors is not null then Total_Revenue_Month/SaleFactors
@@ -6624,7 +6624,7 @@ where status_code = 'not change'
 							THEN (DATEDIFF(?,?)+1)*(Total_Revenue_Month/(DATEDIFF(EndDate_P1,StartDate_P1)+1))
 							ELSE 0 END
 						) as so_amount,
-						
+
 (CASE
 	WHEN 	EmployeeID = owner and owner_old <> '' and StartDate_P1 < sub_data.update_date and owner <> owner_old Then 'change'
 	WHEN 	EmployeeID <> owner Then 'not change'
@@ -6659,14 +6659,14 @@ where status_code = 'not change'
 	}()
 	go func() {
 		sql := `
-		select * 
+		select *
 		from (
 			SELECT distinct Customer_ID,(CASE
 			WHEN 	EmployeeID = owner and owner_old <> '' and StartDate_P1 < cc.update_date and owner <> owner_old Then 'change'
 			WHEN 	EmployeeID <> owner Then 'not change'
 			Else 'not change' END
 		) as status_code
-   
+
 		FROM costsheet_info
 		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
 		left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on costsheet_info.Customer_ID = cc.cc_customer_id

@@ -3,67 +3,134 @@ package api
 import (
 	"net/http"
 	"sale_ranking/pkg/log"
+	"sale_ranking/pkg/util"
+	"sale_ranking/pkg/server"
 	"strconv"
 	"strings"
-
-	// "time"
 	"sync"
+	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo/v4"
 )
 
 func CostSheet_Status(c echo.Context) error {
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
+	Startdate := strings.TrimSpace(c.QueryParam("startdate"))
+	Enddate := strings.TrimSpace(c.QueryParam("enddate"))
 	StaffID := strings.TrimSpace(c.QueryParam("staffid"))
-	Status := strings.TrimSpace(c.QueryParam("status"))
-	Tracking_id := strings.TrimSpace(c.QueryParam("tracking_id"))
-	Doc_id := strings.TrimSpace(c.QueryParam("doc_id"))
-	DocumentJson := strings.TrimSpace(c.QueryParam("documentJson"))
-	Doc_number_eform := strings.TrimSpace(c.QueryParam("doc_number_eform"))
-	Customer_ID := strings.TrimSpace(c.QueryParam("Customer_ID"))
-	Cusname_thai := strings.TrimSpace(c.QueryParam("Cusname_thai"))
-	Cusname_Eng := strings.TrimSpace(c.QueryParam("Cusname_Eng"))
-	ID_PreSale := strings.TrimSpace(c.QueryParam("ID_PreSale"))
-	Cvm_id := strings.TrimSpace(c.QueryParam("cvm_id"))
-	Bussiness_type := strings.TrimSpace(c.QueryParam("bussiness_type"))
-	Sale_Team := strings.TrimSpace(c.QueryParam("Sale_Team"))
-	Job_Status := strings.TrimSpace(c.QueryParam("Job_Status"))
-	SO_Type := strings.TrimSpace(c.QueryParam("SO_Type"))
-	Sales_Name := strings.TrimSpace(c.QueryParam("Sales_Name"))
-	Sales_Surname := strings.TrimSpace(c.QueryParam("Sales_Surname"))
-	EmployeeID := strings.TrimSpace(c.QueryParam("EmployeeID"))
-	Status_eform := strings.TrimSpace(c.QueryParam("status_eform"))
+	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
+	Search := strings.TrimSpace(c.QueryParam("search"))
+
+	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("startdate")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("enddate")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	
+	dateFrom :=  ""
+	dateTo := ""
+
+	if Startdate == "" || Enddate == ""{
+		dayStart = 1
+		dateFromA := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+		dateToA := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+		dateFrom =  dateFromA.String()
+		dateTo = dateToA.String()
+	}else{
+		dateFrom = Startdate
+		dateTo = Enddate
+	}
 
 	type Costsheet_Data struct {
 		Total_Revenue_Month string `json:"Total_Revenue_Month" gorm:"column:Total_Revenue_Month"`
 	}
 
+	type Users_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+	}
+
+	type Staffs_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+		Staff_child string `json:"staff_child" gorm:"column:staff_child"`
+	}
+
 	dataResult := struct {
-		SOCompelte            interface{}
-		Compeltefrompaperless interface{}
-		Completefromeform     interface{}
-		Onprocess             interface{}
-		Cancel                interface{}
-		Reject                interface{}
+		SOCompelte            			interface{}
+		Compeltefrompaperless 			interface{}
+		Completefromeform     			interface{}
+		Onprocessfrompaperless          interface{}
+		Onprocessfromeform              interface{}
+		Cancelfrompaperles    			interface{}
+		Cancelfromeform                 interface{}
+		Rejectfrompaperless     		interface{}
+		Rejectfromeform                 interface{}
+		Total			                interface{}
 	}{}
-	CountReject := 0
-	CountCancel := 0
-	CountOnprocess := 0
+	CountRejectfromeform := 0
+	CountRejectfrompaperless := 0
+	CountCancelfromeform := 0
+	CountCancelfrompaperless := 0
+	CountOnprocessfromeform := 0
+	CountOnprocessfrompaperless := 0
 	CountCompletefromeform := 0
 	CountCompeltefrompaperless := 0
 	CountSOCompelte := 0
 
-	totalReject := float64(0)
-	totalCancel := float64(0)
-	totalOnprocess := float64(0)
+	totalRejectfromeform := float64(0)
+	totalRejectfrompaperless := float64(0)
+	totalCancelfromeform := float64(0)
+	totalCancelfrompaperless := float64(0)
+	totalOnprocessfromeform := float64(0)
+	totalOnprocessfrompaperless := float64(0)
 	totalCompletefromeform := float64(0)
 	totalCompeltefrompaperless := float64(0)
 	totalSOCompelte := float64(0)
 
 	hasErr := 0
 	wg := sync.WaitGroup{}
-	wg.Add(6)
+	wg.Add(9)
+	
+	var user_data_raw []Users_Data
+
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, SaleID).Scan(&user_data_raw).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user_data_raw) != 0 {
+		var staffAll []Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.Staff_id)
+		}
+	} else {
+		var staffAll Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, SaleID).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.Staff_child != "" {
+			data := strings.Split(staffAll.Staff_child, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.Staff_id)
+	}
 
 	go func() {
 		var TRM_All float64 = 0.0
@@ -74,181 +141,20 @@ func CostSheet_Status(c echo.Context) error {
 		left join staff_info si on ci.EmployeeID = si.staff_id
 		LEFT JOIN (
 			select * 
-			from so_mssql_test
+			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
-		where ci.status_eform like '%Complete from paperless%' AND smt.SDPropertyCS28 is not null 
-		AND smt.SDPropertyCS28 not like '' `
-		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-			DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-			Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-			Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-			Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` ci.StartDate_P1 >= '` + St_date + `' AND ci.StartDate_P1 <= '` + En_date + `' `
-				if En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` ci.EndDate_P1 <= '` + En_date + `' AND ci.EndDate_P1 >= '` + St_date + `' `
-				if StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if StaffID != "" {
-				sql = sql + ` si.staff_id like '` + StaffID + `' `
-				if Status != "" || Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status != "" {
-				sql = sql + ` ci.status like '` + Status + `' `
-				if Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Tracking_id != "" {
-				sql = sql + ` ci.tracking_id like '` + Tracking_id + `' `
-				if Doc_id != "" || DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_id != "" {
-				sql = sql + ` ci.doc_id like '` + Doc_id + `' `
-				if DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if DocumentJson != "" {
-				sql = sql + ` ci.documentJson like '` + DocumentJson + `' `
-				if Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_number_eform != "" {
-				sql = sql + ` ci.doc_number_eform like '` + Doc_number_eform + `' `
-				if Customer_ID != "" || Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` ci.Customer_ID like '` + Customer_ID + `' `
-				if Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_thai != "" {
-				sql = sql + ` ci.Cusname_thai like '%` + Cusname_thai + `%' `
-				if Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_Eng != "" {
-				sql = sql + ` ci.Cusname_Eng like '%` + Cusname_Eng + `%' `
-				if ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if ID_PreSale != "" {
-				sql = sql + ` ci.ID_PreSale like '%` + ID_PreSale + `%' `
-				if Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cvm_id != "" {
-				sql = sql + ` ci.cvm_id like '` + Cvm_id + `' `
-				if Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Bussiness_type != "" {
-				sql = sql + ` ci.Business_type like '%` + Bussiness_type + `%' `
-				if Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_Team != "" {
-				sql = sql + ` ci.sale_team like '%` + Sale_Team + `%' `
-				if Job_Status != "" || SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Job_Status != "" {
-				sql = sql + ` ci.Job_Status like '%` + Job_Status + `%' `
-				if SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SO_Type != "" {
-				sql = sql + ` ci.SO_Type like '` + SO_Type + `' `
-				if Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Name != "" {
-				sql = sql + ` ci.Sales_Name like '` + Sales_Name + `' `
-				if Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Surname != "" {
-				sql = sql + ` ci.Sales_Surname like '` + Sales_Surname + `' `
-				if EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if EmployeeID != "" {
-				sql = sql + ` ci.EmployeeID like '` + EmployeeID + `' `
-				if Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status_eform != "" {
-				sql = sql + ` ci.status_eform like '` + Status_eform + `' `
-			}
-		}
-		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
+		where ci.status_eform like '%Complete from paperless%' AND 
+		smt.SDPropertyCS28 is not null AND ci.EmployeeID in (?) AND
+		smt.SDPropertyCS28 not like '' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
+		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
+
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -275,343 +181,20 @@ func CostSheet_Status(c echo.Context) error {
 		left join staff_info si on ci.EmployeeID = si.staff_id
 		LEFT JOIN(
 			select * 
-			from so_mssql_test
+			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
-		where ci.status_eform like '%Complete from paperless%' AND smt.SDPropertyCS28 is null `
-		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-			DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-			Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-			Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-			Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` ci.StartDate_P1 >= '` + St_date + `' AND ci.StartDate_P1 <= '` + En_date + `' `
-				if En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` ci.EndDate_P1 <= '` + En_date + `' AND ci.EndDate_P1 >= '` + St_date + `' `
-				if StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if StaffID != "" {
-				sql = sql + ` si.staff_id like '` + StaffID + `' `
-				if Status != "" || Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status != "" {
-				sql = sql + ` ci.status like '` + Status + `' `
-				if Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Tracking_id != "" {
-				sql = sql + ` ci.tracking_id like '` + Tracking_id + `' `
-				if Doc_id != "" || DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_id != "" {
-				sql = sql + ` ci.doc_id like '` + Doc_id + `' `
-				if DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if DocumentJson != "" {
-				sql = sql + ` ci.documentJson like '` + DocumentJson + `' `
-				if Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_number_eform != "" {
-				sql = sql + ` ci.doc_number_eform like '` + Doc_number_eform + `' `
-				if Customer_ID != "" || Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` ci.Customer_ID like '` + Customer_ID + `' `
-				if Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_thai != "" {
-				sql = sql + ` ci.Cusname_thai like '%` + Cusname_thai + `%' `
-				if Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_Eng != "" {
-				sql = sql + ` ci.Cusname_Eng like '%` + Cusname_Eng + `%' `
-				if ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if ID_PreSale != "" {
-				sql = sql + ` ci.ID_PreSale like '%` + ID_PreSale + `%' `
-				if Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cvm_id != "" {
-				sql = sql + ` ci.cvm_id like '` + Cvm_id + `' `
-				if Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Bussiness_type != "" {
-				sql = sql + ` ci.Business_type like '%` + Bussiness_type + `%' `
-				if Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_Team != "" {
-				sql = sql + ` ci.sale_team like '%` + Sale_Team + `%' `
-				if Job_Status != "" || SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Job_Status != "" {
-				sql = sql + ` ci.Job_Status like '%` + Job_Status + `%' `
-				if SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SO_Type != "" {
-				sql = sql + ` ci.SO_Type like '` + SO_Type + `' `
-				if Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Name != "" {
-				sql = sql + ` ci.Sales_Name like '` + Sales_Name + `' `
-				if Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Surname != "" {
-				sql = sql + ` ci.Sales_Surname like '` + Sales_Surname + `' `
-				if EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if EmployeeID != "" {
-				sql = sql + ` ci.EmployeeID like '` + EmployeeID + `' `
-				if Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status_eform != "" {
-				sql = sql + ` ci.status_eform like '` + Status_eform + `' `
-			}
-		}
-		sql = sql + ` or smt.SDPropertyCS28 like '' AND ci.status_eform like '%Complete from paperless%' `
-		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-			DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-			Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-			Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-			Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` ci.StartDate_P1 >= '` + St_date + `' AND ci.StartDate_P1 <= '` + En_date + `' `
-				if En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` ci.EndDate_P1 <= '` + En_date + `' AND ci.EndDate_P1 >= '` + St_date + `' `
-				if StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if StaffID != "" {
-				sql = sql + ` si.staff_id like '` + StaffID + `' `
-				if Status != "" || Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status != "" {
-				sql = sql + ` ci.status like '` + Status + `' `
-				if Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Tracking_id != "" {
-				sql = sql + ` ci.tracking_id like '` + Tracking_id + `' `
-				if Doc_id != "" || DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_id != "" {
-				sql = sql + ` ci.doc_id like '` + Doc_id + `' `
-				if DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if DocumentJson != "" {
-				sql = sql + ` ci.documentJson like '` + DocumentJson + `' `
-				if Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_number_eform != "" {
-				sql = sql + ` ci.doc_number_eform like '` + Doc_number_eform + `' `
-				if Customer_ID != "" || Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_thai != "" {
-				sql = sql + ` ci.Cusname_thai like '%` + Cusname_thai + `%' `
-				if Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_Eng != "" {
-				sql = sql + ` ci.Cusname_Eng like '%` + Cusname_Eng + `%' `
-				if ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if ID_PreSale != "" {
-				sql = sql + ` ci.ID_PreSale like '%` + ID_PreSale + `%' `
-				if Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cvm_id != "" {
-				sql = sql + ` ci.cvm_id like '` + Cvm_id + `' `
-				if Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Bussiness_type != "" {
-				sql = sql + ` ci.Bussiness_type like '` + Bussiness_type + `' `
-				if Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_Team != "" {
-				sql = sql + ` ci.Sale_Team like '` + Sale_Team + `' `
-				if Job_Status != "" || SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Job_Status != "" {
-				sql = sql + ` ci.Job_Status like '` + Job_Status + `' `
-				if SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SO_Type != "" {
-				sql = sql + ` ci.SO_Type like '` + SO_Type + `' `
-				if Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Name != "" {
-				sql = sql + ` ci.Sales_Name like '` + Sales_Name + `' `
-				if Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Surname != "" {
-				sql = sql + ` ci.Sales_Surname like '` + Sales_Surname + `' `
-				if EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if EmployeeID != "" {
-				sql = sql + ` ci.EmployeeID like '` + EmployeeID + `' `
-				if Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status_eform != "" {
-				sql = sql + ` ci.status_eform like '` + Status_eform + `' `
-			}
-		}
+		where ci.status_eform like '%Complete from paperless%' AND smt.SDPropertyCS28 is null AND 
+		ci.EmployeeID in (?) AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
+		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
+		
 
-		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -637,181 +220,19 @@ func CostSheet_Status(c echo.Context) error {
 		left join staff_info si on ci.EmployeeID = si.staff_id
 		LEFT JOIN (
 			select * 
-			from so_mssql_test
+			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
-		where ci.status_eform like '%Complete from eform%' `
-		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-			DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-			Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-			Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-			Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` ci.StartDate_P1 >= '` + St_date + `' AND ci.StartDate_P1 <= '` + En_date + `' `
-				if En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` ci.EndDate_P1 <= '` + En_date + `' AND ci.EndDate_P1 >= '` + St_date + `' `
-				if StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if StaffID != "" {
-				sql = sql + ` si.staff_id like '` + StaffID + `' `
-				if Status != "" || Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status != "" {
-				sql = sql + ` ci.status like '` + Status + `' `
-				if Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Tracking_id != "" {
-				sql = sql + ` ci.tracking_id like '` + Tracking_id + `' `
-				if Doc_id != "" || DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_id != "" {
-				sql = sql + ` ci.doc_id like '` + Doc_id + `' `
-				if DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if DocumentJson != "" {
-				sql = sql + ` ci.documentJson like '` + DocumentJson + `' `
-				if Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_number_eform != "" {
-				sql = sql + ` ci.doc_number_eform like '` + Doc_number_eform + `' `
-				if Customer_ID != "" || Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` ci.Customer_ID like '` + Customer_ID + `' `
-				if Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_thai != "" {
-				sql = sql + ` ci.Cusname_thai like '%` + Cusname_thai + `%' `
-				if Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_Eng != "" {
-				sql = sql + ` ci.Cusname_Eng like '%` + Cusname_Eng + `%' `
-				if ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if ID_PreSale != "" {
-				sql = sql + ` ci.ID_PreSale like '%` + ID_PreSale + `%' `
-				if Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cvm_id != "" {
-				sql = sql + ` ci.cvm_id like '` + Cvm_id + `' `
-				if Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Bussiness_type != "" {
-				sql = sql + ` ci.Business_type like '%` + Bussiness_type + `%' `
-				if Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_Team != "" {
-				sql = sql + ` ci.sale_team like '%` + Sale_Team + `%' `
-				if Job_Status != "" || SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Job_Status != "" {
-				sql = sql + ` ci.Job_Status like '%` + Job_Status + `%' `
-				if SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SO_Type != "" {
-				sql = sql + ` ci.SO_Type like '` + SO_Type + `' `
-				if Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Name != "" {
-				sql = sql + ` ci.Sales_Name like '` + Sales_Name + `' `
-				if Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Surname != "" {
-				sql = sql + ` ci.Sales_Surname like '` + Sales_Surname + `' `
-				if EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if EmployeeID != "" {
-				sql = sql + ` ci.EmployeeID like '` + EmployeeID + `' `
-				if Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status_eform != "" {
-				sql = sql + ` ci.status_eform like '` + Status_eform + `' `
-			}
-		}
+		where ci.status_eform like '%Complete from eform%' AND ci.EmployeeID in (?) AND 
+		INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
+		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -837,181 +258,19 @@ func CostSheet_Status(c echo.Context) error {
 		left join staff_info si on ci.EmployeeID = si.staff_id
 		LEFT JOIN(
 			select * 
-			from so_mssql_test
+			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
-		where ci.status_eform like '%Onprocess%' `
-		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-			DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-			Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-			Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-			Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` ci.StartDate_P1 >= '` + St_date + `' AND ci.StartDate_P1 <= '` + En_date + `' `
-				if En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` ci.EndDate_P1 <= '` + En_date + `' AND ci.EndDate_P1 >= '` + St_date + `' `
-				if StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if StaffID != "" {
-				sql = sql + ` si.staff_id like '` + StaffID + `' `
-				if Status != "" || Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status != "" {
-				sql = sql + ` ci.status like '` + Status + `' `
-				if Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Tracking_id != "" {
-				sql = sql + ` ci.tracking_id like '` + Tracking_id + `' `
-				if Doc_id != "" || DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_id != "" {
-				sql = sql + ` ci.doc_id like '` + Doc_id + `' `
-				if DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if DocumentJson != "" {
-				sql = sql + ` ci.documentJson like '` + DocumentJson + `' `
-				if Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_number_eform != "" {
-				sql = sql + ` ci.doc_number_eform like '` + Doc_number_eform + `' `
-				if Customer_ID != "" || Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` ci.Customer_ID like '` + Customer_ID + `' `
-				if Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_thai != "" {
-				sql = sql + ` ci.Cusname_thai like '%` + Cusname_thai + `%' `
-				if Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_Eng != "" {
-				sql = sql + ` ci.Cusname_Eng like '%` + Cusname_Eng + `%' `
-				if ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if ID_PreSale != "" {
-				sql = sql + ` ci.ID_PreSale like '%` + ID_PreSale + `%' `
-				if Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cvm_id != "" {
-				sql = sql + ` ci.cvm_id like '` + Cvm_id + `' `
-				if Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Bussiness_type != "" {
-				sql = sql + ` ci.Business_type like '%` + Bussiness_type + `%' `
-				if Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_Team != "" {
-				sql = sql + ` ci.sale_team like '%` + Sale_Team + `%' `
-				if Job_Status != "" || SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Job_Status != "" {
-				sql = sql + ` ci.Job_Status like '%` + Job_Status + `%' `
-				if SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SO_Type != "" {
-				sql = sql + ` ci.SO_Type like '` + SO_Type + `' `
-				if Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Name != "" {
-				sql = sql + ` ci.Sales_Name like '` + Sales_Name + `' `
-				if Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Surname != "" {
-				sql = sql + ` ci.Sales_Surname like '` + Sales_Surname + `' `
-				if EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if EmployeeID != "" {
-				sql = sql + ` ci.EmployeeID like '` + EmployeeID + `' `
-				if Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status_eform != "" {
-				sql = sql + ` ci.status_eform like '` + Status_eform + `' `
-			}
-		}
+		where ci.status_eform like '%Onprocess from paperless%' AND ci.EmployeeID in (?) AND 
+		INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
+		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -1019,13 +278,13 @@ func CostSheet_Status(c echo.Context) error {
 			TRM_All += Float_valA
 			Count_Costsheet += 1
 		}
-		dataResult.Onprocess = map[string]interface{}{
+		dataResult.Onprocessfrompaperless = map[string]interface{}{
 			"Count":  Count_Costsheet,
 			"total":  TRM_All,
-			"status": "Onprocess",
+			"status": "Onprocess from paperless",
 		}
-		CountOnprocess = Count_Costsheet
-		totalOnprocess = TRM_All
+		CountOnprocessfrompaperless = Count_Costsheet
+		totalOnprocessfrompaperless = TRM_All
 		wg.Done()
 	}()
 	go func() {
@@ -1037,181 +296,19 @@ func CostSheet_Status(c echo.Context) error {
 		left join staff_info si on ci.EmployeeID = si.staff_id
 		LEFT JOIN(
 			select * 
-			from so_mssql_test
+			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
-		where ci.status_eform like '%Cancel%' `
-		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-			DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-			Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-			Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-			Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` ci.StartDate_P1 >= '` + St_date + `' AND ci.StartDate_P1 <= '` + En_date + `' `
-				if En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` ci.EndDate_P1 <= '` + En_date + `' AND ci.EndDate_P1 >= '` + St_date + `' `
-				if StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if StaffID != "" {
-				sql = sql + ` si.staff_id like '` + StaffID + `' `
-				if Status != "" || Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status != "" {
-				sql = sql + ` ci.status like '` + Status + `' `
-				if Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Tracking_id != "" {
-				sql = sql + ` ci.tracking_id like '` + Tracking_id + `' `
-				if Doc_id != "" || DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_id != "" {
-				sql = sql + ` ci.doc_id like '` + Doc_id + `' `
-				if DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if DocumentJson != "" {
-				sql = sql + ` ci.documentJson like '` + DocumentJson + `' `
-				if Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_number_eform != "" {
-				sql = sql + ` ci.doc_number_eform like '` + Doc_number_eform + `' `
-				if Customer_ID != "" || Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` ci.Customer_ID like '` + Customer_ID + `' `
-				if Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_thai != "" {
-				sql = sql + ` ci.Cusname_thai like '%` + Cusname_thai + `%' `
-				if Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_Eng != "" {
-				sql = sql + ` ci.Cusname_Eng like '%` + Cusname_Eng + `%' `
-				if ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if ID_PreSale != "" {
-				sql = sql + ` ci.ID_PreSale like '%` + ID_PreSale + `%' `
-				if Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cvm_id != "" {
-				sql = sql + ` ci.cvm_id like '` + Cvm_id + `' `
-				if Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Bussiness_type != "" {
-				sql = sql + ` ci.Business_type like '%` + Bussiness_type + `%' `
-				if Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_Team != "" {
-				sql = sql + ` ci.sale_team like '%` + Sale_Team + `%' `
-				if Job_Status != "" || SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Job_Status != "" {
-				sql = sql + ` ci.Job_Status like '%` + Job_Status + `%' `
-				if SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SO_Type != "" {
-				sql = sql + ` ci.SO_Type like '` + SO_Type + `' `
-				if Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Name != "" {
-				sql = sql + ` ci.Sales_Name like '` + Sales_Name + `' `
-				if Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Surname != "" {
-				sql = sql + ` ci.Sales_Surname like '` + Sales_Surname + `' `
-				if EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if EmployeeID != "" {
-				sql = sql + ` ci.EmployeeID like '` + EmployeeID + `' `
-				if Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status_eform != "" {
-				sql = sql + ` ci.status_eform like '` + Status_eform + `' `
-			}
-		}
+		where ci.status_eform like '%Onprocess from eform%' AND ci.EmployeeID in (?) AND 
+		INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
+		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -1219,13 +316,13 @@ func CostSheet_Status(c echo.Context) error {
 			TRM_All += Float_valA
 			Count_Costsheet += 1
 		}
-		dataResult.Cancel = map[string]interface{}{
+		dataResult.Onprocessfromeform = map[string]interface{}{
 			"Count":  Count_Costsheet,
 			"total":  TRM_All,
-			"status": "Cancel",
+			"status": "Onprocess from eform",
 		}
-		CountCancel = Count_Costsheet
-		totalCancel = TRM_All
+		CountOnprocessfromeform = Count_Costsheet
+		totalOnprocessfromeform = TRM_All
 		wg.Done()
 	}()
 	go func() {
@@ -1237,181 +334,95 @@ func CostSheet_Status(c echo.Context) error {
 		left join staff_info si on ci.EmployeeID = si.staff_id
 		LEFT JOIN(
 			select * 
-			from so_mssql_test
+			from so_mssql
+			group by sonumber
+			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
+		where ci.status_eform like '%Cancel from paperless%' AND ci.EmployeeID in (?) 
+		AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
+		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
+
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
+			hasErr += 1
+		}
+		for _, v := range dataRaw {
+			Float_valA, _ := strconv.ParseFloat(v.Total_Revenue_Month, 64)
+			TRM_All += Float_valA
+			Count_Costsheet += 1
+		}
+		dataResult.Cancelfrompaperles = map[string]interface{}{
+			"Count":  Count_Costsheet,
+			"total":  TRM_All,
+			"status": "Cancel from paperless",
+		}
+		CountCancelfrompaperless = Count_Costsheet
+		totalCancelfrompaperless = TRM_All
+		wg.Done()
+	}()
+	go func() {
+		var TRM_All float64 = 0.0
+		Count_Costsheet := 0
+		var dataRaw []Costsheet_Data
+		sql := `select ci.Total_Revenue_Month
+		from costsheet_info ci
+		left join staff_info si on ci.EmployeeID = si.staff_id
+		LEFT JOIN(
+			select * 
+			from so_mssql
+			group by sonumber
+			) smt on ci.doc_number_eform = smt.SDPropertyCS28 
+		where ci.status_eform like '%Cancel from eform%' AND ci.EmployeeID in (?) 
+		AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
+		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
+
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
+			hasErr += 1
+		}
+		for _, v := range dataRaw {
+			Float_valA, _ := strconv.ParseFloat(v.Total_Revenue_Month, 64)
+			TRM_All += Float_valA
+			Count_Costsheet += 1
+		}
+		dataResult.Cancelfromeform = map[string]interface{}{
+			"Count":  Count_Costsheet,
+			"total":  TRM_All,
+			"status": "Cancel from eform",
+		}
+		CountCancelfromeform = Count_Costsheet
+		totalCancelfromeform = TRM_All
+		wg.Done()
+	}()
+	go func() {
+		var TRM_All float64 = 0.0
+		Count_Costsheet := 0
+		var dataRaw []Costsheet_Data
+		sql := `select ci.Total_Revenue_Month
+		from costsheet_info ci
+		left join staff_info si on ci.EmployeeID = si.staff_id
+		LEFT JOIN(
+			select * 
+			from so_mssql
 			group by sonumber
 			) smt on ci.doc_number_eform = smt.SDPropertyCS28
-		where ci.status_eform like '%Reject%' `
-		if St_date != "" || En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-			DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-			Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-			Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-			Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` ci.StartDate_P1 >= '` + St_date + `' AND ci.StartDate_P1 <= '` + En_date + `' `
-				if En_date != "" || StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` ci.EndDate_P1 <= '` + En_date + `' AND ci.EndDate_P1 >= '` + St_date + `' `
-				if StaffID != "" || Status != "" || Tracking_id != "" || Doc_id != "" ||
-					DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if StaffID != "" {
-				sql = sql + ` si.staff_id like '` + StaffID + `' `
-				if Status != "" || Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status != "" {
-				sql = sql + ` ci.status like '` + Status + `' `
-				if Tracking_id != "" || Doc_id != "" || DocumentJson != "" ||
-					Doc_number_eform != "" || Customer_ID != "" || Cusname_thai != "" ||
-					Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" || Sales_Name != "" ||
-					Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Tracking_id != "" {
-				sql = sql + ` ci.tracking_id like '` + Tracking_id + `' `
-				if Doc_id != "" || DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_id != "" {
-				sql = sql + ` ci.doc_id like '` + Doc_id + `' `
-				if DocumentJson != "" || Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if DocumentJson != "" {
-				sql = sql + ` ci.documentJson like '` + DocumentJson + `' `
-				if Doc_number_eform != "" || Customer_ID != "" ||
-					Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" ||
-					Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Doc_number_eform != "" {
-				sql = sql + ` ci.doc_number_eform like '` + Doc_number_eform + `' `
-				if Customer_ID != "" || Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` ci.Customer_ID like '` + Customer_ID + `' `
-				if Cusname_thai != "" || Cusname_Eng != "" || ID_PreSale != "" ||
-					Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_thai != "" {
-				sql = sql + ` ci.Cusname_thai like '%` + Cusname_thai + `%' `
-				if Cusname_Eng != "" || ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cusname_Eng != "" {
-				sql = sql + ` ci.Cusname_Eng like '%` + Cusname_Eng + `%' `
-				if ID_PreSale != "" || Cvm_id != "" || Bussiness_type != "" ||
-					Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if ID_PreSale != "" {
-				sql = sql + ` ci.ID_PreSale like '%` + ID_PreSale + `%' `
-				if Cvm_id != "" || Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Cvm_id != "" {
-				sql = sql + ` ci.cvm_id like '` + Cvm_id + `' `
-				if Bussiness_type != "" || Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Bussiness_type != "" {
-				sql = sql + ` ci.Business_type like '%` + Bussiness_type + `%' `
-				if Sale_Team != "" || Job_Status != "" || SO_Type != "" ||
-					Sales_Name != "" || Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_Team != "" {
-				sql = sql + ` ci.sale_team like '%` + Sale_Team + `%' `
-				if Job_Status != "" || SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Job_Status != "" {
-				sql = sql + ` ci.Job_Status like '%` + Job_Status + `%' `
-				if SO_Type != "" || Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SO_Type != "" {
-				sql = sql + ` ci.SO_Type like '` + SO_Type + `' `
-				if Sales_Name != "" || Sales_Surname != "" ||
-					EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Name != "" {
-				sql = sql + ` ci.Sales_Name like '` + Sales_Name + `' `
-				if Sales_Surname != "" || EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sales_Surname != "" {
-				sql = sql + ` ci.Sales_Surname like '` + Sales_Surname + `' `
-				if EmployeeID != "" || Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if EmployeeID != "" {
-				sql = sql + ` ci.EmployeeID like '` + EmployeeID + `' `
-				if Status_eform != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status_eform != "" {
-				sql = sql + ` ci.status_eform like '` + Status_eform + `' `
-			}
-		}
+		where ci.status_eform like '%Reject from paperless%' AND ci.EmployeeID in (?) 
+		AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
+		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
 
-		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
 		for _, v := range dataRaw {
@@ -1419,51 +430,116 @@ func CostSheet_Status(c echo.Context) error {
 			TRM_All += Float_valA
 			Count_Costsheet += 1
 		}
-		dataResult.Reject = map[string]interface{}{
+		dataResult.Rejectfrompaperless = map[string]interface{}{
 			"Count":  Count_Costsheet,
 			"total":  TRM_All,
-			"status": "Reject",
+			"status": "Reject from paperless",
 		}
-		CountReject = Count_Costsheet
-		totalReject = TRM_All
+		CountRejectfrompaperless = Count_Costsheet
+		totalRejectfrompaperless = TRM_All
+		wg.Done()
+	}()
+	go func() {
+		var TRM_All float64 = 0.0
+		Count_Costsheet := 0
+		var dataRaw []Costsheet_Data
+		sql := `select ci.Total_Revenue_Month
+		from costsheet_info ci
+		left join staff_info si on ci.EmployeeID = si.staff_id
+		LEFT JOIN(
+			select * 
+			from so_mssql
+			group by sonumber
+			) smt on ci.doc_number_eform = smt.SDPropertyCS28
+		where ci.status_eform like '%Reject from eform%' AND ci.EmployeeID in (?) 
+		AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+		INSTR(CONCAT_WS('|', ci.status,ci.tracking_id,ci.doc_id,ci.documentJson,ci.doc_number_eform,
+		ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,
+		ci.Sale_Team,ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?) 
+		AND ci.StartDate_P1 >= ?  AND ci.StartDate_P1 <= ? 
+		and ci.EndDate_P1 >= ? AND ci.EndDate_P1 <= ?
+		and ci.StartDate_P1 <= ci.EndDate_P1`
+
+		if err := dbSale.Ctx().Raw(sql,listId,StaffID,Search,dateFrom,dateTo,dateFrom,dateTo).Scan(&dataRaw).Error; err != nil {
+			hasErr += 1
+		}
+		for _, v := range dataRaw {
+			Float_valA, _ := strconv.ParseFloat(v.Total_Revenue_Month, 64)
+			TRM_All += Float_valA
+			Count_Costsheet += 1
+		}
+		dataResult.Rejectfromeform = map[string]interface{}{
+			"Count":  Count_Costsheet,
+			"total":  TRM_All,
+			"status": "Reject from eform",
+		}
+		CountRejectfromeform = Count_Costsheet
+		totalRejectfromeform = TRM_All
 		wg.Done()
 	}()
 	wg.Wait()
-	status := map[string]interface{}{
-		"total": totalCancel + totalOnprocess + totalCompletefromeform + totalCompeltefrompaperless + totalSOCompelte + totalReject,
-		"count": CountCancel + CountOnprocess + CountCompletefromeform + CountCompeltefrompaperless + CountSOCompelte + CountReject,
+		dataResult.Total = map[string]interface{}{
+		"count": 	CountRejectfromeform + CountRejectfrompaperless + CountCancelfromeform + 
+		CountCancelfrompaperless + CountOnprocessfromeform + CountOnprocessfrompaperless + 
+		CountCompletefromeform + CountCompeltefrompaperless + CountSOCompelte,
+		"status": "Total",
+		"total": totalRejectfromeform + totalRejectfrompaperless + totalCancelfromeform + totalCancelfrompaperless + totalOnprocessfromeform +
+		totalOnprocessfrompaperless + totalCompletefromeform + totalCompeltefrompaperless + totalSOCompelte,
 	}
 
-	Result := map[string]interface{}{
-		"detail": dataResult,
-		"total":  status,
-	}
-	return c.JSON(http.StatusOK, Result)
-	// return c.JSON(http.StatusOK, dataResult)
+	// return c.JSON(http.StatusOK, Result)
+	return c.JSON(http.StatusOK, dataResult)
 }
 
 func Invoice_Status(c echo.Context) error {
+	Startdate := strings.TrimSpace(c.QueryParam("startdate"))
+	Enddate := strings.TrimSpace(c.QueryParam("enddate"))
+	Search := strings.TrimSpace(c.QueryParam("search"))
+	Staffid := strings.TrimSpace(c.QueryParam("staffid"))
+	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
+	Status := strings.TrimSpace(c.QueryParam("status"))
 
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
-	Sonumber := strings.TrimSpace(c.QueryParam("sonumber"))
-	Staff_id := strings.TrimSpace(c.QueryParam("staff_id"))
-	SDPropertyCS28 := strings.TrimSpace(c.QueryParam("SDPropertyCS28"))
-	So_Web_Status := strings.TrimSpace(c.QueryParam("So_Web_Status"))
-	BLSCDocNo := strings.TrimSpace(c.QueryParam("BLSCDocNo"))
-	GetCN := strings.TrimSpace(c.QueryParam("GetCN"))
-	INCSCDocNo := strings.TrimSpace(c.QueryParam("INCSCDocNo"))
-	Customer_ID := strings.TrimSpace(c.QueryParam("Customer_ID"))
-	Customer_Name := strings.TrimSpace(c.QueryParam("Customer_Name"))
-	Sale_code := strings.TrimSpace(c.QueryParam("sale_code"))
-	Sale_name := strings.TrimSpace(c.QueryParam("sale_name"))
-	Sale_team := strings.TrimSpace(c.QueryParam("sale_team"))
-	Sale_lead := strings.TrimSpace(c.QueryParam("sale_lead"))
-	Active_Inactive := strings.TrimSpace(c.QueryParam("Active_Inactive"))
-	So_refer := strings.TrimSpace(c.QueryParam("so_refer"))
+	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("startdate")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("enddate")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+	
+	dateFrom :=  ""
+	dateTo := ""
+
+	if Startdate == "" || Enddate == ""{
+		dayStart = 1
+		dateFromA := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+		dateToA := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+		dateFrom =  dateFromA.String()
+		dateTo = dateToA.String()
+	}else{
+		dateFrom = Startdate
+		dateTo = Enddate
+	}
 
 	type Invoice_Data struct {
 		PeriodAmount float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
+		Inv_status string `json:"inv_status" gorm:"column:inv_status"`
+	}
+
+	type Users_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+	}
+
+	type Staffs_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+		Staff_child string `json:"staff_child" gorm:"column:staff_child"`
 	}
 
 	dataCount := struct {
@@ -1483,989 +559,108 @@ func Invoice_Status(c echo.Context) error {
 	hasErr := 0
 	wg := sync.WaitGroup{}
 	wg.Add(3)
-	go func() {
-		var Total_PA float64 = 0.0
-		Count_Invoice := 0
-		var dataRaw []Invoice_Data
-		sql := `select smt.PeriodAmount from so_mssql_test smt
-		LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-		where smt.GetCN is not null AND smt.GetCN not like ''`
-		if St_date != "" || En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-			So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-			Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-			Active_Inactive != "" || So_refer != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `'`
-				if Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sonumber != "" {
-				sql = sql + ` smt.sonumber like '` + Sonumber + `' `
-				if Staff_id != "" || SDPropertyCS28 != "" || So_Web_Status != "" ||
-					BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Staff_id != "" {
-				sql = sql + ` si.staff_id like '` + Staff_id + `' `
-				if SDPropertyCS28 != "" || So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SDPropertyCS28 != "" {
-				sql = sql + ` smt.SDPropertyCS28 like '` + SDPropertyCS28 + `' `
-				if So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_Web_Status != "" {
-				sql = sql + ` smt.So_Web_Status like '` + So_Web_Status + `' `
-				if BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if BLSCDocNo != "" {
-				sql = sql + ` smt.BLSCDocNo like '` + BLSCDocNo + `' `
-				if GetCN != "" || INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if GetCN != "" {
-				sql = sql + ` smt.GetCN like '` + GetCN + `' `
-				if INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if INCSCDocNo != "" {
-				sql = sql + ` smt.INCSCDocNo like '` + INCSCDocNo + `' `
-				if Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` smt.Customer_ID like '` + Customer_ID + `' `
-				if Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_Name != "" {
-				sql = sql + ` smt.Customer_Name like '` + Customer_Name + `' `
-				if Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_code != "" {
-				sql = sql + ` smt.sale_code like '` + Sale_code + `' `
-				if Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_name != "" {
-				sql = sql + ` smt.sale_name like '` + Sale_name + `' `
-				if Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_team != "" {
-				sql = sql + ` smt.sale_team like '` + Sale_team + `' `
-				if Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_lead != "" {
-				sql = sql + ` smt.sale_lead like '` + Sale_lead + `' `
-				if Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Active_Inactive != "" {
-				sql = sql + ` smt.Active_Inactive  like '` + Active_Inactive + `' `
-				if So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_refer != "" {
-				sql = sql + ` smt.so_refer  like '` + So_refer + `' `
-			}
-		}
-		sql = sql + ` GROUP BY smt.sonumber`
 
-		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
-			hasErr += 1
+	var user_data_raw []Users_Data
+	
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, SaleID).Scan(&user_data_raw).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
 		}
-		for _, v := range dataRaw {
-			Total_PA += v.PeriodAmount
-			Count_Invoice += 1
+	}
+	var listId []string
+	if len(user_data_raw) != 0 {
+		var staffAll []Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
 		}
-		dataCount.Reduce = map[string]interface{}{
-			"Count":  Count_Invoice,
-			"total":  Total_PA,
-			"status": "ลดหนี้",
+		for _, i := range staffAll {
+			listId = append(listId, i.Staff_id)
 		}
-		CountReduce = Count_Invoice
-		totalReduce = Total_PA
-		wg.Done()
-	}()
-	go func() {
+	} else {
+		var staffAll Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, SaleID).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.Staff_child != "" {
+			data := strings.Split(staffAll.Staff_child, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.Staff_id)
+	}
 		var dataRaw []Invoice_Data
 		var Total_PA float64 = 0.0
 		Count_Invoice := 0
-		sql := `select smt.PeriodAmount from so_mssql_test smt
-		LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-		where smt.GetCN is null AND smt.BLSCDocNo is not null AND smt.BLSCDocNo not like '' `
-		if St_date != "" || En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-			So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-			Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-			Active_Inactive != "" || So_refer != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `'`
-				if Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sonumber != "" {
-				sql = sql + ` smt.sonumber like '` + Sonumber + `' `
-				if Staff_id != "" || SDPropertyCS28 != "" || So_Web_Status != "" ||
-					BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Staff_id != "" {
-				sql = sql + ` si.staff_id like '` + Staff_id + `' `
-				if SDPropertyCS28 != "" || So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SDPropertyCS28 != "" {
-				sql = sql + ` smt.SDPropertyCS28 like '` + SDPropertyCS28 + `' `
-				if So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_Web_Status != "" {
-				sql = sql + ` smt.So_Web_Status like '` + So_Web_Status + `' `
-				if BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if BLSCDocNo != "" {
-				sql = sql + ` smt.BLSCDocNo like '` + BLSCDocNo + `' `
-				if GetCN != "" || INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if GetCN != "" {
-				sql = sql + ` smt.GetCN like '` + GetCN + `' `
-				if INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if INCSCDocNo != "" {
-				sql = sql + ` smt.INCSCDocNo like '` + INCSCDocNo + `' `
-				if Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` smt.Customer_ID like '` + Customer_ID + `' `
-				if Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_Name != "" {
-				sql = sql + ` smt.Customer_Name like '` + Customer_Name + `' `
-				if Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_code != "" {
-				sql = sql + ` smt.sale_code like '` + Sale_code + `' `
-				if Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_name != "" {
-				sql = sql + ` smt.sale_name like '` + Sale_name + `' `
-				if Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_team != "" {
-				sql = sql + ` smt.sale_team like '` + Sale_team + `' `
-				if Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_lead != "" {
-				sql = sql + ` smt.sale_lead like '` + Sale_lead + `' `
-				if Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Active_Inactive != "" {
-				sql = sql + ` smt.Active_Inactive  like '` + Active_Inactive + `' `
-				if So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_refer != "" {
-				sql = sql + ` smt.so_refer  like '` + So_refer + `' `
-			}
-		}
-		sql = sql + ` OR smt.GetCN like '' AND smt.BLSCDocNo is not null AND smt.BLSCDocNo not like ''`
-		if St_date != "" || En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-			So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-			Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-			Active_Inactive != "" || So_refer != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `'`
-				if Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sonumber != "" {
-				sql = sql + ` smt.sonumber like '` + Sonumber + `' `
-				if Staff_id != "" || SDPropertyCS28 != "" || So_Web_Status != "" ||
-					BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Staff_id != "" {
-				sql = sql + ` si.staff_id like '` + Staff_id + `' `
-				if SDPropertyCS28 != "" || So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SDPropertyCS28 != "" {
-				sql = sql + ` smt.SDPropertyCS28 like '` + SDPropertyCS28 + `' `
-				if So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_Web_Status != "" {
-				sql = sql + ` smt.So_Web_Status like '` + So_Web_Status + `' `
-				if BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if BLSCDocNo != "" {
-				sql = sql + ` smt.BLSCDocNo like '` + BLSCDocNo + `' `
-				if GetCN != "" || INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if GetCN != "" {
-				sql = sql + ` smt.GetCN like '` + GetCN + `' `
-				if INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if INCSCDocNo != "" {
-				sql = sql + ` smt.INCSCDocNo like '` + INCSCDocNo + `' `
-				if Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` smt.Customer_ID like '` + Customer_ID + `' `
-				if Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_Name != "" {
-				sql = sql + ` smt.Customer_Name like '` + Customer_Name + `' `
-				if Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_code != "" {
-				sql = sql + ` smt.sale_code like '` + Sale_code + `' `
-				if Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_name != "" {
-				sql = sql + ` smt.sale_name like '` + Sale_name + `' `
-				if Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_team != "" {
-				sql = sql + ` smt.sale_team like '` + Sale_team + `' `
-				if Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_lead != "" {
-				sql = sql + ` smt.sale_lead like '` + Sale_lead + `' `
-				if Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Active_Inactive != "" {
-				sql = sql + ` smt.Active_Inactive  like '` + Active_Inactive + `' `
-				if So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_refer != "" {
-				sql = sql + ` smt.so_refer  like '` + So_refer + `' `
-			}
-		}
-		sql = sql + ` GROUP BY smt.sonumber`
+		var Total_PA_B float64 = 0.0
+		Count_Invoice_B := 0
+		var Total_PA_C float64 = 0.0
+		Count_Invoice_C := 0
+		sql := `select SOO.PeriodAmount,SOO.inv_status 
+		FROM (
+			SELECT sonumber,BLSCDocNo,PeriodStartDate,PeriodEndDate,PeriodAmount,Customer_ID,
+			Customer_Name,sale_code,sale_team,sale_name,in_factor,ex_factor,Active_Inactive,
+			(CASE
+				WHEN GetCN is null AND BLSCDocNo is not null AND BLSCDocNo not like '' 
+				OR GetCN like '' AND BLSCDocNo is not null AND BLSCDocNo not like '' 
+				THEN 'ออก invoice เสร็จสิ้น'
+				WHEN GetCN is not null AND GetCN not like '' 
+				THEN 'ลดหนี้'  
+				ELSE 'ยังไม่ออก invoice' 
+				END 
+			) inv_status 
+			FROM so_mssql ) SOO
+		LEFT JOIN (select staff_id from staff_info) si on SOO.sale_code = si.staff_id 
+		WHERE SOO.Active_Inactive = 'Active' and 
+		SOO.PeriodStartDate >= ? and SOO.PeriodStartDate <= ?
+		AND SOO.PeriodEndDate >= ? and SOO.PeriodEndDate <= ?
+		and SOO.PeriodStartDate <= SOO.PeriodEndDate 
+		AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+		INSTR(CONCAT_WS('|', SOO.sonumber,SOO.BLSCDocNo,SOO.Customer_ID,SOO.Customer_Name,SOO.sale_code,
+		SOO.sale_team,SOO.sale_name), ?) AND SOO.sale_code in (?) AND INSTR(CONCAT_WS('|', inv_status), ?) 
+		group by SOO.sonumber`
 
-		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
+		if err := dbSale.Ctx().Raw(sql,dateFrom,dateTo,dateFrom,dateTo,
+			Staffid,Search,listId,Status).Scan(&dataRaw).Error; err != nil {
 			hasErr += 1
 		}
-		for _, v := range dataRaw {
-			Total_PA += v.PeriodAmount
-			Count_Invoice += 1
+		for i, v := range dataRaw {
+			if dataRaw[i].Inv_status == "ออก invoice เสร็จสิ้น"{
+				Total_PA += v.PeriodAmount
+				Count_Invoice += 1
+			}else if dataRaw[i].Inv_status == "ลดหนี้"{
+				Total_PA_B += v.PeriodAmount
+				Count_Invoice_B += 1
+			}else if dataRaw[i].Inv_status == "ยังไม่ออก invoice"{
+				Total_PA_C += v.PeriodAmount
+				Count_Invoice_C += 1
+			}
 		}
 		dataCount.Hasinvoice = map[string]interface{}{
 			"Count":  Count_Invoice,
 			"total":  Total_PA,
-			"status": "ออก invoice เสร้จสิ้น",
+			"status": "ออก invoice เสร็จสิ้น",
+		}
+		dataCount.Reduce = map[string]interface{}{
+			"Count":  Count_Invoice_B,
+			"total":  Total_PA_B,
+			"status": "ลดหนี้",
+		}
+		dataCount.Noinvoice = map[string]interface{}{
+			"Count":  Count_Invoice_C,
+			"total":  Total_PA_C,
+			"status": "ยังไม่ออก invoice",
 		}
 		Counthasinvoice = Count_Invoice
 		totalhasinvoice = Total_PA
-		wg.Done()
-	}()
-	go func() {
-		var Total_PA float64 = 0.0
-		Count_Invoice := 0
-		var dataRaw []Invoice_Data
-		sql := `select smt.PeriodAmount from so_mssql_test smt
-		LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-		where smt.GetCN is null AND smt.BLSCDocNo is null `
-		if St_date != "" || En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-			So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-			Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-			Active_Inactive != "" || So_refer != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `'`
-				if Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sonumber != "" {
-				sql = sql + ` smt.sonumber like '` + Sonumber + `' `
-				if Staff_id != "" || SDPropertyCS28 != "" || So_Web_Status != "" ||
-					BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Staff_id != "" {
-				sql = sql + ` si.staff_id like '` + Staff_id + `' `
-				if SDPropertyCS28 != "" || So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SDPropertyCS28 != "" {
-				sql = sql + ` smt.SDPropertyCS28 like '` + SDPropertyCS28 + `' `
-				if So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_Web_Status != "" {
-				sql = sql + ` smt.So_Web_Status like '` + So_Web_Status + `' `
-				if BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if BLSCDocNo != "" {
-				sql = sql + ` smt.BLSCDocNo like '` + BLSCDocNo + `' `
-				if GetCN != "" || INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if GetCN != "" {
-				sql = sql + ` smt.GetCN like '` + GetCN + `' `
-				if INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if INCSCDocNo != "" {
-				sql = sql + ` smt.INCSCDocNo like '` + INCSCDocNo + `' `
-				if Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` smt.Customer_ID like '` + Customer_ID + `' `
-				if Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_Name != "" {
-				sql = sql + ` smt.Customer_Name like '` + Customer_Name + `' `
-				if Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_code != "" {
-				sql = sql + ` smt.sale_code like '` + Sale_code + `' `
-				if Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_name != "" {
-				sql = sql + ` smt.sale_name like '` + Sale_name + `' `
-				if Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_team != "" {
-				sql = sql + ` smt.sale_team like '` + Sale_team + `' `
-				if Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_lead != "" {
-				sql = sql + ` smt.sale_lead like '` + Sale_lead + `' `
-				if Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Active_Inactive != "" {
-				sql = sql + ` smt.Active_Inactive  like '` + Active_Inactive + `' `
-				if So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_refer != "" {
-				sql = sql + ` smt.so_refer  like '` + So_refer + `' `
-			}
-		}
-		sql = sql + ` OR smt.GetCN like '' AND smt.BLSCDocNo is null `
-		if St_date != "" || En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-			So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-			Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-			Active_Inactive != "" || So_refer != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `'`
-				if Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sonumber != "" {
-				sql = sql + ` smt.sonumber like '` + Sonumber + `' `
-				if Staff_id != "" || SDPropertyCS28 != "" || So_Web_Status != "" ||
-					BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Staff_id != "" {
-				sql = sql + ` si.staff_id like '` + Staff_id + `' `
-				if SDPropertyCS28 != "" || So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SDPropertyCS28 != "" {
-				sql = sql + ` smt.SDPropertyCS28 like '` + SDPropertyCS28 + `' `
-				if So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_Web_Status != "" {
-				sql = sql + ` smt.So_Web_Status like '` + So_Web_Status + `' `
-				if BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if BLSCDocNo != "" {
-				sql = sql + ` smt.BLSCDocNo like '` + BLSCDocNo + `' `
-				if GetCN != "" || INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if GetCN != "" {
-				sql = sql + ` smt.GetCN like '` + GetCN + `' `
-				if INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if INCSCDocNo != "" {
-				sql = sql + ` smt.INCSCDocNo like '` + INCSCDocNo + `' `
-				if Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` smt.Customer_ID like '` + Customer_ID + `' `
-				if Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_Name != "" {
-				sql = sql + ` smt.Customer_Name like '` + Customer_Name + `' `
-				if Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_code != "" {
-				sql = sql + ` smt.sale_code like '` + Sale_code + `' `
-				if Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_name != "" {
-				sql = sql + ` smt.sale_name like '` + Sale_name + `' `
-				if Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_team != "" {
-				sql = sql + ` smt.sale_team like '` + Sale_team + `' `
-				if Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_lead != "" {
-				sql = sql + ` smt.sale_lead like '` + Sale_lead + `' `
-				if Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Active_Inactive != "" {
-				sql = sql + ` smt.Active_Inactive  like '` + Active_Inactive + `' `
-				if So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_refer != "" {
-				sql = sql + ` smt.so_refer  like '` + So_refer + `' `
-			}
-		}
-		sql = sql + ` OR smt.GetCN like '' AND smt.BLSCDocNo like '' `
-		if St_date != "" || En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-			So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-			Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-			Active_Inactive != "" || So_refer != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `'`
-				if Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sonumber != "" {
-				sql = sql + ` smt.sonumber like '` + Sonumber + `' `
-				if Staff_id != "" || SDPropertyCS28 != "" || So_Web_Status != "" ||
-					BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Staff_id != "" {
-				sql = sql + ` si.staff_id like '` + Staff_id + `' `
-				if SDPropertyCS28 != "" || So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SDPropertyCS28 != "" {
-				sql = sql + ` smt.SDPropertyCS28 like '` + SDPropertyCS28 + `' `
-				if So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_Web_Status != "" {
-				sql = sql + ` smt.So_Web_Status like '` + So_Web_Status + `' `
-				if BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if BLSCDocNo != "" {
-				sql = sql + ` smt.BLSCDocNo like '` + BLSCDocNo + `' `
-				if GetCN != "" || INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if GetCN != "" {
-				sql = sql + ` smt.GetCN like '` + GetCN + `' `
-				if INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if INCSCDocNo != "" {
-				sql = sql + ` smt.INCSCDocNo like '` + INCSCDocNo + `' `
-				if Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` smt.Customer_ID like '` + Customer_ID + `' `
-				if Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_Name != "" {
-				sql = sql + ` smt.Customer_Name like '` + Customer_Name + `' `
-				if Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_code != "" {
-				sql = sql + ` smt.sale_code like '` + Sale_code + `' `
-				if Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_name != "" {
-				sql = sql + ` smt.sale_name like '` + Sale_name + `' `
-				if Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_team != "" {
-				sql = sql + ` smt.sale_team like '` + Sale_team + `' `
-				if Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_lead != "" {
-				sql = sql + ` smt.sale_lead like '` + Sale_lead + `' `
-				if Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Active_Inactive != "" {
-				sql = sql + ` smt.Active_Inactive  like '` + Active_Inactive + `' `
-				if So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_refer != "" {
-				sql = sql + ` smt.so_refer  like '` + So_refer + `' `
-			}
-		}
-		sql = sql + ` OR smt.GetCN is null AND smt.BLSCDocNo like '' `
-		if St_date != "" || En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-			So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-			Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-			Active_Inactive != "" || So_refer != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != "" || Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `'`
-				if Sonumber != "" || Staff_id != "" || SDPropertyCS28 != "" ||
-					So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sonumber != "" {
-				sql = sql + ` smt.sonumber like '` + Sonumber + `' `
-				if Staff_id != "" || SDPropertyCS28 != "" || So_Web_Status != "" ||
-					BLSCDocNo != "" || GetCN != "" || INCSCDocNo != "" || Customer_ID != "" ||
-					Customer_Name != "" || Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Staff_id != "" {
-				sql = sql + ` si.staff_id like '` + Staff_id + `' `
-				if SDPropertyCS28 != "" || So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if SDPropertyCS28 != "" {
-				sql = sql + ` smt.SDPropertyCS28 like '` + SDPropertyCS28 + `' `
-				if So_Web_Status != "" || BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_Web_Status != "" {
-				sql = sql + ` smt.So_Web_Status like '` + So_Web_Status + `' `
-				if BLSCDocNo != "" || GetCN != "" ||
-					INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if BLSCDocNo != "" {
-				sql = sql + ` smt.BLSCDocNo like '` + BLSCDocNo + `' `
-				if GetCN != "" || INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if GetCN != "" {
-				sql = sql + ` smt.GetCN like '` + GetCN + `' `
-				if INCSCDocNo != "" || Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if INCSCDocNo != "" {
-				sql = sql + ` smt.INCSCDocNo like '` + INCSCDocNo + `' `
-				if Customer_ID != "" || Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_ID != "" {
-				sql = sql + ` smt.Customer_ID like '` + Customer_ID + `' `
-				if Customer_Name != "" || Sale_code != "" ||
-					Sale_name != "" || Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Customer_Name != "" {
-				sql = sql + ` smt.Customer_Name like '` + Customer_Name + `' `
-				if Sale_code != "" || Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_code != "" {
-				sql = sql + ` smt.sale_code like '` + Sale_code + `' `
-				if Sale_name != "" || Sale_team != "" || Sale_lead != "" ||
-					Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_name != "" {
-				sql = sql + ` smt.sale_name like '` + Sale_name + `' `
-				if Sale_team != "" || Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_team != "" {
-				sql = sql + ` smt.sale_team like '` + Sale_team + `' `
-				if Sale_lead != "" || Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Sale_lead != "" {
-				sql = sql + ` smt.sale_lead like '` + Sale_lead + `' `
-				if Active_Inactive != "" || So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Active_Inactive != "" {
-				sql = sql + ` smt.Active_Inactive  like '` + Active_Inactive + `' `
-				if So_refer != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_refer != "" {
-				sql = sql + ` smt.so_refer  like '` + So_refer + `' `
-			}
-		}
-		sql = sql + ` GROUP BY smt.sonumber `
+		CountReduce = Count_Invoice_B
+		totalReduce = Total_PA_B
+		Countnoinvoice = Count_Invoice_C
+		totalnoinvoice = Total_PA_C
 
-		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
-			hasErr += 1
-		}
-		for _, v := range dataRaw {
-			Total_PA += v.PeriodAmount
-			Count_Invoice += 1
-		}
-		dataCount.Noinvoice = map[string]interface{}{
-			"Count":  Count_Invoice,
-			"total":  Total_PA,
-			"status": "ยังไม่ออก invoice",
-		}
-		Countnoinvoice = Count_Invoice
-		totalnoinvoice = Total_PA
-		wg.Done()
-	}()
-	wg.Wait()
 
 	status := map[string]interface{}{
 		"total": totalhasinvoice + totalReduce + totalnoinvoice,
@@ -2480,16 +675,54 @@ func Invoice_Status(c echo.Context) error {
 }
 
 func Billing_Status(c echo.Context) error {
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
-	Staff_id := strings.TrimSpace(c.QueryParam("staffid"))
-	Invoice_no := strings.TrimSpace(c.QueryParam("invoice_no"))
-	So_number := strings.TrimSpace(c.QueryParam("so_number"))
+	Startdate := strings.TrimSpace(c.QueryParam("startdate"))
+	Enddate := strings.TrimSpace(c.QueryParam("enddate"))
+	Staffid := strings.TrimSpace(c.QueryParam("staffid"))
+	Search := strings.TrimSpace(c.QueryParam("search"))
+	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
 	Status := strings.TrimSpace(c.QueryParam("status"))
-	Reason := strings.TrimSpace(c.QueryParam("reason"))
+
+	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("startdate")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("enddate")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+
+	dateFrom :=  ""
+	dateTo := ""
+
+	if Startdate == "" || Enddate == ""{
+		dayStart = 1
+		dateFromA := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+		dateToA := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+		dateFrom =  dateFromA.String()
+		dateTo = dateToA.String()
+	}else{
+		dateFrom = Startdate
+		dateTo = Enddate
+	}
+
+	type Staffs_Data struct {
+		Staff_id 	string `json:"staff_id" gorm:"column:staff_id"`
+		Staff_child string `json:"staff_child" gorm:"column:staff_child"`
+	}
+
+	type Users_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+	}
 
 	type Billing_Data struct {
 		PeriodAmount float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
+		Status 		 string `json:"status" gorm:"column:status"`
 	}
 	dataCount := struct {
 		Hasbilling interface{}
@@ -2503,156 +736,111 @@ func Billing_Status(c echo.Context) error {
 	totalnobilling := float64(0)
 
 	hasErr := 0
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-	go func() {
-		var TotalPeriodAmount float64 = 0.0
-		CountBilling := 0
-		var dataRaw []Billing_Data
-		sql := `select BL.PeriodAmount
-			from
-			(select smt.PeriodAmount,smt.INCSCDocNo
-			from so_mssql_test smt
-			LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-			LEFT JOIN billing_info bi on smt.BLSCDocNo = bi.invoice_no
-			where bi.status like '%วางบิลแล้ว%'`
-		if St_date != "" || En_date != "" || Staff_id != "" || Invoice_no != "" ||
-			So_number != "" || Status != "" || Reason != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != "" || Staff_id != "" || Invoice_no != "" ||
-					So_number != "" || Status != "" || Reason != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `' `
-				if Staff_id != "" || Invoice_no != "" ||
-					So_number != "" || Status != "" || Reason != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Staff_id != "" {
-				sql = sql + ` si.staff_id like '` + Staff_id + `'`
-				if Invoice_no != "" || So_number != "" || Status != "" || Reason != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Invoice_no != "" {
-				sql = sql + ` bi.invoice_no like '` + Invoice_no + `'`
-				if So_number != "" || Status != "" || Reason != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_number != "" {
-				sql = sql + ` bi.so_number like '` + So_number + `'`
-				if Status != "" || Reason != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status != "" {
-				sql = sql + ` bi.status like '` + Status + `'`
-				if Reason != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Reason != "" {
-				sql = sql + ` bi.reason like '` + Reason + `'`
-			}
-		}
-		sql = sql + ` group by smt.sonumber) BL`
-		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
-			hasErr += 1
-		}
-		for _, v := range dataRaw {
-			TotalPeriodAmount += v.PeriodAmount
-			CountBilling += 1
-		}
-		dataCount.Hasbilling = map[string]interface{}{
-			"Count":  CountBilling,
-			"total":  TotalPeriodAmount,
-			"status": "วางบิลแล้ว",
-		}
+	var user_data_raw []Users_Data
 
-		Counthasbilling = CountBilling
-		totalhasbilling = TotalPeriodAmount
-		wg.Done()
-	}()
-	go func() {
-		var TotalPeriodAmount float64 = 0.0
-		CountBilling := 0
-		var dataRaw []Billing_Data
-		sql := `select BL.PeriodAmount
-			from
-			(select smt.PeriodAmount,smt.INCSCDocNo
-			from so_mssql_test smt
-			LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-			LEFT JOIN billing_info bi on smt.BLSCDocNo = bi.invoice_no
-			where bi.status like '%วางไม่ได้%' `
-		if St_date != "" || En_date != "" || Staff_id != "" || Invoice_no != "" ||
-			So_number != "" || Status != "" || Reason != "" {
-			sql = sql + ` AND `
-			if St_date != "" {
-				sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-				if En_date != "" || Staff_id != "" || Invoice_no != "" ||
-					So_number != "" || Status != "" || Reason != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if En_date != "" {
-				sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `' `
-				if Staff_id != "" || Invoice_no != "" ||
-					So_number != "" || Status != "" || Reason != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Staff_id != "" {
-				sql = sql + ` si.staff_id like '` + Staff_id + `'`
-				if Invoice_no != "" || So_number != "" || Status != "" || Reason != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Invoice_no != "" {
-				sql = sql + ` bi.invoice_no like '` + Invoice_no + `'`
-				if So_number != "" || Status != "" || Reason != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if So_number != "" {
-				sql = sql + ` bi.so_number like '` + So_number + `'`
-				if Status != "" || Reason != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Status != "" {
-				sql = sql + ` bi.status like '` + Status + `'`
-				if Reason != "" {
-					sql = sql + ` AND `
-				}
-			}
-			if Reason != "" {
-				sql = sql + ` bi.reason like '` + Reason + `'`
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, SaleID).Scan(&user_data_raw).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user_data_raw) != 0 {
+		var staffAll []Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
 			}
 		}
-		sql = sql + ` group by smt.sonumber) BL`
-		if err := dbSale.Ctx().Raw(sql).Scan(&dataRaw).Error; err != nil {
-			hasErr += 1
+		for _, i := range staffAll {
+			listId = append(listId, i.Staff_id)
 		}
-		for _, v := range dataRaw {
+	} else {
+		var staffAll Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, SaleID).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.Staff_child != "" {
+			data := strings.Split(staffAll.Staff_child, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.Staff_id)
+	}
+
+	var TotalPeriodAmount float64 = 0.0
+	CountBilling := 0
+	var TotalPeriodAmountB float64 = 0.0
+	CountBillingB := 0
+	var dataRaw []Billing_Data
+	sql := `select BL.PeriodAmount,
+	(CASE 
+		WHEN bi.status is not null AND bi.status not like ''
+		THEN bi.status
+		ELSE 'วางไม่ได้'
+		END
+	) status
+	from (select *,
+		(CASE
+			WHEN DATEDIFF(?, ?) = 0
+			THEN 0
+			WHEN DATEDIFF(smt.PeriodEndDate,smt.PeriodStartDate)+1 = 0
+			THEN 0
+			WHEN smt.PeriodStartDate >= ? AND smt.PeriodStartDate <= ? AND smt.PeriodEndDate <= ?
+			THEN PeriodAmount
+			WHEN smt.PeriodStartDate >= ? AND smt.PeriodStartDate <= ? AND smt.PeriodEndDate > ?
+			THEN (DATEDIFF(?, smt.PeriodStartDate)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate, smt.PeriodStartDate)+1))
+			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate <= ? AND smt.PeriodEndDate > ?
+			THEN (DATEDIFF(smt.PeriodEndDate, ?)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate, smt.PeriodStartDate)+1))
+			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate = ?
+			THEN 1*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate, smt.PeriodStartDate)+1))
+			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate > ?
+			THEN (DATEDIFF(?,?)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate,smt.PeriodStartDate)+1))
+			ELSE 0 END
+		) so_amount
+		from so_mssql smt
+		WHERE smt.Active_Inactive = 'Active' 
+		AND smt.sonumber is not null 
+		AND smt.sonumber not like ''
+		AND PeriodStartDate >= ? and PeriodStartDate <= ?
+		AND PeriodEndDate >= ? and PeriodEndDate <= ?
+		AND PeriodStartDate <= PeriodEndDate
+		group by smt.sonumber
+	) BL
+	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
+	LEFT JOIN billing_info bi on BL.BLSCDocNo = bi.invoice_no
+	WHERE  INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+	INSTR(CONCAT_WS('|',bi.invoice_no,BL.sonumber,bi.reason,BL.Customer_ID,BL.Customer_Name,
+	BL.sale_team,BL.sale_name), ?) AND BL.sale_code in (?) AND INSTR(CONCAT_WS('|', bi.status), ?) `
+	if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo, 
+		dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo, 
+		dateTo,dateFrom,dateFrom,dateTo,dateFrom,dateTo,Staffid,Search,listId,Status).Scan(&dataRaw).Error; err != nil {
+		hasErr += 1
+	}
+	for i, v := range dataRaw {
+		if dataRaw[i].Status == "วางบิลแล้ว"{
 			TotalPeriodAmount += v.PeriodAmount
 			CountBilling += 1
+		}else if dataRaw[i].Status == "วางไม่ได้"{
+			TotalPeriodAmountB += v.PeriodAmount
+			CountBillingB += 1
 		}
-		dataCount.Nobilling = map[string]interface{}{
-			"Count":  CountBilling,
-			"total":  TotalPeriodAmount,
-			"status": "วางไม่ได้",
-		}
-		Counthasbilling = CountBilling
-		totalhasbilling = TotalPeriodAmount
-		wg.Done()
-	}()
-	wg.Wait()
+	}
+	dataCount.Hasbilling = map[string]interface{}{
+		"Count":  CountBilling,
+		"total":  TotalPeriodAmount,
+		"status": "วางบิลแล้ว",
+	}
+	dataCount.Nobilling = map[string]interface{}{
+		"Count":  CountBillingB,
+		"total":  TotalPeriodAmountB,
+		"status": "วางไม่ได้",
+	}
+	Counthasbilling = CountBilling
+	totalhasbilling = TotalPeriodAmount
+	Countnobilling = CountBillingB
+	totalnobilling = TotalPeriodAmountB
 
 	status := map[string]interface{}{
 		"total": totalhasbilling + totalnobilling,
@@ -2667,134 +855,157 @@ func Billing_Status(c echo.Context) error {
 }
 
 func Reciept_Status(c echo.Context) error {
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
-	Staff_id := strings.TrimSpace(c.QueryParam("staffid"))
-	Invoice_no := strings.TrimSpace(c.QueryParam("invoice_no"))
-	So_number := strings.TrimSpace(c.QueryParam("so_number"))
+	Startdate := strings.TrimSpace(c.QueryParam("startdate"))
+	Enddate := strings.TrimSpace(c.QueryParam("enddate"))
+	Staffid := strings.TrimSpace(c.QueryParam("staffid"))
+	SaleID := strings.TrimSpace(c.QueryParam("saleid"))
+	Search := strings.TrimSpace(c.QueryParam("search"))
 	Status := strings.TrimSpace(c.QueryParam("status"))
-	Reason := strings.TrimSpace(c.QueryParam("reason"))
 
-	Reciept_Data := []struct {
-		PeriodAmount   float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
-		Count_Reciept  int     `json:"Count_Reciept" gorm:"column:Count_Reciept"`
-		PeriodAmountF  float64 `json:"PeriodAmountF" gorm:"column:PeriodAmountF"`
-		Count_RecieptF int     `json:"Count_RecieptF" gorm:"column:Count_RecieptF"`
-		// Invoice_status_name	string	`json:"invoice_status_name" gorm:"column:invoice_status_name"`
-		// INCSCDocNo			string	`json:"INCSCDocNo" gorm:"column:INCSCDocNo"`
-	}{}
+	if strings.TrimSpace(c.QueryParam("saleid")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	ds := time.Now()
+	de := time.Now()
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("startdate")), 10); err == nil {
+		ds = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("enddate")), 10); err == nil {
+		de = time.Unix(util.ConvertTimeStamp(f), 0)
+	}
+	yearStart, monthStart, dayStart := ds.Date()
+	yearEnd, monthEnd, dayEnd := de.Date()
+
+	dateFrom :=  ""
+	dateTo := ""
+
+	if Startdate == "" || Enddate == ""{
+		dayStart = 1
+		dateFromA := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+		dateToA := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+		dateFrom =  dateFromA.String()
+		dateTo = dateToA.String()
+	}else{
+		dateFrom = Startdate
+		dateTo = Enddate
+	}
 
 	type reciept_Result_Data struct {
-		CountReciept      int     `json:"CountReciept"`
-		TotalPeriodAmount float64 `json:"TotalPeriodAmount"`
-		Reciept_status    string  `json:"Reciept_status"`
+		PeriodAmount 	  float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
+		Reciept_status    string  `json:"reciept_status" gorm:"column:reciept_status"`
 	}
 
-	var Reciept_Result_Data []reciept_Result_Data
+	dataCount := struct {
+		HasReciept interface{}
+		NoReciept  interface{}
+	}{}
 
-	sql := `select
-	SUM(CASE
-		WHEN RE.INCSCDocNo is not null AND RE.INCSCDocNo NOT LIKE ''
-		THEN RE.PeriodAmount
-		ELSE NULL
-	END) as PeriodAmount, 
-	COUNT(CASE
-		WHEN RE.INCSCDocNo is not null AND RE.INCSCDocNo NOT LIKE ''
-		THEN 1
-		ELSE NULL
-	END) as Count_Reciept,
-	SUM(CASE
-		WHEN RE.INCSCDocNo is null OR RE.INCSCDocNo LIKE ''
-		THEN RE.PeriodAmount
-		ELSE NULL
-	END) as PeriodAmountF, 
-	COUNT(CASE
-		WHEN RE.INCSCDocNo is null OR RE.INCSCDocNo LIKE ''
-		THEN 1
-		ELSE NULL
-	END) as Count_RecieptF
+	type Staffs_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+		Staff_child string `json:"staff_child" gorm:"column:staff_child"`
+	}
+
+	type Users_Data struct {
+		Staff_id string `json:"staff_id" gorm:"column:staff_id"`
+	}
+
+	var user_data_raw []Users_Data
+
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, SaleID).Scan(&user_data_raw).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user_data_raw) != 0 {
+		var staffAll []Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.Staff_id)
+		}
+	} else {
+		var staffAll Staffs_Data
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, SaleID).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.Staff_child != "" {
+			data := strings.Split(staffAll.Staff_child, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.Staff_id)
+	}
+
+	var TotalPeriodAmount float64 = 0.0
+	CountReciept := 0
+	var TotalPeriodAmountB float64 = 0.0
+	CountRecieptB := 0
+	var dataRaw []reciept_Result_Data
+
+	sql := `select BL.PeriodAmount,BL.reciept_status
 	from
-	(select smt.PeriodAmount,smt.INCSCDocNo
-	from so_mssql_test smt
-	LEFT JOIN staff_info si on smt.sale_code = si.staff_id
-	LEFT JOIN billing_info bi on smt.BLSCDocNo = bi.invoice_no
-	where bi.status like '%วางบิลแล้ว%' 
-	GROUP BY smt.sonumber`
+	(select *,
+		(CASE
+			WHEN INCSCDocNo is not null AND INCSCDocNo not like ''
+			THEN 'วาง Reciept เสร็จสิ้น'
+			ELSE 'ยังไม่วาง Reciept'
+			END
+		) reciept_status 
+		from so_mssql smt
+		WHERE smt.Active_Inactive = 'Active'
+		AND PeriodStartDate >= ? and PeriodStartDate <= ?
+		AND PeriodEndDate >= ? and PeriodEndDate <= ?
+		AND PeriodStartDate <= PeriodEndDate
+		group by smt.sonumber
+	) BL
+	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
+	LEFT JOIN billing_info bi on BL.BLSCDocNo = bi.invoice_no
+	WHERE bi.status like '%วางบิลแล้ว%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
+	INSTR(CONCAT_WS('|',bi.invoice_no,BL.sonumber,BL.INCSCDocNo,bi.status,bi.reason,BL.Customer_ID,
+	BL.Customer_Name,BL.sale_team,BL.sale_name), ?) AND BL.sale_code in (?) AND 
+	INSTR(CONCAT_WS('|', BL.reciept_status), ?)`
 
-	if St_date != "" || En_date != "" || Staff_id != "" || Invoice_no != "" ||
-		So_number != "" || Status != "" || Reason != "" {
-		sql = sql + ` AND `
-		if St_date != "" {
-			sql = sql + ` smt.PeriodStartDate >= '` + St_date + `' AND smt.PeriodStartDate <= '` + En_date + `' `
-			if En_date != "" || Staff_id != "" || Invoice_no != "" ||
-				So_number != "" || Status != "" || Reason != "" {
-				sql = sql + ` AND `
-			}
-		}
-		if En_date != "" {
-			sql = sql + ` smt.PeriodEndDate <= '` + En_date + `' AND smt.PeriodEndDate >= '` + St_date + `' `
-			if Staff_id != "" || Invoice_no != "" ||
-				So_number != "" || Status != "" || Reason != "" {
-				sql = sql + ` AND `
-			}
-		}
-		if Staff_id != "" {
-			sql = sql + ` si.staff_id like '` + Staff_id + `'`
-			if Invoice_no != "" || So_number != "" || Status != "" || Reason != "" {
-				sql = sql + ` AND `
-			}
-		}
-		if Invoice_no != "" {
-			sql = sql + ` bi.invoice_no like '` + Invoice_no + `'`
-			if So_number != "" || Status != "" || Reason != "" {
-				sql = sql + ` AND `
-			}
-		}
-		if So_number != "" {
-			sql = sql + ` bi.so_number like '` + So_number + `'`
-			if Status != "" || Reason != "" {
-				sql = sql + ` AND `
-			}
-		}
-		if Status != "" {
-			sql = sql + ` bi.status like '` + Status + `'`
-			if Reason != "" {
-				sql = sql + ` AND `
-			}
-		}
-		if Reason != "" {
-			sql = sql + ` bi.reason like '` + Reason + `'`
-		}
-	}
-
-	sql = sql + ` )RE`
-
-	if err := dbSale.Ctx().Raw(sql).Scan(&Reciept_Data).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql,dateFrom,dateTo,dateFrom,dateTo,
+		Staffid,Search,listId,Status).Scan(&dataRaw).Error; err != nil {
 		log.Errorln("GettrackingList error :-", err)
 	}
 
-	DataA := reciept_Result_Data{
-		CountReciept:      Reciept_Data[0].Count_Reciept,
-		TotalPeriodAmount: Reciept_Data[0].PeriodAmount,
-		Reciept_status:    "วาง Reciept เสร็จสิ้น",
+	for i, v := range dataRaw {
+		if dataRaw[i].Reciept_status == "วาง Reciept เสร็จสิ้น"{
+			TotalPeriodAmount += v.PeriodAmount
+			CountReciept += 1
+		}else if dataRaw[i].Reciept_status == "ยังไม่วาง Reciept"{
+			TotalPeriodAmountB += v.PeriodAmount
+			CountRecieptB += 1
+		}
 	}
-	Reciept_Result_Data = append(Reciept_Result_Data, DataA)
 
-	DataB := reciept_Result_Data{
-		CountReciept:      Reciept_Data[0].Count_RecieptF,
-		TotalPeriodAmount: Reciept_Data[0].PeriodAmountF,
-		Reciept_status:    "ยังไม่วาง Reciept",
+	dataCount.HasReciept = map[string]interface{}{
+		"Count":  CountReciept,
+		"total":  TotalPeriodAmount,
+		"status": "วาง Reciept เสร็จสิ้น",
 	}
-	Reciept_Result_Data = append(Reciept_Result_Data, DataB)
-
+	dataCount.NoReciept = map[string]interface{}{
+		"Count":  CountRecieptB,
+		"total":  TotalPeriodAmountB,
+		"status": "ยังไม่วาง Reciept",
+	}
 	status := map[string]interface{}{
-		"total": Reciept_Data[0].PeriodAmount + Reciept_Data[0].PeriodAmountF,
-		"count": Reciept_Data[0].Count_RecieptF + Reciept_Data[0].Count_Reciept,
+		"total": TotalPeriodAmount+TotalPeriodAmountB,
+		"count": CountReciept + CountRecieptB,
 	}
 	Result := map[string]interface{}{
-		"detail": Reciept_Result_Data,
+		"detail": dataCount,
 		"total":  status,
 	}
+
 	return c.JSON(http.StatusOK, Result)
 
 	// return c.JSON(http.StatusOK, Reciept_Result_Data)

@@ -13,21 +13,19 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func Reciept_Detail(c echo.Context) error {
+func Invoice_Detail(c echo.Context) error {
 	type Invoice_Data struct {
-		So_number      string `json:"sonumber" gorm:"column:sonumber"`
-		Invoice_no     string `json:"invoice_no" gorm:"column:invoice_no"`
-		INCSCDocNo     string `json:"INCSCDocNo" gorm:"column:INCSCDocNo"`
-		Status         string `json:"status" gorm:"column:status"`
-		Reason         string `json:"reason" gorm:"column:reason"`
-		Customer_ID    string `json:"Customer_ID" gorm:"column:Customer_ID"`
-		Customer_Name  string `json:"Customer_Name" gorm:"column:Customer_Name"`
-		Sale_team      string `json:"sale_team" gorm:"column:sale_team"`
-		Sale_name      string `json:"sale_name" gorm:"column:sale_name"`
-		In_factor      string `json:"in_factor" gorm:"column:in_factor"`
-		Ex_factor      string `json:"ex_factor" gorm:"column:ex_factor"`
-		So_amount      string `json:"so_amount" gorm:"column:so_amount"`
-		Reciept_status string `json:"reciept_status" gorm:"column:reciept_status"`
+		Invoice_no    string `json:"invoice_no" gorm:"column:invoice_no"`
+		So_number     string `json:"sonumber" gorm:"column:sonumber"`
+		Status        string `json:"status" gorm:"column:status"`
+		Reason        string `json:"reason" gorm:"column:reason"`
+		Customer_ID   string `json:"Customer_ID" gorm:"column:Customer_ID"`
+		Customer_Name string `json:"Customer_Name" gorm:"column:Customer_Name"`
+		Sale_team     string `json:"sale_team" gorm:"column:sale_team"`
+		Sale_name     string `json:"sale_name" gorm:"column:sale_name"`
+		In_factor     string `json:"in_factor" gorm:"column:in_factor"`
+		Ex_factor     string `json:"ex_factor" gorm:"column:ex_factor"`
+		So_amount     string `json:"so_amount" gorm:"column:so_amount"`
 	}
 
 	type Users_Data struct {
@@ -55,10 +53,10 @@ func Reciept_Detail(c echo.Context) error {
 	var errr int = 0
 	ds := time.Now()
 	de := time.Now()
-	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("startdate")), 10); err == nil {
+	if f, err := strconv.ParseFloat((St_date), 10); err == nil {
 		ds = time.Unix(util.ConvertTimeStamp(f), 0)
 	}
-	if f, err := strconv.ParseFloat(strings.TrimSpace(c.QueryParam("enddate")), 10); err == nil {
+	if f, err := strconv.ParseFloat((En_date), 10); err == nil {
 		de = time.Unix(util.ConvertTimeStamp(f), 0)
 	}
 	yearStart, monthStart, dayStart := ds.Date()
@@ -111,8 +109,15 @@ func Reciept_Detail(c echo.Context) error {
 		listId = append(listId, staffAll.Staff_id)
 	}
 
-	sql := `select bi.invoice_no,BL.sonumber,BL.INCSCDocNo,bi.status,bi.reason,BL.Customer_ID,BL.Customer_Name,
-	BL.sale_team,BL.sale_name,BL.in_factor,BL.ex_factor,BL.so_amount,BL.reciept_status
+	sql := `select bi.invoice_no,BL.sonumber,
+	(CASE
+		WHEN bi.status is not null AND bi.status not like ''
+		THEN bi.status
+		ELSE 'วางไม่ได้'
+		END
+	) status
+	,bi.reason,BL.Customer_ID,BL.Customer_Name,
+	BL.sale_team,BL.sale_name,BL.in_factor,BL.ex_factor,BL.so_amount
 	from (select *,
 		(CASE
 			WHEN DATEDIFF(?, ?) = 0
@@ -130,26 +135,21 @@ func Reciept_Detail(c echo.Context) error {
 			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate > ?
 			THEN (DATEDIFF(?,?)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate,smt.PeriodStartDate)+1))
 			ELSE 0 END
-		) so_amount,
-		(CASE
-			WHEN INCSCDocNo is not null AND INCSCDocNo not like ''
-			THEN 'วาง Reciept เสร็จสิ้น'
-			ELSE 'ยังไม่วาง Reciept'
-			END
-		) reciept_status
+		) so_amount
 		from so_mssql smt
 		WHERE smt.Active_Inactive = 'Active'
+		AND smt.sonumber is not null
+		AND smt.sonumber not like ''
 		AND PeriodStartDate >= ? and PeriodStartDate <= ?
 		AND PeriodEndDate >= ? and PeriodEndDate <= ?
-		AND PeriodStartDate <= PeriodEndDate`
+		AND PeriodStartDate <= PeriodEndDate `
 		sql = sql+` group by smt.sonumber
 	) BL
 	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
 	LEFT JOIN billing_info bi on BL.BLSCDocNo = bi.invoice_no
-	WHERE bi.status like '%วางบิลแล้ว%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-	INSTR(CONCAT_WS('|',bi.invoice_no,BL.sonumber,BL.INCSCDocNo,bi.status,bi.reason,BL.Customer_ID,
-	BL.Customer_Name,BL.sale_team,BL.sale_name), ?) AND BL.sale_code in (?) AND
-	INSTR(CONCAT_WS('|', BL.reciept_status), ?)`
+	WHERE  INSTR(CONCAT_WS('|', si.staff_id), ?) AND
+	INSTR(CONCAT_WS('|',bi.invoice_no,BL.sonumber,bi.reason,BL.Customer_ID,BL.Customer_Name,
+	BL.sale_team,BL.sale_name), ?) AND BL.sale_code in (?) AND INSTR(CONCAT_WS('|', bi.status), ?) `
 
 	if err := dbSale.Ctx().Raw(sql,dateTo,dateFrom,dateFrom,dateTo,dateTo,dateFrom,dateTo,dateTo,
 		dateTo,dateFrom,dateTo,dateFrom,dateFrom,dateFrom,dateFrom,dateFrom,dateTo,
