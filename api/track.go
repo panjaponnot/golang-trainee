@@ -1132,6 +1132,7 @@ func GetTrackingBillingStatusEndPoint(c echo.Context) error {
 		Prefix              string  `json:"prefix" gorm:"column:prefix"`
 		Fname               string  `json:"fname" gorm:"column:fname"`
 		Lname               string  `json:"lname" gorm:"column:lname"`
+		Nname               string  `json:"nname" gorm:"column:nname"`
 		Position            string  `json:"position" gorm:"column:position"`
 		Department          string  `json:"department" gorm:"column:department"`
 	}
@@ -1389,6 +1390,7 @@ func GetTrackingBillingStatusInvEndPoint(c echo.Context) error {
 		Prefix              string  `json:"prefix" gorm:"column:prefix"`
 		Fname               string  `json:"fname" gorm:"column:fname"`
 		Lname               string  `json:"lname" gorm:"column:lname"`
+		Nname               string  `json:"nname" gorm:"column:nname"`
 		Position            string  `json:"position" gorm:"column:position"`
 		Department          string  `json:"department" gorm:"column:department"`
 	}
@@ -3564,6 +3566,7 @@ func GetDetailBillingEndPoint(c echo.Context) error {
 		Prefix              string  `json:"prefix" gorm:"column:prefix"`
 		Fname               string  `json:"fname" gorm:"column:fname"`
 		Lname               string  `json:"lname" gorm:"column:lname"`
+		Nname               string  `json:"nname" gorm:"column:nname"`
 		Position            string  `json:"position" gorm:"column:position"`
 		Department          string  `json:"department" gorm:"column:department"`
 	}
@@ -4716,6 +4719,7 @@ func GetDetailBillingChangeEndPoint(c echo.Context) error {
 		Prefix              string  `json:"prefix" gorm:"column:prefix"`
 		Fname               string  `json:"fname" gorm:"column:fname"`
 		Lname               string  `json:"lname" gorm:"column:lname"`
+		Nname               string  `json:"nname" gorm:"column:nname"`
 		Position            string  `json:"position" gorm:"column:position"`
 		Department          string  `json:"department" gorm:"column:department"`
 	}
@@ -4956,6 +4960,7 @@ func GetDetailBillingNotChangeEndPoint(c echo.Context) error {
 		Prefix              string  `json:"prefix" gorm:"column:prefix"`
 		Fname               string  `json:"fname" gorm:"column:fname"`
 		Lname               string  `json:"lname" gorm:"column:lname"`
+		Nname               string  `json:"nname" gorm:"column:nname"`
 		Position            string  `json:"position" gorm:"column:position"`
 		Department          string  `json:"department" gorm:"column:department"`
 	}

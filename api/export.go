@@ -3802,6 +3802,7 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 		Prefix              string  `json:"prefix" gorm:"column:prefix"`
 		Fname               string  `json:"fname" gorm:"column:fname"`
 		Lname               string  `json:"lname" gorm:"column:lname"`
+		Nname               string  `json:"nname" gorm:"column:nname"`
 		Position            string  `json:"position" gorm:"column:position"`
 		Department          string  `json:"department" gorm:"column:department"`
 	}
@@ -4093,8 +4094,9 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 	f.SetCellValue(mode, "X1", "Prefix")
 	f.SetCellValue(mode, "Y1", "First Name")
 	f.SetCellValue(mode, "Z1", "Last Name")
-	f.SetCellValue(mode, "AA1", "Position")
-	f.SetCellValue(mode, "AB1", "Department")
+	f.SetCellValue(mode, "AA1", "Nick Name")
+	f.SetCellValue(mode, "AB1", "Position")
+	f.SetCellValue(mode, "AC1", "Department")
 
 	colSOnumber := "A"
 	colContractStartDate := "B"
@@ -4122,8 +4124,9 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 	colPrefix := "X"
 	colFirstName := "Y"
 	colLastName := "Z"
-	colPosition := "AA"
-	colDepartment := "AB"
+	colNickName := "AA"
+	colPosition := "AB"
+	colDepartment := "AC"
 
 	for k, v := range so {
 		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
@@ -4153,6 +4156,7 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 		f.SetCellValue(mode, fmt.Sprint(colPrefix, k+2), v.Prefix)
 		f.SetCellValue(mode, fmt.Sprint(colFirstName, k+2), v.Fname)
 		f.SetCellValue(mode, fmt.Sprint(colLastName, k+2), v.Lname)
+		f.SetCellValue(mode, fmt.Sprint(colNickName, k+2), v.Nname)
 		f.SetCellValue(mode, fmt.Sprint(colPosition, k+2), v.Position)
 		f.SetCellValue(mode, fmt.Sprint(colDepartment, k+2), v.Department)
 

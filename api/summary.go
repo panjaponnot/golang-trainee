@@ -1,11 +1,13 @@
 package api
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"sale_ranking/model"
 	m "sale_ranking/model"
 	"sale_ranking/pkg/log"
+	"sale_ranking/pkg/requests"
 	"sale_ranking/pkg/server"
 	"sale_ranking/pkg/util"
 	"strconv"
@@ -15,6 +17,8 @@ import (
 
 	"github.com/jinzhu/gorm"
 	"github.com/labstack/echo/v4"
+
+	"encoding/json"
 )
 
 func GetSummaryCustomerEndPoint(c echo.Context) error {
@@ -1274,4 +1278,141 @@ func GetSOCustomerCsNumberEndPoint(c echo.Context) error {
 		"detail":         sum,
 	}
 	return c.JSON(http.StatusOK, dataMap)
+}
+
+func GetSOCustomerDetailTemplateEndPoint(c echo.Context) error {
+
+	search := strings.TrimSpace(c.QueryParam("search"))
+
+	type SOCus struct {
+		StaffID     string `json:"sale_code" gorm:"column:sale_code"`
+		CustomerID  string `json:"Customer_ID" gorm:"column:Customer_ID"`
+		CusnameThai string `json:"Customer_Name" gorm:"column:Customer_Name"`
+		Nname       string `json:"nname" gorm:"column:nname"`
+		Status      string `json:"statusso" gorm:"column:statusso"`
+		Department  string `json:"sale_team" gorm:"column:sale_team"`
+	}
+
+	// type SOCus struct {
+	// 	SOnumber          string `json:"so_number" gorm:"column:sonumber"`
+	// 	ContractStartDate string `json:"contract_start_date" gorm:"column:ContractStartDate"`
+	// 	ContractEndDate   string `json:"contract_end_date" gorm:"column:ContractEndDate"`
+	// 	SDPropertyCS28    string `json:"SDPropertyCS28" gorm:"column:SDPropertyCS28"`
+	// 	// PeriodEndDate       string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
+	// 	PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
+	// 	TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+	// 	SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
+	// 	CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
+	// 	CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
+	// 	SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+	// 	SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
+	// 	SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
+	// 	SaleFactor          string  `json:"sale_factor" gorm:"column:sale_factor"`
+	// 	InFactor            string  `json:"in_factor" gorm:"column:in_factor"`
+	// 	ExFactor            string  `json:"ex_factor" gorm:"column:ex_factor"`
+	// 	SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
+	// 	SoType              string  `json:"SoType" gorm:"column:SoType"`
+	// 	Detail              string  `json:"detail" gorm:"column:detail"`
+	// 	SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
+	// 	Amount              float64 `json:"amount" gorm:"column:amount"`
+	// 	StaffID             string  `json:"staff_id" gorm:"column:staff_id"`
+	// 	Prefix              string  `json:"prefix" gorm:"column:prefix"`
+	// 	Fname               string  `json:"fname" gorm:"column:fname"`
+	// 	Lname               string  `json:"lname" gorm:"column:lname"`
+	// 	Position            string  `json:"position" gorm:"column:position"`
+	// 	Department          string  `json:"department" gorm:"column:department"`
+	// }
+
+	var sum []SOCus
+
+	sql := `SELECT Customer_ID,Customer_Name,sale_code,nname,sale_team,SUM(CASE
+		WHEN ContractEndDate < CURDATE()
+		THEN 1
+		ELSE 0 END
+		) as statusso FROM 
+		(SELECT id,SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,pricesale,TotalContractAmount
+						,SOWebStatus,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN
+						,INCSCDocNo,Customer_ID,Customer_Name,sale_code,sale_name
+						,sale_team,sale_lead,PeriodAmount,sale_factor,in_factor
+						,ex_factor,so_refer,Active_Inactive,so_renew,create_date
+						,status_so,status_sale,has_refer,SOType,detail,remark
+		FROM so_mssql 
+		 GROUP by sonumber
+		) aa
+		LEFT JOIN (SELECT staff_id,nname,lname,fname,prefix,one_id,position FROM staff_info) as staff_info ON aa.sale_code = staff_info.staff_id
+		 WHERE INSTR(CONCAT_WS('|', id,SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,pricesale,TotalContractAmount
+						,SOWebStatus,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN
+						,INCSCDocNo,Customer_ID,Customer_Name,sale_code,sale_name
+						,sale_team,sale_lead,PeriodAmount,sale_factor,in_factor
+						,ex_factor,so_refer,Active_Inactive,so_renew,create_date
+						,status_so,status_sale,has_refer,SOType,detail,remark
+					   ), ?)
+		GROUP by Customer_ID LIMIT 5;`
+
+	if err := dbSale.Ctx().Raw(sql, search).Scan(&sum).Error; err != nil {
+		log.Errorln(pkgName, err, "select data error -:")
+		// hasErr += 1
+	}
+
+	// 	sql := `
+	// 	SELECT id,SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,pricesale,TotalContractAmount
+	// 									,SOWebStatus,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN
+	// 									,INCSCDocNo,Customer_ID,Customer_Name,sale_code,sale_name
+	// 									,sale_team,sale_lead,PeriodAmount,sale_factor,in_factor
+	// 									,ex_factor,so_refer,Active_Inactive,so_renew,create_date
+	// 									,status_so,status_sale,has_refer,SOType,detail,remark
+	// 									,nname,lname,fname,prefix,one_id ,position
+	// 					FROM so_mssql
+	// 					LEFT JOIN (SELECT staff_id,nname,lname,fname,prefix,one_id,position FROM staff_info) as staff_info ON so_mssql.sale_code = staff_info.staff_id
+	// 					 GROUP by sonumber;`
+
+	// if err := dbSale.Ctx().Raw(sql, search).Scan(&sum).Error; err != nil {
+	// 	log.Errorln(pkgName, err, "select data error -:")
+	// 	// hasErr += 1
+	// }
+
+	for _, v := range sum {
+		if v.Status != "0" {
+			v.Status = "ลูกค้าที่ซื้อขายปัจจุบัน"
+		} else {
+			v.Status = "ลูกค้าที่หมดสัญญาไปแล้ว"
+		}
+		NewStrData := fmt.Sprintf("ลูกค้า: %s \nชื่อลูกค้า: %s \nทีมที่ดูแล: %s \nพนักงานที่ดูแล: %s - %s\nสเตตัส: %s \n ", v.CustomerID, v.CusnameThai, v.Department, v.StaffID, v.Nname, v.Status)
+
+		// To := 25078584384
+		url := "https://chat-api.one.th/message/api/v1/push_message"
+
+		payload, _ := json.Marshal(&struct {
+			To                 string `json:"to"`
+			BotId              string `json:"bot_id"`
+			Type               string `json:"type"`
+			Message            string `json:"message"`
+			CustomNotification string `json:"custom_notification"`
+		}{
+			// To: "198008320896",
+			To: "25078584384",
+			// To:                 OneId,
+			// BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
+			BotId:              "Becf3d73c867f508ab7a8f5d62ceceb64",
+			Type:               "text",
+			Message:            NewStrData,
+			CustomNotification: "เปิดอ่านข้อความใหม่จากทางเรา",
+		})
+
+		headers := map[string]string{
+			"Authorization": "Bearer A548a4dd47e3c5108affe99b48b5c0218db9bcaaca6b34470b389bd04a19c3e30e1b99dad38844be387e939f755d194be",
+			// "Authorization": "Bearer A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef",
+
+			"Content-Type": "application/json",
+		}
+		_, err := requests.Post(url, headers, bytes.NewBuffer(payload), 50)
+		if err != nil {
+			log.Errorln("Error QuickReply", err)
+			return err
+
+		}
+
+	}
+
+	return nil
 }

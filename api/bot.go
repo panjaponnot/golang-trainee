@@ -1138,3 +1138,70 @@ func AlertOnechatQuo(QtNumber string, Message string, AccountId string) error {
 	// log.Infoln("scsc3")
 	// return nil
 }
+
+func AlertOnechatSO(QtNumber string, Message string, AccountId string) error {
+	// To := "3148848982"
+	// log.Infoln(AccountId)
+	// log.Infoln(QtNumber)
+	// log.Infoln(Message)
+	To := AccountId
+	url := "https://chat-api.one.th/message/api/v1/push_message"
+	type Choices struct {
+		Label   string `json:"label"`
+		Type    string `json:"type"`
+		Payload string `json:"payload"`
+	}
+
+	type Element struct {
+		Image  string    `json:"image"`
+		Title  string    `json:"title"`
+		Detail string    `json:"detail"`
+		Choice []Choices `json:"choice"`
+	}
+
+	payload, _ := json.Marshal(&struct {
+		To       string    `json:"to"`
+		BotId    string    `json:"bot_id"`
+		Type     string    `json:"type"`
+		CusNoti  string    `json:"custom_notification"`
+		Elements []Element `json:"elements"`
+	}{
+		To: To,
+		// BotId:   "B4f7385bc7ee356c89f3560795eeb8067",
+		BotId:   "Becf3d73c867f508ab7a8f5d62ceceb64",
+		Type:    "template",
+		CusNoti: "เปิดอ่านข้อความใหม่จากทางเรา",
+		Elements: []Element{{
+			Image:  "",
+			Title:  QtNumber,
+			Detail: Message,
+			Choice: []Choices{{
+				Label:   "Win",
+				Type:    "text",
+				Payload: fmt.Sprintf("Win#%s", QtNumber),
+			}, {
+				Label:   "Lost",
+				Type:    "text",
+				Payload: fmt.Sprintf("Lost#%s", QtNumber),
+			}, {
+				Label:   "Resend",
+				Type:    "text",
+				Payload: fmt.Sprintf("Resend#%s", QtNumber),
+			}},
+		}},
+	})
+
+	headers := map[string]string{
+		"Authorization": "Bearer A548a4dd47e3c5108affe99b48b5c0218db9bcaaca6b34470b389bd04a19c3e30e1b99dad38844be387e939f755d194be",
+		// "Authorization": "Bearer A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef",
+
+		"Content-Type": "application/json",
+	}
+	_, err := requests.Post(url, headers, bytes.NewBuffer(payload), 50)
+	if err != nil {
+		log.Errorln("Error QuickReply", err)
+		return err
+
+	}
+	return nil
+}
