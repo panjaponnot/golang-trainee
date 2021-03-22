@@ -1284,6 +1284,17 @@ func GetSOCustomerDetailTemplateEndPoint(c echo.Context) error {
 
 	search := strings.TrimSpace(c.QueryParam("search"))
 
+	if strings.TrimSpace(c.QueryParam("sale_id")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid sale id"})
+	}
+
+	if strings.TrimSpace(c.QueryParam("one_id")) == "" {
+		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid one id"})
+	}
+
+	saleId := strings.TrimSpace(c.QueryParam("sale_id"))
+	OneId := strings.TrimSpace(c.QueryParam("one_id"))
+
 	type SOCus struct {
 		StaffID     string `json:"sale_code" gorm:"column:sale_code"`
 		CustomerID  string `json:"Customer_ID" gorm:"column:Customer_ID"`
@@ -1291,6 +1302,40 @@ func GetSOCustomerDetailTemplateEndPoint(c echo.Context) error {
 		Nname       string `json:"nname" gorm:"column:nname"`
 		Status      string `json:"statusso" gorm:"column:statusso"`
 		Department  string `json:"sale_team" gorm:"column:sale_team"`
+	}
+
+	//// get staff id ////
+	var user []model.UserInfo
+	if err := dbSale.Ctx().Raw(`SELECT * FROM user_info WHERE staff_id = ? and role = 'admin';`, saleId).Scan(&user).Error; err != nil {
+		if !gorm.IsRecordNotFoundError(err) {
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+	}
+	var listId []string
+	if len(user) != 0 {
+		var staffAll []model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info ;`).Scan(&staffAll).Error; err != nil {
+			if !gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+			}
+		}
+		for _, i := range staffAll {
+			listId = append(listId, i.StaffId)
+		}
+
+	} else {
+		var staffAll model.StaffInfo
+		if err := dbSale.Ctx().Raw(`SELECT * FROM staff_info WHERE staff_id = ?;`, saleId).Scan(&staffAll).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
+			}
+			return c.JSON(http.StatusInternalServerError, server.Result{Message: "select user error"})
+		}
+		if staffAll.StaffChild != "" {
+			data := strings.Split(staffAll.StaffChild, ",")
+			listId = data
+		}
+		listId = append(listId, staffAll.StaffId)
 	}
 
 	// type SOCus struct {
@@ -1347,9 +1392,10 @@ func GetSOCustomerDetailTemplateEndPoint(c echo.Context) error {
 						,ex_factor,so_refer,Active_Inactive,so_renew,create_date
 						,status_so,status_sale,has_refer,SOType,detail,remark
 					   ), ?)
+					   and sale_code in (?)
 		GROUP by Customer_ID LIMIT 5;`
 
-	if err := dbSale.Ctx().Raw(sql, search).Scan(&sum).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, search, listId).Scan(&sum).Error; err != nil {
 		log.Errorln(pkgName, err, "select data error -:")
 		// hasErr += 1
 	}
@@ -1390,17 +1436,20 @@ func GetSOCustomerDetailTemplateEndPoint(c echo.Context) error {
 			CustomNotification string `json:"custom_notification"`
 		}{
 			// To: "198008320896",
-			To: "25078584384",
+			// To: "25078584384",
+			To: OneId,
 			// To:                 OneId,
 			// BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
-			BotId:              "Becf3d73c867f508ab7a8f5d62ceceb64",
+			// BotId:              "Becf3d73c867f508ab7a8f5d62ceceb64", //จุกกุ
+			BotId:              "B4f7385bc7ee356c89f3560795eeb8067",
 			Type:               "text",
 			Message:            NewStrData,
 			CustomNotification: "เปิดอ่านข้อความใหม่จากทางเรา",
 		})
 
 		headers := map[string]string{
-			"Authorization": "Bearer A548a4dd47e3c5108affe99b48b5c0218db9bcaaca6b34470b389bd04a19c3e30e1b99dad38844be387e939f755d194be",
+			"Authorization": "Bearer A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef",
+			// "Authorization": "Bearer A548a4dd47e3c5108affe99b48b5c0218db9bcaaca6b34470b389bd04a19c3e30e1b99dad38844be387e939f755d194be",
 			// "Authorization": "Bearer A6ef7265bc6b057fabb531b9b0e4eeff6edb6086b1fe143ebb02523d72d7f2623421ead53c8e7497c89bd0694a7c469ef",
 
 			"Content-Type": "application/json",
