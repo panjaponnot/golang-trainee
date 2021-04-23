@@ -1,6 +1,6 @@
-export DB_SALE_HOST=172.24.7.243
+export DB_SALE_HOST=203.151.136.131
 export DB_SALE_USERNAME=root
-export DB_SALE_NAME=ratingscoring
+export DB_SALE_NAME=new_mainDB
 export DB_SALE_PASSWORD=mis@Pass01
 export DB_QUOTATION_HOST=203.154.135.51
 export DB_QUOTATION_USERNAME=root
@@ -14,3 +14,7 @@ export DB_MSSQL_PASSWORD='vC#n<H7S'
 export REDIS_HOST=203.154.34.24
 export REDIS_PORT=80
 export RECAPTCHA_SECRET=6Ldu3uIUAAAAAOeTaPJBXjgfPqVaK74pKxOdZcGy
+export CONDITION_BASE_SALE='recovery','key account','up&cross','retention','JV'
+export CONDITION_GOV_KEY_SALE='key','account'
+export CONDITION_GOV_RECOVER_SALE='recovery'
+export ACCOUNT_NOT_SALE='61073','62125','62273','57030','60265','61025','62186','19007','62268'

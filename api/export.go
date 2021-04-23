@@ -85,19 +85,18 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 	}
 	//////////////  getListStaffID  //////////////
 	rawData := []struct {
-		SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
-		CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
-		CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
+		SOnumber          string  `json:"so_number" gorm:"column:so_number"`
+		CustomerId        string  `json:"customer_id" gorm:"column:customer_id"`
+		CustomerName      string  `json:"customer_nameTH" gorm:"column:customer_nameTH"`
 		ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
 		ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
 		SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
-		SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
-		SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
+		SaleCode          string  `json:"sale_id" gorm:"column:sale_id"`
 		Day               string  `json:"day" gorm:"column:days"`
 		SoMonth           string  `json:"so_month" gorm:"column:so_month"`
-		SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
-		PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+		SOWebStatus       string  `json:"so_web_status" gorm:"column:so_web_status"`
+		PriceSale         float64 `json:"total_contract" gorm:"column:total_contract"`
+		PeriodAmount      float64 `json:"total_contract_per_month" gorm:"column:total_contract_per_month"`
 		TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
 		StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
 		PayType           string  `json:"pay_type" gorm:"column:pay_type"`
@@ -116,57 +115,62 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 	}{}
 
 	if err := dbSale.Ctx().Raw(`
-	SELECT Active_Inactive,has_refer,tb_ch_so.sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,
-	DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,DATEDIFF(ContractEndDate, NOW()) as days,
-	month(ContractEndDate) as so_month, SOWebStatus,pricesale,PeriodAmount, SUM(PeriodAmount) as TotalAmount,staff_id,prefix,fname,lname,nname,position,
-	department,so_type_change,pay_type_change,so_type,pay_type,
-	(case
-		when status is null then 0
-		else status end
-	) as status,
-	(case
-					when tb_expire.reason is null then ''
-					else tb_expire.reason end
-	) as reason,
-	  (case
-		when tb_expire.remark is null then ''
-		else tb_expire.remark end
-	) as remark  from (
-		SELECT *  from (
-		SELECT 	Active_Inactive,has_refer,sonumber,Customer_ID,Customer_Name,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_code,sale_lead,
-				DATEDIFF(ContractEndDate, NOW()) as days, month(ContractEndDate) as so_month, SOWebStatus,pricesale,
-					PeriodAmount, SUM(PeriodAmount) as TotalAmount,
-					staff_id,prefix,fname,lname,nname,position,department,SOType as so_type, '' as pay_type
-					FROM ( SELECT * FROM so_mssql WHERE SOType NOT IN ('onetime' , 'project base') ) as s
-				left join
-				(
-					select staff_id, prefix, fname, lname, nname, position, department from staff_info
+	SELECT active_inactive,has_refer,tb_ch_so.so_number,customer_id,customer_nameTH,DATE_FORMAT(ContractStartDate, '%Y-%m-%d') as ContractStartDate,
+        DATE_FORMAT(ContractEndDate, '%Y-%m-%d') as ContractEndDate,so_refer,sale_id,DATEDIFF(ContractEndDate, NOW()) as days,
+        month(ContractEndDate) as so_month, so_web_status,total_contract,total_contract_per_month, SUM(total_contract_per_month) as TotalAmount,staff_id,prefix,fname,lname,nname,position,
+        department,so_type_change,pay_type_change,so_type,pay_type,
+        (case
+                when status is null then 0
+                else status end
+        ) as status,
+        (case
+                                        when tb_expire.reason is null then ''
+                                        else tb_expire.reason end
+        ) as reason,
+          (case
+                when tb_expire.remark is null then ''
+                else tb_expire.remark end
+        ) as remark  from (
+                SELECT *  from (
+                SELECT  active_inactive,has_refer,so_number,s.customer_id,customer_nameTH,DATE_FORMAT(contract_start_date, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(contract_end_date, '%Y-%m-%d') as ContractEndDate,so_refer,sale_id,
+                                DATEDIFF(contract_end_date, NOW()) as days, month(contract_end_date) as so_month, so_web_status,total_contract,
+                                        total_contract_per_month, SUM(total_contract_per_month) as TotalAmount,
+                                        staff_id,prefix,fname,lname,nname,position,department, so_type, pay_type
+                                        FROM ( SELECT * FROM so_info WHERE so_type NOT IN ('onetime' , 'project base') ) as s
+                                left join
+                                (
+                                        select staff_id, prefix, fname, lname, nname, position, department from staff_info
 
-				) tb_sale on s.sale_code = tb_sale.staff_id
-				WHERE Active_Inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(ContractEndDate) = ?
-				group by sonumber
-			) as tb_so_number
-		) as tb_ch_so
-		left join
-		(
-		  select id,sonumber,
-		  	(case
-				when status is null then 0
-				else status end
-			) as status,
-			(case
-							when reason is null then ''
-							else reason end
-			) as reason,
-		  	(case
-				when remark is null then ''
-				else remark end
-			) as remark,
-			pay_type as pay_type_change,
-			so_type as so_type_change
-			from check_expire
-		  ) tb_expire on tb_ch_so.sonumber = tb_expire.sonumber
-          group by tb_ch_so.sonumber
+                                ) tb_sale on s.sale_id = tb_sale.staff_id
+                                left join
+                                (
+                                        select customer_id,customer_nameTH from customer_info
+
+                                ) tb_cus on s.customer_id = tb_cus.customer_id
+                                WHERE active_inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(contract_end_date) = ?
+                                group by so_number
+                        ) as tb_so_number
+                ) as tb_ch_so
+                left join
+                (
+                  select id,sonumber,
+                        (case
+                                when status is null then 0
+                                else status end
+                        ) as status,
+                        (case
+                                                        when reason is null then ''
+                                                        else reason end
+                        ) as reason,
+                        (case
+                                when remark is null then ''
+                                else remark end
+                        ) as remark,
+                        pay_type as pay_type_change,
+                        so_type as so_type_change
+                        from check_expire
+                  ) tb_expire on tb_ch_so.so_number = tb_expire.sonumber
+          group by tb_ch_so.so_number
 		  `, listStaffId, year).Scan(&rawData).Error; err != nil {
 
 		log.Errorln(pkgName, err, "Select data error")
@@ -190,22 +194,21 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 	f.SetCellValue(mode, "I1", "First Name")
 	f.SetCellValue(mode, "J1", "Last Name")
 	f.SetCellValue(mode, "K1", "Nick Name")
-	f.SetCellValue(mode, "L1", "Lead ID")
-	f.SetCellValue(mode, "M1", "Position")
-	f.SetCellValue(mode, "N1", "Department")
-	f.SetCellValue(mode, "O1", "Price Sale")
-	f.SetCellValue(mode, "P1", "Period Amount")
-	f.SetCellValue(mode, "Q1", "Total Amount")
-	f.SetCellValue(mode, "R1", "Day Remain")
-	f.SetCellValue(mode, "S1", "SO Month")
-	f.SetCellValue(mode, "T1", "SO Web Status")
-	f.SetCellValue(mode, "U1", "Pay Type")
-	f.SetCellValue(mode, "V1", "SO Type")
-	f.SetCellValue(mode, "W1", "Pay Type Sale Update")
-	f.SetCellValue(mode, "X1", "SO Type Sale Update")
-	f.SetCellValue(mode, "Y1", "Status")
-	f.SetCellValue(mode, "Z1", "Reason")
-	f.SetCellValue(mode, "AA1", "Remark")
+	f.SetCellValue(mode, "L1", "Position")
+	f.SetCellValue(mode, "M1", "Department")
+	f.SetCellValue(mode, "N1", "Price Sale")
+	f.SetCellValue(mode, "O1", "Period Amount")
+	f.SetCellValue(mode, "P1", "Total Amount")
+	f.SetCellValue(mode, "Q1", "Day Remain")
+	f.SetCellValue(mode, "R1", "SO Month")
+	f.SetCellValue(mode, "S1", "SO Web Status")
+	f.SetCellValue(mode, "T1", "Pay Type")
+	f.SetCellValue(mode, "U1", "SO Type")
+	f.SetCellValue(mode, "V1", "Pay Type Sale Update")
+	f.SetCellValue(mode, "W1", "SO Type Sale Update")
+	f.SetCellValue(mode, "X1", "Status")
+	f.SetCellValue(mode, "Y1", "Reason")
+	f.SetCellValue(mode, "Z1", "Remark")
 
 	colSoNumber := "A"
 	colCustomerId := "B"
@@ -218,22 +221,21 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 	colFisrtName := "I"
 	colLastName := "J"
 	colNickName := "K"
-	colStaffIdLead := "L"
-	colPosition := "M"
-	colDepartment := "N"
-	colPriceSale := "O"
-	colPeriodAmount := "P"
-	colTotalAmount := "Q"
-	colDays := "R"
-	colSoMonth := "S"
-	colSoWebStatus := "T"
-	colPayType := "U"
-	colSoType := "V"
-	colPayTypeChange := "W"
-	colSoTypeChange := "X"
-	colStatus := "Y"
-	colReason := "Z"
-	colRemark := "AA"
+	colPosition := "L"
+	colDepartment := "M"
+	colPriceSale := "N"
+	colPeriodAmount := "O"
+	colTotalAmount := "P"
+	colDays := "Q"
+	colSoMonth := "R"
+	colSoWebStatus := "S"
+	colPayType := "T"
+	colSoType := "U"
+	colPayTypeChange := "V"
+	colSoTypeChange := "W"
+	colStatus := "X"
+	colReason := "Y"
+	colRemark := "Z"
 
 	for k, v := range rawData {
 
@@ -248,7 +250,6 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 		f.SetCellValue(mode, fmt.Sprint(colFisrtName, k+2), v.Fname)
 		f.SetCellValue(mode, fmt.Sprint(colLastName, k+2), v.Lname)
 		f.SetCellValue(mode, fmt.Sprint(colNickName, k+2), v.Nname)
-		f.SetCellValue(mode, fmt.Sprint(colStaffIdLead, k+2), v.SaleLead)
 
 		f.SetCellValue(mode, fmt.Sprint(colPosition, k+2), v.Position)
 		f.SetCellValue(mode, fmt.Sprint(colDepartment, k+2), v.Department)
@@ -297,21 +298,20 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 		}
 	}
 	rawData := []struct {
-		SOnumber          string  `json:"so_number" gorm:"column:sonumber"`
-		CustomerId        string  `json:"customer_id" gorm:"column:Customer_ID"`
-		CustomerName      string  `json:"customer_name" gorm:"column:Customer_Name"`
-		ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
-		ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
+		SOnumber          string  `json:"so_number" gorm:"column:so_number"`
+		CustomerId        string  `json:"customer_id" gorm:"column:customer_id"`
+		CustomerName      string  `json:"customer_nameTH" gorm:"column:customer_nameTH"`
+		ContractStartDate string  `json:"contract_start_date" gorm:"column:contract_start_date"`
+		ContractEndDate   string  `json:"contract_end_date" gorm:"column:contract_end_date"`
 		SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
-		SaleCode          string  `json:"sale_code" gorm:"column:sale_code"`
-		SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
+		SaleCode          string  `json:"sale_id" gorm:"column:sale_id"`
 		Day               string  `json:"day" gorm:"column:days"`
 		SoMonth           string  `json:"so_month" gorm:"column:so_month"`
-		SOWebStatus       string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		PriceSale         float64 `json:"price_sale" gorm:"column:pricesale"`
-		PeriodAmount      float64 `json:"period_amount" gorm:"column:PeriodAmount"`
+		SOWebStatus       string  `json:"so_web_status" gorm:"column:so_web_status"`
+		PriceSale         float64 `json:"total_contract" gorm:"column:total_contract"`
+		PeriodAmount      float64 `json:"total_contract_per_month" gorm:"column:total_contract_per_month"`
 		TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
-		StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
+		StaffId           string  `json:"sale_id" gorm:"column:sale_id"`
 		PayType           string  `json:"pay_type" gorm:"column:pay_type"`
 		SoType            string  `json:"so_type" gorm:"column:so_type"`
 		Prefix            string  `json:"prefix"`
@@ -325,48 +325,32 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 	}{}
 	if len(user) != 0 {
 
-		if err := dbSale.Ctx().Raw(`SELECT * FROM (SELECT check_so.remark_sale as remark,check_so.status_sale,check_so.status_so as status_so,check_so.sonumber,
-			Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
-			so_refer,sale_code,sale_lead,PeriodAmount,so_type,pay_type,
+		if err := dbSale.Ctx().Raw(`SELECT * FROM (SELECT check_so.status_so as status_so,check_so.status_sale as status_sale,so_info.so_number,tb_cus.customer_id,customer_nameTH,one_id, contract_start_date,contract_end_date,
+			so_refer,sale_id,total_contract_per_month,so_type,pay_type,
 			in_factor,sale_factor,
-			SUM(PeriodAmount) as TotalAmount_old,
+			SUM(total_contract_per_month) as TotalAmount_old,
+			IFNULL(prefix, '') as prefix,
 			IFNULL(fname, '') as fname,
 			IFNULL(lname, '') as lname,
-			IFNULL(nname, '') as nname, department,TotalContractAmount as TotalAmount,SOWebStatus,pricesale,
-			datediff(ContractEndDate,ContractStartDate) as days , 'so' as role,
-			TIMESTAMPDIFF(month,ContractStartDate,DATE_ADD(ContractEndDate, INTERVAL 3 DAY)) as months
-		FROM (
-			select status_so,sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,so_refer,sale_code,sale_lead,PeriodAmount,
-			in_factor,sale_factor,(TotalContractAmount/1.07) as TotalContractAmount,
-			SOWebStatus,pricesale
-			from so_mssql
-			where has_refer = 0 and Active_Inactive = 'Active' and sonumber like '%SO%' and SOType <> 'Onetime' and SOType <> 'Project Base'
-		) so_mssql
-		left join check_so on check_so.sonumber = so_mssql.sonumber
-		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-		WHERE check_so.status_sale = 0 and check_so.remark_sale <> ''
-		group by sonumber
-		union
-		SELECT check_so.remark_sale as remark,check_so.status_sale,check_so.status_so as status_so,check_so.sonumber,Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
-			so_refer,sale_code,sale_lead,PeriodAmount,so_type,pay_type,
-			in_factor,sale_factor,
-			SUM(PeriodAmount) as TotalAmount_old,
-			IFNULL(fname, '') as fname,
-			IFNULL(lname, '') as lname,
-			IFNULL(nname, '') as nname, department,TotalContractAmount as TotalAmount,SOWebStatus,pricesale,
-			datediff(ContractEndDate,ContractStartDate) as days , 'so' as role,
-			TIMESTAMPDIFF(month,ContractStartDate,DATE_ADD(ContractEndDate, INTERVAL 3 DAY)) as months
-		FROM (
-			select status_so,sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,so_refer,sale_code,sale_lead,PeriodAmount,
-			in_factor,sale_factor,(TotalContractAmount/1.07) as TotalContractAmount,
-			SOWebStatus,PeriodAmount as pricesale
-			from so_mssql_navision
-			where has_refer = 0 and Active_Inactive = 'Active' and sonumber not like '%SO%' and SOType <> 'Onetime' and SOType <> 'Project Base'
-		) so_mssql
-		left join check_so on check_so.sonumber = so_mssql.sonumber
-		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-		WHERE check_so.status_sale = 0 and check_so.remark_sale <> ''
-		group by sonumber order by status_sale) as data`).Scan(&rawData).Error; err != nil {
+			IFNULL(nname, '') as nname, department,	total_contract as TotalAmount,so_web_status,total_contract,
+			datediff(contract_end_date,contract_start_date) as days ,check_so.remark_sale as remark,'sale' as role,
+			TIMESTAMPDIFF(month,contract_start_date,DATE_ADD(contract_end_date, INTERVAL 3 DAY)) as months
+	FROM (
+			select so_number,customer_id,contract_start_date,contract_end_date,so_refer,sale_id,total_contract_per_month,
+			in_factor,sale_factor,(	total_contract/1.07) as total_contract,
+			so_web_status
+			from so_info
+			where has_refer = 0 and active_inactive = 'Active' and so_number like '%SO%' and so_type <> 'Onetime' and so_type <> 'Project Base'
+	) so_info
+	left join check_so on check_so.sonumber = so_info.so_number
+	LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+	 left join
+					(
+							select customer_id,customer_nameTH from customer_info
+
+					) tb_cus on so_info.customer_id = tb_cus.customer_id
+					WHERE check_so.status_sale = 0 and check_so.remark_sale <> ''
+			group by sonumber) as data`).Scan(&rawData).Error; err != nil {
 			log.Errorln(pkgName, err, "Select data error")
 		}
 
@@ -392,48 +376,33 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			log.Infoln(pkgName, "not found team", staff)
 		}
 
-		if err := dbSale.Ctx().Raw(`SELECT * FROM (SELECT check_so.status_so as status_so,check_so.status_sale as status_sale,so_mssql.sonumber,Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
-			so_refer,sale_code,sale_lead,PeriodAmount,so_type,pay_type,
+		if err := dbSale.Ctx().Raw(`SELECT * FROM (SELECT check_so.status_so as status_so,check_so.status_sale as status_sale,so_info.so_number,tb_cus.customer_id,customer_nameTH,one_id, contract_start_date,contract_end_date,
+			so_refer,sale_id,total_contract_per_month,so_type,pay_type,
 			in_factor,sale_factor,
-			SUM(PeriodAmount) as TotalAmount_old,
+			SUM(total_contract_per_month) as TotalAmount_old,
+			IFNULL(prefix, '') as prefix,
 			IFNULL(fname, '') as fname,
 			IFNULL(lname, '') as lname,
-			IFNULL(nname, '') as nname, department,TotalContractAmount as TotalAmount,SOWebStatus,pricesale,
-			datediff(ContractEndDate,ContractStartDate) as days ,check_so.remark_sale as remark,'sale' as role,
-			TIMESTAMPDIFF(month,ContractStartDate,DATE_ADD(ContractEndDate, INTERVAL 3 DAY)) as months
-		FROM (
-			select status_sale,sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,so_refer,sale_code,sale_lead,PeriodAmount,
-			in_factor,sale_factor,(TotalContractAmount/1.07) as TotalContractAmount,
-			SOWebStatus,pricesale
-			from so_mssql
-			where has_refer = 0 and Active_Inactive = 'Active' and sonumber like '%SO%' and SOType <> 'Onetime' and SOType <> 'Project Base'
-		) so_mssql
-		left join check_so on check_so.sonumber = so_mssql.sonumber
-		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-		WHERE sale_code in (?)
-			group by sonumber
-		union
-		SELECT check_so.status_so as status_so,check_so.status_sale as status_sale,so_mssql.sonumber,Customer_ID,Customer_Name,one_id, ContractStartDate,ContractEndDate,
-			so_refer,sale_code,sale_lead,PeriodAmount,so_type,pay_type,
-			in_factor,sale_factor,
-			SUM(PeriodAmount) as TotalAmount_old,
-			IFNULL(fname, '') as fname,
-			IFNULL(lname, '') as lname,
-			IFNULL(nname, '') as nname, department,TotalContractAmount as TotalAmount,SOWebStatus,pricesale,
-			datediff(ContractEndDate,ContractStartDate) as days ,check_so.remark_sale as remark,'sale' as role,
-			TIMESTAMPDIFF(month,ContractStartDate,DATE_ADD(ContractEndDate, INTERVAL 3 DAY)) as months
-		FROM (
-			select status_sale,sonumber,Customer_ID,Customer_Name,ContractStartDate,ContractEndDate,so_refer,sale_code,sale_lead,PeriodAmount,
-			in_factor,sale_factor,(TotalContractAmount/1.07) as TotalContractAmount,
-			SOWebStatus,PeriodAmount as pricesale
-			from so_mssql_navision
-			where has_refer = 0 and Active_Inactive = 'Active' and sonumber not like '%SO%' and SOType <> 'Onetime' and SOType <> 'Project Base'
-		) so_mssql
-		left join check_so on check_so.sonumber = so_mssql.sonumber
-		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-		WHERE sale_code in (?)
-			group by sonumber order by status_sale ) as data
-			`, listStaffId, listStaffId).Scan(&rawData).Error; err != nil {
+			IFNULL(nname, '') as nname, department,	total_contract as TotalAmount,so_web_status,total_contract,
+			datediff(contract_end_date,contract_start_date) as days ,check_so.remark_sale as remark,'sale' as role,
+			TIMESTAMPDIFF(month,contract_start_date,DATE_ADD(contract_end_date, INTERVAL 3 DAY)) as months
+	FROM (
+			select so_number,customer_id,contract_start_date,contract_end_date,so_refer,sale_id,total_contract_per_month,
+			in_factor,sale_factor,(	total_contract/1.07) as total_contract,
+			so_web_status
+			from so_info
+			where has_refer = 0 and active_inactive = 'Active' and so_number like '%SO%' and so_type <> 'Onetime' and so_type <> 'Project Base'
+	) so_info
+	left join check_so on check_so.sonumber = so_info.so_number
+	LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+	 left join
+					(
+							select customer_id,customer_nameTH from customer_info
+
+					) tb_cus on so_info.customer_id = tb_cus.customer_id
+	WHERE sale_id in (?)
+			group by sonumber) as data
+			`, listStaffId).Scan(&rawData).Error; err != nil {
 			log.Errorln(pkgName, err, "Select data error")
 		}
 
@@ -459,19 +428,18 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 	f.SetCellValue(mode, "I1", "First Name")
 	f.SetCellValue(mode, "J1", "Last Name")
 	f.SetCellValue(mode, "K1", "Nick Name")
-	f.SetCellValue(mode, "L1", "Lead ID")
-	f.SetCellValue(mode, "M1", "Position")
-	f.SetCellValue(mode, "N1", "Department")
-	f.SetCellValue(mode, "O1", "Price Sale")
-	f.SetCellValue(mode, "P1", "Period Amount")
-	f.SetCellValue(mode, "Q1", "Total Amount")
-	f.SetCellValue(mode, "R1", "Day Remain")
-	f.SetCellValue(mode, "S1", "SO Month")
-	f.SetCellValue(mode, "T1", "SO Web Status")
-	f.SetCellValue(mode, "U1", "Pay Type")
-	f.SetCellValue(mode, "V1", "SO Type")
-	f.SetCellValue(mode, "W1", "Status")
-	f.SetCellValue(mode, "X1", "Remark")
+	f.SetCellValue(mode, "L1", "Position")
+	f.SetCellValue(mode, "M1", "Department")
+	f.SetCellValue(mode, "N1", "Price Sale")
+	f.SetCellValue(mode, "O1", "Period Amount")
+	f.SetCellValue(mode, "P1", "Total Amount")
+	f.SetCellValue(mode, "Q1", "Day Remain")
+	f.SetCellValue(mode, "R1", "SO Month")
+	f.SetCellValue(mode, "S1", "SO Web Status")
+	f.SetCellValue(mode, "T1", "Pay Type")
+	f.SetCellValue(mode, "U1", "SO Type")
+	f.SetCellValue(mode, "V1", "Status")
+	f.SetCellValue(mode, "W1", "Remark")
 
 	colSoNumber := "A"
 	colCustomerId := "B"
@@ -484,19 +452,18 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 	colFisrtName := "I"
 	colLastName := "J"
 	colNickName := "K"
-	colStaffIdLead := "L"
-	colPosition := "M"
-	colDepartment := "N"
-	colPriceSale := "O"
-	colPeriodAmount := "P"
-	colTotalAmount := "Q"
-	colDays := "R"
-	colSoMonth := "S"
-	colSoWebStatus := "T"
-	colPayType := "U"
-	colSoType := "V"
-	colStatus := "W"
-	colRemark := "X"
+	colPosition := "L"
+	colDepartment := "M"
+	colPriceSale := "N"
+	colPeriodAmount := "O"
+	colTotalAmount := "P"
+	colDays := "Q"
+	colSoMonth := "R"
+	colSoWebStatus := "S"
+	colPayType := "T"
+	colSoType := "U"
+	colStatus := "V"
+	colRemark := "W"
 
 	for k, v := range rawData {
 		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
@@ -511,7 +478,6 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 		f.SetCellValue(mode, fmt.Sprint(colFisrtName, k+2), v.Fname)
 		f.SetCellValue(mode, fmt.Sprint(colLastName, k+2), v.Lname)
 		f.SetCellValue(mode, fmt.Sprint(colNickName, k+2), v.Nname)
-		f.SetCellValue(mode, fmt.Sprint(colStaffIdLead, k+2), v.SaleLead)
 
 		f.SetCellValue(mode, fmt.Sprint(colPosition, k+2), v.Position)
 		f.SetCellValue(mode, fmt.Sprint(colDepartment, k+2), v.Department)
@@ -605,14 +571,47 @@ func GetReportExcelTrackingEndPoint(c echo.Context) error {
 		listId = append(listId, staffAll.StaffId)
 	}
 
-	sql := `SELECT SDPropertyCS28 as costsheetnumber, sonumber, DATE_FORMAT(ContractStartDate, "%Y-%m-%d") as ContractStartDate,DATE_FORMAT(ContractEndDate, "%Y-%m-%d") as ContractEndDate, pricesale, TotalContractAmount, SOWebStatus,
-        Customer_ID, Customer_Name, sale_code, 	sale_name, sale_team, 	PeriodAmount, sale_factor, in_factor, ex_factor, so_refer,
-        SOType, detail
-        FROM so_mssql
-        WHERE Active_Inactive = 'Active'
-				and sale_code in (?)
-        group by sonumber order by ContractStartDate DESC;`
-	var sum []model.SoExport
+	sql := `SELECT cs_number as costsheetnumber, so_number, DATE_FORMAT(contract_start_date, "%Y-%m-%d") as ContractStartDate,DATE_FORMAT(contract_end_date, "%Y-%m-%d") as ContractEndDate,total_contract, 	total_contract as TotalContractAmount, so_web_status,
+	tb_cus.customer_id, customer_nameTH, sale_id, 			
+	IFNULL(prefix, '') as prefix,
+		IFNULL(fname, '') as fname,
+		IFNULL(lname, '') as lname,
+		IFNULL(nname, '') as nname,staff_info.department,   total_contract_per_month, sale_factor, in_factor, ex_factor, so_refer,
+	so_type, detail
+	FROM so_info
+	LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+		 left join
+				(
+						select customer_id,customer_nameTH from customer_info
+				) tb_cus on so_info.customer_id = tb_cus.customer_id
+	WHERE Active_Inactive = 'Active'
+							and sale_id in (?)
+	group by so_number order by contract_start_date DESC;`
+	// var sum []model.SoExport
+	sum := []struct {
+		CSnumber          string  `json:"costsheetnumber" gorm:"column:costsheetnumber"`
+		SOnumber          string  `json:"so_number" gorm:"column:so_number"`
+		ContractStartDate string  `json:"ContractStartDate" gorm:"column:ContractStartDate"`
+		ContractEndDate   string  `json:"ContractEndDate" gorm:"column:ContractEndDate"`
+		PriceSale         float64 `json:"total_contract" gorm:"column:total_contract"`
+		TotalAmount       float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+		SOWebStatus       string  `json:"so_web_status" gorm:"column:so_web_status"`
+		CustomerId        string  `json:"customer_id" gorm:"column:customer_id"`
+		CustomerName      string  `json:"customer_nameTH" gorm:"column:customer_nameTH"`
+		SaleCode          string  `json:"sale_id" gorm:"column:sale_id"`
+		Prefix            string  `json:"prefix"`
+		Fname             string  `json:"fname"`
+		Lname             string  `json:"lname"`
+		Nname             string  `json:"nname"`
+		Position          string  `json:"department" gorm:"column:department"`
+		PeriodAmount      float64 `json:"total_contract_per_month" gorm:"column:total_contract_per_month"`
+		SaleFactor        float64 `json:"sale_factor" gorm:"column:sale_factor"`
+		InFactor          float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor          float64 `json:"ex_factor" gorm:"column:ex_factor"`
+		SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
+		SoType            string  `json:"so_type" gorm:"column:so_type"`
+		Detail            string  `json:"detail" gorm:"column:detail"`
+	}{}
 	if err := dbSale.Ctx().Raw(sql, listId).Scan(&sum).Error; err != nil {
 		if gorm.IsRecordNotFoundError(err) {
 			return c.JSON(http.StatusNotFound, server.Result{Message: "not found staff"})
@@ -637,15 +636,18 @@ func GetReportExcelTrackingEndPoint(c echo.Context) error {
 	f.SetCellValue(mode, "H1", "Customer ID")
 	f.SetCellValue(mode, "I1", "Customer Name")
 	f.SetCellValue(mode, "J1", "Sale Code")
-	f.SetCellValue(mode, "K1", "Sale Name")
-	f.SetCellValue(mode, "L1", "Sale Team")
-	f.SetCellValue(mode, "M1", "Period Amount")
-	f.SetCellValue(mode, "N1", "Sale Factor")
-	f.SetCellValue(mode, "O1", "Internal Factor")
-	f.SetCellValue(mode, "P1", "External Factor")
-	f.SetCellValue(mode, "Q1", "So Refer")
-	f.SetCellValue(mode, "R1", "SO Type")
-	f.SetCellValue(mode, "S1", "Detail")
+	f.SetCellValue(mode, "K1", "Prefix")
+	f.SetCellValue(mode, "L1", "First Name")
+	f.SetCellValue(mode, "M1", "Last Name")
+	f.SetCellValue(mode, "N1", "Nick Name")
+	f.SetCellValue(mode, "O1", "Sale Team")
+	f.SetCellValue(mode, "P1", "Period Amount")
+	f.SetCellValue(mode, "Q1", "Sale Factor")
+	f.SetCellValue(mode, "R1", "Internal Factor")
+	f.SetCellValue(mode, "S1", "External Factor")
+	f.SetCellValue(mode, "T1", "So Refer")
+	f.SetCellValue(mode, "U1", "SO Type")
+	f.SetCellValue(mode, "V1", "Detail")
 
 	colCostsheetNumber := "A"
 	colSoNumber := "B"
@@ -657,35 +659,41 @@ func GetReportExcelTrackingEndPoint(c echo.Context) error {
 	colCustomerId := "H"
 	colCustomerName := "I"
 	colSaleCode := "J"
-	colSaleName := "K"
-	colSaleTeam := "L"
-	colPeriodAmount := "M"
-	colSaleFactor := "N"
-	colInfactor := "O"
-	colExFactor := "P"
-	colSoRefer := "Q"
-	colSoType := "R"
-	colDetail := "S"
+	colPrefix := "K"
+	colFirstName := "L"
+	colLastName := "M"
+	colNickName := "N"
+	colSaleTeam := "O"
+	colPeriodAmount := "P"
+	colSaleFactor := "Q"
+	colInfactor := "R"
+	colExFactor := "S"
+	colSoRefer := "T"
+	colSoType := "U"
+	colDetail := "V"
 
 	for k, v := range sum {
 		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
-		f.SetCellValue(mode, fmt.Sprint(colCostsheetNumber, k+2), v.CostsheetNumber)
-		f.SetCellValue(mode, fmt.Sprint(colSoNumber, k+2), v.SoNumber)
+		f.SetCellValue(mode, fmt.Sprint(colCostsheetNumber, k+2), v.CSnumber)
+		f.SetCellValue(mode, fmt.Sprint(colSoNumber, k+2), v.SOnumber)
 		f.SetCellValue(mode, fmt.Sprint(colContractStartDate, k+2), v.ContractStartDate)
 		f.SetCellValue(mode, fmt.Sprint(colContractEndDate, k+2), v.ContractEndDate)
 		f.SetCellValue(mode, fmt.Sprint(colPriceSale, k+2), v.PriceSale)
-		f.SetCellValue(mode, fmt.Sprint(colTotalContractAmount, k+2), v.TotalContractAmount)
+		f.SetCellValue(mode, fmt.Sprint(colTotalContractAmount, k+2), v.TotalAmount)
 		f.SetCellValue(mode, fmt.Sprint(colSOWebStatus, k+2), v.SOWebStatus)
 		f.SetCellValue(mode, fmt.Sprint(colCustomerId, k+2), v.CustomerId)
 		f.SetCellValue(mode, fmt.Sprint(colCustomerName, k+2), v.CustomerName)
 		f.SetCellValue(mode, fmt.Sprint(colSaleCode, k+2), v.SaleCode)
-		f.SetCellValue(mode, fmt.Sprint(colSaleName, k+2), v.SaleName)
-		f.SetCellValue(mode, fmt.Sprint(colSaleTeam, k+2), v.SaleTeam)
+		f.SetCellValue(mode, fmt.Sprint(colPrefix, k+2), v.Prefix)
+		f.SetCellValue(mode, fmt.Sprint(colFirstName, k+2), v.Fname)
+		f.SetCellValue(mode, fmt.Sprint(colLastName, k+2), v.Lname)
+		f.SetCellValue(mode, fmt.Sprint(colNickName, k+2), v.Nname)
+		f.SetCellValue(mode, fmt.Sprint(colSaleTeam, k+2), v.Position)
 		f.SetCellValue(mode, fmt.Sprint(colPeriodAmount, k+2), v.PeriodAmount)
 		f.SetCellValue(mode, fmt.Sprint(colSaleFactor, k+2), v.SaleFactor)
-		f.SetCellValue(mode, fmt.Sprint(colInfactor, k+2), v.Infactor)
+		f.SetCellValue(mode, fmt.Sprint(colInfactor, k+2), v.InFactor)
 		f.SetCellValue(mode, fmt.Sprint(colExFactor, k+2), v.ExFactor)
-		f.SetCellValue(mode, fmt.Sprint(colSoRefer, k+2), v.SoRefer)
+		f.SetCellValue(mode, fmt.Sprint(colSoRefer, k+2), v.SORefer)
 		f.SetCellValue(mode, fmt.Sprint(colSoType, k+2), v.SoType)
 		f.SetCellValue(mode, fmt.Sprint(colDetail, k+2), v.Detail)
 	}
@@ -1303,6 +1311,7 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 		log.Errorln(pkgName, err, "func check permission error :-")
 		return c.JSON(http.StatusInternalServerError, m.Result{Error: "check permission error"})
 	}
+	log.Infoln("dssqsadd")
 	if len(listStaffId) == 0 {
 		return c.JSON(http.StatusNoContent, nil)
 	}
@@ -1342,151 +1351,151 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 	var invBefore []m.InvBefore
 	sql := `select staff_id,fname,lname,nname,department,sum(inv_amount) as inv_amount,max(goal_total) as goal_total, count(staff_id) as checkdata,typestaff, 0 as inv_amount_old,
 	(CASE
-		WHEN goal_total is null or goal_total = 0 THEN 30
-		WHEN (sum(inv_amount)/goal_total)*100 >= 176 THEN 30
-		WHEN (sum(inv_amount)/goal_total)*100 >= 156 THEN 28
-		WHEN (sum(inv_amount)/goal_total)*100 >= 126 THEN 25
-		WHEN (sum(inv_amount)/goal_total)*100 >= 101 THEN 20
-		WHEN (sum(inv_amount)/goal_total)*100 >= 76 THEN 15
-		WHEN (sum(inv_amount)/goal_total)*100 >= 51 THEN 10
-		WHEN (sum(inv_amount)/goal_total)*100 >= 1 THEN 5
-		WHEN (sum(inv_amount)/goal_total)*100 = 0 THEN 0
-		ELSE -5 END
+			WHEN goal_total is null or goal_total = 0 THEN 30
+			WHEN (sum(inv_amount)/goal_total)*100 >= 176 THEN 30
+			WHEN (sum(inv_amount)/goal_total)*100 >= 156 THEN 28
+			WHEN (sum(inv_amount)/goal_total)*100 >= 126 THEN 25
+			WHEN (sum(inv_amount)/goal_total)*100 >= 101 THEN 20
+			WHEN (sum(inv_amount)/goal_total)*100 >= 76 THEN 15
+			WHEN (sum(inv_amount)/goal_total)*100 >= 51 THEN 10
+			WHEN (sum(inv_amount)/goal_total)*100 >= 1 THEN 5
+			WHEN (sum(inv_amount)/goal_total)*100 = 0 THEN 0
+			ELSE -5 END
 	) as score_target,
 	(CASE
-		WHEN goal_total is null or goal_total = 0 THEN 999
-		ELSE (sum(inv_amount)/goal_total)*100 END
+			WHEN goal_total is null or goal_total = 0 THEN 999
+			ELSE (sum(inv_amount)/goal_total)*100 END
 	) as percent_target,
 	(CASE
-		WHEN sum(revenue)/sum(engcost) >= 1.2 THEN 25
-		WHEN sum(revenue)/sum(engcost) >= 1.16 THEN 22
-		WHEN sum(revenue)/sum(engcost) >= 1.1 THEN 19
-		WHEN sum(revenue)/sum(engcost) >= 1.06 THEN 16
-		WHEN sum(revenue)/sum(engcost) >= 1.0 THEN 13
-		WHEN sum(revenue)/sum(engcost) >= 0.96 THEN 10
-		WHEN sum(revenue)/sum(engcost) >= 0.9 THEN 7
-		ELSE 0 END
+			WHEN sum(revenue)/sum(engcost) >= 1.2 THEN 25
+			WHEN sum(revenue)/sum(engcost) >= 1.16 THEN 22
+			WHEN sum(revenue)/sum(engcost) >= 1.1 THEN 19
+			WHEN sum(revenue)/sum(engcost) >= 1.06 THEN 16
+			WHEN sum(revenue)/sum(engcost) >= 1.0 THEN 13
+			WHEN sum(revenue)/sum(engcost) >= 0.96 THEN 10
+			WHEN sum(revenue)/sum(engcost) >= 0.9 THEN 7
+			ELSE 0 END
 	) as score_sf,
 	(case
-		when sum(revenue)/sum(engcost) is null then 0
-		else sum(revenue)/sum(engcost) end
+			when sum(revenue)/sum(engcost) is null then 0
+			else sum(revenue)/sum(engcost) end
 	) as sale_factor,
 	(CASE
-		WHEN sum(sum_if)/sum(total_so) >= 1 THEN 25
-		WHEN sum(sum_if)/sum(total_so) >= 0.86 THEN 22
-		WHEN sum(sum_if)/sum(total_so) >= 0.8 THEN 19
-		WHEN sum(sum_if)/sum(total_so) >= 0.76 THEN 16
-		WHEN sum(sum_if)/sum(total_so) >= 0.7 THEN 13
-		WHEN sum(sum_if)/sum(total_so) >= 0.66 THEN 10
-		WHEN sum(sum_if)/sum(total_so) >= 0.6 THEN 7
-		ELSE 0 END
+			WHEN sum(sum_if)/sum(total_so) >= 1 THEN 25
+			WHEN sum(sum_if)/sum(total_so) >= 0.86 THEN 22
+			WHEN sum(sum_if)/sum(total_so) >= 0.8 THEN 19
+			WHEN sum(sum_if)/sum(total_so) >= 0.76 THEN 16
+			WHEN sum(sum_if)/sum(total_so) >= 0.7 THEN 13
+			WHEN sum(sum_if)/sum(total_so) >= 0.66 THEN 10
+			WHEN sum(sum_if)/sum(total_so) >= 0.6 THEN 7
+			ELSE 0 END
 	) as score_if,
 	(case
-		when sum(sum_if)/sum(total_so) is null then 0
-		else sum(sum_if)/sum(total_so) end
+			when sum(sum_if)/sum(total_so) is null then 0
+			else sum(sum_if)/sum(total_so) end
 	) as in_factor,
 	sum(revenue) as total_revenue,
 	all_ranking.one_id, image,filename, -100 as growth_rate, -5 as score_growth,0 as score_all,quarter,year,position,job_months,staff_child
 	from (
-		select staff_id,fname,lname,nname,department,position,goal_total,typestaff,revenue,engcost,sum_if,total_so,one_id,quarter,year,job_months,staff_child,
-		(case
-			when inv_amount is null then 0
-			ELSE inv_amount END) as inv_amount
-		from (
-			select staff_id,fname,lname,nname,department,position,goal_total,
-			'normal' as typestaff,
-			sum((CASE
-				WHEN TotalContractAmount is null THEN 0
-				ELSE TotalContractAmount END
-			)) as revenue,
-			sum((CASE
-				WHEN eng_cost is null THEN 0
-				ELSE eng_cost END
-			)) as engcost,
-			sum((CASE
-				WHEN in_factor is null THEN 0
-				ELSE in_factor END
-			)) as sum_if,
-			sum((CASE
-				WHEN sonumber is null THEN 0
-				ELSE 1 END
-			)) as total_so,
-			one_id,
-			quarter,year,job_months,staff_child
+			select staff_id,fname,lname,nname,department,position,goal_total,typestaff,revenue,engcost,sum_if,total_so,one_id,quarter,year,job_months,staff_child,
+			(case
+					when inv_amount is null then 0
+					ELSE inv_amount END) as inv_amount
 			from (
-					select staff_id,fname,lname,nname,department,position,
-					(CASE
-						WHEN goal_total is null THEN 0
-						ELSE goal_total END
-					) as goal_total,
-					staff_info.one_id,
-					(CASE
-						WHEN quarter is null THEN ?
-						ELSE quarter END
-					) as quarter,
-					(CASE
-						WHEN year is null THEN year(now())
-						ELSE year END
-					) as year,
-					12 * (YEAR(NOW()) - YEAR(start_job)) + (MONTH(NOW()) - MONTH(start_job)) AS job_months,
-					staff_child
-					from staff_info
+					select staff_id,fname,lname,nname,department,position,goal_total,
+					'normal' as typestaff,
+					sum((CASE
+							WHEN total_contract is null THEN 0
+							ELSE total_contract END
+					)) as revenue,
+					sum((CASE
+							WHEN eng_cost is null THEN 0
+							ELSE eng_cost END
+					)) as engcost,
+					sum((CASE
+							WHEN in_factor is null THEN 0
+							ELSE in_factor END
+					)) as sum_if,
+					sum((CASE
+							WHEN so_number is null THEN 0
+							ELSE 1 END
+					)) as total_so,
+					one_id,
+					quarter,year,job_months,staff_child
+					from (
+									select staff_id,fname,lname,nname,department,position,
+									(CASE
+											WHEN goal_total is null THEN 0
+											ELSE goal_total END
+									) as goal_total,
+									staff_info.one_id,
+									(CASE
+											WHEN quarter is null THEN ?
+											ELSE quarter END
+									) as quarter,
+									(CASE
+											WHEN year is null THEN year(now())
+											ELSE year END
+									) as year,
+									12 * (YEAR(NOW()) - YEAR(start_job)) + (MONTH(NOW()) - MONTH(start_job)) AS job_months,
+									staff_child
+									from staff_info
+									left join
+									(
+											select * from goal_quarter where year = year(now()) and quarter =  ?
+									) goal_quarter on staff_info.staff_id = goal_quarter.ref_staff
+									left join staff_start on staff_info.one_id = staff_start.one_id
+									WHERE staff_id in (
+											select staff_id from staff_info WHERE staff_child = ''
+									)
+									group by staff_id
+					) staff_detail
+					LEFT JOIN (
+							select total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+							from so_info
+							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and 	active_inactive = 'Active'
+							group by so_number
+					) total_so on total_so.sale_id = staff_detail.staff_id
+					group by staff_id
+			) tb_main
+			LEFT join (
+					select sum(total_contract_per_month) as inv_amount, sale_id from (
+							select total_contract_per_month,sale_id
+							from so_info
+							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+							group by so_number
+					) tb_inv group by sale_id
+			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
+			where staff_id is not null and staff_id <> ''
+	) all_ranking LEFT JOIN staff_images ON all_ranking.one_id = staff_images.one_id
+	WHERE staff_id in (?)
+	group by staff_id`
+
+	sqlBefore := `select staff_id,count(staff_id) as checkdata,sum(inv_amount) as inv_amount
+	from (
+			select staff_id,sum(total_contract_per_month) as inv_amount,count(so_number) as total_so
+			from (
+					select staff_id from staff_info
 					left join
 					(
-						select * from goal_quarter where year = year(now()) and quarter =  ?
+							select * from goal_quarter where year = ? and quarter = ?
 					) goal_quarter on staff_info.staff_id = goal_quarter.ref_staff
-					left join staff_start on staff_info.one_id = staff_start.one_id
 					WHERE staff_id in (
-						select staff_id from staff_info WHERE staff_child = ''
+							select staff_id from staff_info WHERE staff_child = ''
 					)
 					group by staff_id
 			) staff_detail
 			LEFT JOIN (
-				select sale_lead,TotalContractAmount,sonumber,sale_code,sale_factor,in_factor,(TotalContractAmount/sale_factor) as eng_cost
-				from so_mssql
-				WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = year(now()) and Active_Inactive = 'Active'
-				group by sonumber
-			) total_so on total_so.sale_code = staff_detail.staff_id
+					select total_contract_per_month,sale_id,so_number, type_sale
+					from (
+							select 	total_contract_per_month,sale_id,so_number , 'normal' as type_sale
+							from so_info
+							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+							group by so_number
+					) tb_inv_old
+			) total_new_so on total_new_so.sale_id = staff_detail.staff_id
+			where staff_id is not null and staff_id <> '' and sale_id is not null
 			group by staff_id
-		) tb_main
-		LEFT join (
-			select sum(PeriodAmount) as inv_amount, sale_code from (
-				select PeriodAmount,sale_code
-				from so_mssql
-				WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = year(now())   and so_refer = '' and Active_Inactive = 'Active' and SOWebStatus not like '%%Terminate%%'
-				group by sonumber
-			) tb_inv group by sale_code
-		) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_code
-		where staff_id is not null and staff_id <> ''
-	) all_ranking LEFT JOIN staff_images ON all_ranking.one_id = staff_images.one_id
-	WHERE staff_id in (?)
-	group by staff_id;`
-
-	sqlBefore := `select staff_id,count(staff_id) as checkdata,sum(inv_amount) as inv_amount
-	from (
-		select staff_id,sum(PeriodAmount) as inv_amount,count(sonumber) as total_so
-		from (
-			select staff_id from staff_info
-			left join
-			(
-				select * from goal_quarter where year = ? and quarter = ?
-			) goal_quarter on staff_info.staff_id = goal_quarter.ref_staff
-			WHERE staff_id in (
-				select staff_id from staff_info WHERE staff_child = ''
-			)
-			group by staff_id
-		) staff_detail
-		LEFT JOIN (
-			select PeriodAmount,sale_code,sonumber, type_sale
-			from (
-				select PeriodAmount,sale_code,sonumber , 'normal' as type_sale
-				from so_mssql
-				WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = ? and so_refer = '' and Active_Inactive = 'Active' and SOWebStatus not like '%%Terminate%%'
-				group by sonumber
-			) tb_inv_old
-		) total_new_so on total_new_so.sale_code = staff_detail.staff_id
-		where staff_id is not null and staff_id <> '' and sale_code is not null
-		group by staff_id
 	) all_ranking
 	WHERE staff_id in (?)
 	group by staff_id;`
@@ -1857,8 +1866,8 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 			select staff_id,fname,lname,nname,department,position,goal_total,
 			'normal' as typestaff,
 			sum((CASE
-				WHEN TotalContractAmount is null THEN 0
-				ELSE TotalContractAmount END
+				WHEN total_contract is null THEN 0
+				ELSE total_contract END
 			)) as revenue,
 			sum((CASE
 				WHEN eng_cost is null THEN 0
@@ -1869,7 +1878,7 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 				ELSE in_factor END
 			)) as sum_if,
 			sum((CASE
-				WHEN sonumber is null THEN 0
+				WHEN so_number is null THEN 0
 				ELSE 1 END
 			)) as total_so,
 			one_id,
@@ -1903,21 +1912,21 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 					group by staff_id
 			) staff_detail
 			LEFT JOIN (
-				select sale_lead,TotalContractAmount,sonumber,sale_code,sale_factor,in_factor,(TotalContractAmount/sale_factor) as eng_cost
-				from so_mssql
-				WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = year(now()) and Active_Inactive = 'Active'
-				group by sonumber
-			) total_so on total_so.sale_code = staff_detail.staff_id
+				select total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+				from so_info
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 'Active'
+				group by so_number
+			) total_so on total_so.sale_id = staff_detail.staff_id
 			group by staff_id
 		) tb_main
 		LEFT join (
-			select sum(PeriodAmount) as inv_amount, sale_code from (
-				select PeriodAmount,sale_code
-				from so_mssql
-				WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = year(now())   and so_refer = '' and Active_Inactive = 'Active' and SOWebStatus not like '%%Terminate%%'
-				group by sonumber
-			) tb_inv group by sale_code
-		) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_code
+			select sum(total_contract_per_month) as inv_amount, sale_id from (
+				select total_contract_per_month,sale_id
+				from so_info
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and Active_Inactive = 'Active' and so_web_status not like '%%Terminate%%'
+				group by so_number
+			) tb_inv group by sale_id
+		) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
 		where staff_id is not null and staff_id <> ''
 	) all_ranking LEFT JOIN staff_images ON all_ranking.one_id = staff_images.one_id
 	WHERE staff_id in (?)
@@ -1925,7 +1934,7 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 
 	sqlBefore := `select staff_id,count(staff_id) as checkdata,sum(inv_amount) as inv_amount
 	from (
-		select staff_id,sum(PeriodAmount) as inv_amount,count(sonumber) as total_so
+		select staff_id,sum(total_contract_per_month) as inv_amount,count(so_number) as total_so
 		from (
 			select staff_id from staff_info
 			left join
@@ -1938,15 +1947,15 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 			group by staff_id
 		) staff_detail
 		LEFT JOIN (
-			select PeriodAmount,sale_code,sonumber, type_sale
+			select total_contract_per_month,sale_id,so_number, type_sale
 			from (
-				select PeriodAmount,sale_code,sonumber , 'normal' as type_sale
-				from so_mssql
-				WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = ? and so_refer = '' and Active_Inactive = 'Active' and SOWebStatus not like '%%Terminate%%'
-				group by sonumber
+				select total_contract_per_month,sale_id,so_number , 'normal' as type_sale
+				from so_info
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+				group by so_number
 			) tb_inv_old
-		) total_new_so on total_new_so.sale_code = staff_detail.staff_id
-		where staff_id is not null and staff_id <> '' and sale_code is not null
+		) total_new_so on total_new_so.sale_id = staff_detail.staff_id
+		where staff_id is not null and staff_id <> '' and sale_id is not null
 		group by staff_id
 	) all_ranking
 	WHERE staff_id in (?)
@@ -2307,8 +2316,8 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 			select staff_id,fname,lname,nname,department,position,goal_total,
 			'normal' as typestaff,
 			sum((CASE
-				WHEN TotalContractAmount is null THEN 0
-				ELSE TotalContractAmount END
+				WHEN total_contract is null THEN 0
+				ELSE total_contract END
 			)) as revenue,
 			sum((CASE
 				WHEN eng_cost is null THEN 0
@@ -2319,7 +2328,7 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 				ELSE in_factor END
 			)) as sum_if,
 			sum((CASE
-				WHEN sonumber is null THEN 0
+				WHEN so_number is null THEN 0
 				ELSE 1 END
 			)) as total_so,
 			one_id,
@@ -2353,21 +2362,21 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 					group by staff_id
 			) staff_detail
 			LEFT JOIN (
-				select sale_lead,TotalContractAmount,sonumber,sale_code,sale_factor,in_factor,(TotalContractAmount/sale_factor) as eng_cost
-				from so_mssql
-				WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = year(now()) and Active_Inactive = 'Active'
-				group by sonumber
-			) total_so on total_so.sale_code = staff_detail.staff_id
+				select 	total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+				from so_info
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 'Active'
+				group by so_number
+			) total_so on total_so.sale_id = staff_detail.staff_id
 			group by staff_id
 		) tb_main
 		LEFT join (
-			select sum(PeriodAmount) as inv_amount, sale_code from (
-				select PeriodAmount,sale_code
-				from so_mssql
-				WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = year(now())   and so_refer = '' and Active_Inactive = 'Active' and SOWebStatus not like '%%Terminate%%'
-				group by sonumber
-			) tb_inv group by sale_code
-		) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_code
+			select sum(total_contract_per_month) as inv_amount, sale_id from (
+				select total_contract_per_month,sale_id
+				from so_info
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+				group by so_number
+			) tb_inv group by sale_id
+		) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
 		where staff_id is not null and staff_id <> ''
 	) all_ranking LEFT JOIN staff_images ON all_ranking.one_id = staff_images.one_id
 	WHERE staff_id in (?)
@@ -2375,7 +2384,7 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 
 	sqlBefore := `select staff_id,count(staff_id) as checkdata,sum(inv_amount) as inv_amount
 	from (
-		select staff_id,sum(PeriodAmount) as inv_amount,count(sonumber) as total_so
+		select staff_id,sum(total_contract_per_month) as inv_amount,count(so_number) as total_so
 		from (
 			select staff_id from staff_info
 			left join
@@ -2388,15 +2397,15 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 			group by staff_id
 		) staff_detail
 		LEFT JOIN (
-			select PeriodAmount,sale_code,sonumber, type_sale
+			select total_contract_per_month,sale_id,so_number, type_sale
 			from (
-				select PeriodAmount,sale_code,sonumber , 'normal' as type_sale
-				from so_mssql
-				WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = ? and so_refer = '' and Active_Inactive = 'Active' and SOWebStatus not like '%%Terminate%%'
-				group by sonumber
+				select total_contract_per_month,sale_id,so_number , 'normal' as type_sale
+				from so_info
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+				group by so_number
 			) tb_inv_old
-		) total_new_so on total_new_so.sale_code = staff_detail.staff_id
-		where staff_id is not null and staff_id <> '' and sale_code is not null
+		) total_new_so on total_new_so.sale_id = staff_detail.staff_id
+		where staff_id is not null and staff_id <> '' and sale_id is not null
 		group by staff_id
 	) all_ranking
 	WHERE staff_id in (?)
@@ -2756,8 +2765,8 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 				select staff_id,fname,lname,nname,department,position,goal_total,
 				'normal' as typestaff,
 				sum((CASE
-					WHEN TotalContractAmount is null THEN 0
-					ELSE TotalContractAmount END
+					WHEN total_contract is null THEN 0
+					ELSE total_contract END
 				)) as revenue,
 				sum((CASE
 					WHEN eng_cost is null THEN 0
@@ -2768,7 +2777,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 					ELSE in_factor END
 				)) as sum_if,
 				sum((CASE
-					WHEN sonumber is null THEN 0
+					WHEN so_number is null THEN 0
 					ELSE 1 END
 				)) as total_so,
 				one_id,
@@ -2802,21 +2811,21 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 						group by staff_id
 				) staff_detail
 				LEFT JOIN (
-					select sale_lead,TotalContractAmount,sonumber,sale_code,sale_factor,in_factor,(TotalContractAmount/sale_factor) as eng_cost
-					from so_mssql
-					WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = year(now()) and Active_Inactive = 'Active'
-					group by sonumber
-				) total_so on total_so.sale_code = staff_detail.staff_id
+					select 	total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+					from so_info
+					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 'Active'
+					group by so_number
+				) total_so on total_so.sale_id = staff_detail.staff_id
 				group by staff_id
 			) tb_main
 			LEFT join (
-				select sum(PeriodAmount) as inv_amount, sale_code from (
-					select PeriodAmount,sale_code
-					from so_mssql
-					WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = year(now()) and so_refer = '' and Active_Inactive = 'Active' and SOWebStatus not like '%%Terminate%%'
-					group by sonumber
-				) tb_inv group by sale_code
-			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_code
+				select sum(total_contract_per_month) as inv_amount, sale_id from (
+					select total_contract_per_month,sale_id
+					from so_info
+					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+					group by so_number
+				) tb_inv group by sale_id
+			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
 			where staff_id is not null and staff_id <> ''
 			union
 			select staff_id,fname,lname,nname,department,position,goal_total,typestaff,revenue,engcost,sum_if,total_so,one_id,quarter,year,job_months,staff_child,
@@ -2839,7 +2848,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 					ELSE in_factor END
 				)) as sum_if,
 				sum((CASE
-					WHEN sonumber is null THEN 0
+					WHEN so_number is null THEN 0
 					ELSE 1 END
 				)) as total_so,
 				one_id,
@@ -2873,19 +2882,19 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 						group by staff_id
 				) staff_detail
 				LEFT JOIN (
-					select sale_lead,TotalContractAmount,sonumber,sale_code,sale_factor,in_factor,(TotalContractAmount/sale_factor) as eng_cost
-					from so_mssql
-					WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = year(now()) and Active_Inactive = 'Active'
-					group by sonumber
+					select sale_lead,TotalContractAmount,so_number,sale_id,sale_factor,in_factor,(TotalContractAmount/sale_factor) as eng_cost
+					from so_info
+					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 'Active'
+					group by so_number
 				) total_so on total_so.sale_lead = staff_detail.staff_id
 				group by staff_id
 			) tb_main
 			LEFT join (
-				select sum(PeriodAmount) as inv_amount,sale_lead from (
-					select PeriodAmount,sale_code,sale_lead
-					from so_mssql
-					WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = year(now()) and so_refer = '' and Active_Inactive = 'Active' and SOWebStatus not like '%%Terminate%%'
-					group by sonumber
+				select sum(total_contract_per_month) as inv_amount,sale_lead from (
+					select total_contract_per_month,sale_id,sale_lead
+					from so_info
+					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+					group by so_number
 				) tb_inv group by sale_lead
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_lead
 			where staff_id is not null and staff_id <> ''
@@ -2895,7 +2904,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 
 	sqlBefore := `select staff_id,count(staff_id) as checkdata,sum(inv_amount) as inv_amount
 	from (
-		select staff_id,sum(PeriodAmount) as inv_amount,count(sonumber) as total_so
+		select staff_id,sum(total_contract_per_month) as inv_amount,count(so_number) as total_so
 		from (
 			select staff_id from staff_info
 			left join
@@ -2908,20 +2917,20 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 			group by staff_id
 		) staff_detail
 		LEFT JOIN (
-			select PeriodAmount,sale_code,sonumber, type_sale
+			select total_contract_per_month,sale_id,so_number, type_sale
 			from (
-				select PeriodAmount,sale_code,sonumber , 'normal' as type_sale
-				from so_mssql
-				WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = ? and so_refer = '' and Active_Inactive = 'Active' and SOWebStatus not like '%%Terminate%%'
-				group by sonumber
+				select total_contract_per_month,sale_id,so_number , 'normal' as type_sale
+				from so_info
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+				group by so_number
 				union
-				select PeriodAmount,sale_lead as sale_code,sonumber, 'lead'
-				from so_mssql
-				WHERE quarter(ContractStartDate) = ? and year(ContractStartDate) = ? and so_refer = '' and Active_Inactive = 'Active' and SOWebStatus not like '%%Terminate%%'
-				group by sonumber
+				select total_contract_per_month,sale_lead as sale_id,so_number, 'lead'
+				from so_info
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+				group by so_number
 			) tb_inv_old
-		) total_new_so on total_new_so.sale_code = staff_detail.staff_id
-		where staff_id is not null and staff_id <> '' and sale_code is not null
+		) total_new_so on total_new_so.sale_id = staff_detail.staff_id
+		where staff_id is not null and staff_id <> '' and sale_id is not null
 		group by staff_id
 	) all_ranking
 	WHERE staff_id in (?)
