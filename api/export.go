@@ -147,7 +147,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
                                         select customer_id,customer_nameTH from customer_info
 
                                 ) tb_cus on s.customer_id = tb_cus.customer_id
-                                WHERE active_inactive = 'Active' and has_refer = 0 and staff_id IN (?) and year(contract_end_date) = ?
+                                WHERE active_inactive = 1 and has_refer = 0 and staff_id IN (?) and year(contract_end_date) = ?
                                 group by so_number
                         ) as tb_so_number
                 ) as tb_ch_so
@@ -340,7 +340,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			in_factor,sale_factor,(	total_contract/1.07) as total_contract,
 			so_web_status
 			from so_info
-			where has_refer = 0 and active_inactive = 'Active' and so_number like '%SO%' and so_type <> 'Onetime' and so_type <> 'Project Base'
+			where has_refer = 0 and active_inactive = 1 and so_number like '%SO%' and so_type <> 'Onetime' and so_type <> 'Project Base'
 	) so_info
 	left join check_so on check_so.sonumber = so_info.so_number
 	LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
@@ -391,7 +391,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			in_factor,sale_factor,(	total_contract/1.07) as total_contract,
 			so_web_status
 			from so_info
-			where has_refer = 0 and active_inactive = 'Active' and so_number like '%SO%' and so_type <> 'Onetime' and so_type <> 'Project Base'
+			where has_refer = 0 and active_inactive = 1 and so_number like '%SO%' and so_type <> 'Onetime' and so_type <> 'Project Base'
 	) so_info
 	left join check_so on check_so.sonumber = so_info.so_number
 	LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
@@ -584,7 +584,7 @@ func GetReportExcelTrackingEndPoint(c echo.Context) error {
 				(
 						select customer_id,customer_nameTH from customer_info
 				) tb_cus on so_info.customer_id = tb_cus.customer_id
-	WHERE Active_Inactive = 'Active'
+	WHERE active_inactive = 1
 							and sale_id in (?)
 	group by so_number order by contract_start_date DESC;`
 	// var sum []model.SoExport
@@ -1453,7 +1453,7 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 					LEFT JOIN (
 							select total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
 							from so_info
-							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and 	active_inactive = 'Active'
+							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and 	active_inactive = 1
 							group by so_number
 					) total_so on total_so.sale_id = staff_detail.staff_id
 					group by staff_id
@@ -1462,7 +1462,7 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 					select sum(total_contract_per_month) as inv_amount, sale_id from (
 							select total_contract_per_month,sale_id
 							from so_info
-							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 							group by so_number
 					) tb_inv group by sale_id
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
@@ -1490,7 +1490,7 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 					from (
 							select 	total_contract_per_month,sale_id,so_number , 'normal' as type_sale
 							from so_info
-							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 							group by so_number
 					) tb_inv_old
 			) total_new_so on total_new_so.sale_id = staff_detail.staff_id
@@ -1534,13 +1534,30 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		var so []m.SOMssql
-		if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND INCSCDocNo = '' AND quarter(ContractStartDate) = ? AND year(ContractStartDate) = year(now()) AND DATEDIFF(NOW(),PeriodEndDate) > 60`, listStaffId, quarterNum-1).Group("Customer_ID").Find(&so).Error; err != nil {
+		// var so []m.SOMssql
+		var so []m.SOMssqlInfo
+		sqlinfo := `SELECT * FROM so_info 
+		LEFT JOIN (
+												select  so_number,period_end_date
+												from inv_info
+										) total_inv on total_inv.so_number = so_info.so_number
+		LEFT JOIN (
+												select  so_number,rc_number
+												from rc_info
+										) total_rc on total_rc.so_number = so_info.so_number
+		WHERE sale_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
+		if err := dbSale.Ctx().Raw(sqlinfo, listStaffId, quarterNum-1).Scan(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
-				log.Errorln(pkgName, err, "select data error :-")
 				hasErr += 1
+				log.Errorln(pkgName, err, "select data error :-")
 			}
 		}
+		// if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND INCSCDocNo = '' AND quarter(ContractStartDate) = ? AND year(ContractStartDate) = year(now()) AND DATEDIFF(NOW(),PeriodEndDate) > 60`, listStaffId, quarterNum-1).Group("Customer_ID").Find(&so).Error; err != nil {
+		// 	if !gorm.IsRecordNotFoundError(err) {
+		// 		log.Errorln(pkgName, err, "select data error :-")
+		// 		hasErr += 1
+		// 	}
+		// }
 		for _, s := range so {
 			mapCnStaff[s.SaleCode] = append(mapCnStaff[s.SaleCode], s.INCSCDocNo)
 		}
@@ -1914,7 +1931,7 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 			LEFT JOIN (
 				select total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
 				from so_info
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 'Active'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 1
 				group by so_number
 			) total_so on total_so.sale_id = staff_detail.staff_id
 			group by staff_id
@@ -1923,7 +1940,7 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 			select sum(total_contract_per_month) as inv_amount, sale_id from (
 				select total_contract_per_month,sale_id
 				from so_info
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and Active_Inactive = 'Active' and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and Active_Inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv group by sale_id
 		) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
@@ -1951,7 +1968,7 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 			from (
 				select total_contract_per_month,sale_id,so_number , 'normal' as type_sale
 				from so_info
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
 		) total_new_so on total_new_so.sale_id = staff_detail.staff_id
@@ -1996,13 +2013,30 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		var so []m.SOMssql
-		if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND INCSCDocNo = '' AND quarter(ContractStartDate) = ? AND year(ContractStartDate) = year(now()) AND DATEDIFF(NOW(),PeriodEndDate) > 60`, listStaffId, quarterNum-1).Group("Customer_ID").Find(&so).Error; err != nil {
+		// var so []m.SOMssql
+		var so []m.SOMssqlInfo
+		sqlinfo := `SELECT * FROM so_info 
+		LEFT JOIN (
+												select  so_number,period_end_date
+												from inv_info
+										) total_inv on total_inv.so_number = so_info.so_number
+		LEFT JOIN (
+												select  so_number,rc_number
+												from rc_info
+										) total_rc on total_rc.so_number = so_info.so_number
+		WHERE sale_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
+		if err := dbSale.Ctx().Raw(sqlinfo, listStaffId, quarterNum-1).Scan(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
-				log.Errorln(pkgName, err, "select data error :-")
 				hasErr += 1
+				log.Errorln(pkgName, err, "select data error :-")
 			}
 		}
+		// if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND INCSCDocNo = '' AND quarter(ContractStartDate) = ? AND year(ContractStartDate) = year(now()) AND DATEDIFF(NOW(),PeriodEndDate) > 60`, listStaffId, quarterNum-1).Group("Customer_ID").Find(&so).Error; err != nil {
+		// 	if !gorm.IsRecordNotFoundError(err) {
+		// 		log.Errorln(pkgName, err, "select data error :-")
+		// 		hasErr += 1
+		// 	}
+		// }
 		for _, s := range so {
 			mapCnStaff[s.SaleCode] = append(mapCnStaff[s.SaleCode], s.INCSCDocNo)
 		}
@@ -2364,7 +2398,7 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 			LEFT JOIN (
 				select 	total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
 				from so_info
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 'Active'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 1
 				group by so_number
 			) total_so on total_so.sale_id = staff_detail.staff_id
 			group by staff_id
@@ -2373,7 +2407,7 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 			select sum(total_contract_per_month) as inv_amount, sale_id from (
 				select total_contract_per_month,sale_id
 				from so_info
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv group by sale_id
 		) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
@@ -2401,7 +2435,7 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 			from (
 				select total_contract_per_month,sale_id,so_number , 'normal' as type_sale
 				from so_info
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
 		) total_new_so on total_new_so.sale_id = staff_detail.staff_id
@@ -2445,13 +2479,30 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		var so []m.SOMssql
-		if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND INCSCDocNo = '' AND quarter(ContractStartDate) = ? AND year(ContractStartDate) = year(now()) AND DATEDIFF(NOW(),PeriodEndDate) > 60`, listStaffId, quarterNum-1).Group("Customer_ID").Find(&so).Error; err != nil {
+		// var so []m.SOMssql
+		var so []m.SOMssqlInfo
+		sqlinfo := `SELECT * FROM so_info 
+		LEFT JOIN (
+												select  so_number,period_end_date
+												from inv_info
+										) total_inv on total_inv.so_number = so_info.so_number
+		LEFT JOIN (
+												select  so_number,rc_number
+												from rc_info
+										) total_rc on total_rc.so_number = so_info.so_number
+		WHERE sale_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
+		if err := dbSale.Ctx().Raw(sqlinfo, listStaffId, quarterNum-1).Scan(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
-				log.Errorln(pkgName, err, "select data error :-")
 				hasErr += 1
+				log.Errorln(pkgName, err, "select data error :-")
 			}
 		}
+		// if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND INCSCDocNo = '' AND quarter(ContractStartDate) = ? AND year(ContractStartDate) = year(now()) AND DATEDIFF(NOW(),PeriodEndDate) > 60`, listStaffId, quarterNum-1).Group("Customer_ID").Find(&so).Error; err != nil {
+		// 	if !gorm.IsRecordNotFoundError(err) {
+		// 		log.Errorln(pkgName, err, "select data error :-")
+		// 		hasErr += 1
+		// 	}
+		// }
 		for _, s := range so {
 			mapCnStaff[s.SaleCode] = append(mapCnStaff[s.SaleCode], s.INCSCDocNo)
 		}
@@ -2813,7 +2864,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 				LEFT JOIN (
 					select 	total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
 					from so_info
-					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 'Active'
+					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 1
 					group by so_number
 				) total_so on total_so.sale_id = staff_detail.staff_id
 				group by staff_id
@@ -2822,7 +2873,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 				select sum(total_contract_per_month) as inv_amount, sale_id from (
 					select total_contract_per_month,sale_id
 					from so_info
-					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 					group by so_number
 				) tb_inv group by sale_id
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
@@ -2836,8 +2887,8 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 				select staff_id,fname,lname,nname,department,position,goal_total,
 				'normal' as typestaff,
 				sum((CASE
-					WHEN TotalContractAmount is null THEN 0
-					ELSE TotalContractAmount END
+					WHEN total_contract is null THEN 0
+					ELSE total_contract END
 				)) as revenue,
 				sum((CASE
 					WHEN eng_cost is null THEN 0
@@ -2882,19 +2933,25 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 						group by staff_id
 				) staff_detail
 				LEFT JOIN (
-					select sale_lead,TotalContractAmount,so_number,sale_id,sale_factor,in_factor,(TotalContractAmount/sale_factor) as eng_cost
-					from so_info
-					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 'Active'
-					group by so_number
+					SELECT 	total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+						,sale_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
+						limit 1,1
+						) as sale_lead
+						FROM so_info
+						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
+						group by so_number
 				) total_so on total_so.sale_lead = staff_detail.staff_id
 				group by staff_id
 			) tb_main
 			LEFT join (
 				select sum(total_contract_per_month) as inv_amount,sale_lead from (
-					select total_contract_per_month,sale_id,sale_lead
-					from so_info
-					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
-					group by so_number
+					SELECT 	total_contract_per_month,sale_id
+						,sale_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
+						limit 1,1
+						) as sale_lead
+						FROM so_info
+						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
+						group by so_number
 				) tb_inv group by sale_lead
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_lead
 			where staff_id is not null and staff_id <> ''
@@ -2919,14 +2976,17 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 		LEFT JOIN (
 			select total_contract_per_month,sale_id,so_number, type_sale
 			from (
-				select total_contract_per_month,sale_id,so_number , 'normal' as type_sale
+				select total_contract_per_month,sale_id,sale_id as staff_sale,so_number , 'normal' as type_sale
 				from so_info
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 				union
-				select total_contract_per_month,sale_lead as sale_id,so_number, 'lead'
-				from so_info
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 'Active' and so_web_status not like '%%Terminate%%'
+				select 	total_contract_per_month,so_number
+				,sale_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
+				limit 1,1
+				) as sale_id, 'lead'
+				FROM so_info
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
 		) total_new_so on total_new_so.sale_id = staff_detail.staff_id
@@ -2971,13 +3031,30 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		var so []m.SOMssql
-		if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND INCSCDocNo = '' AND quarter(ContractStartDate) = ? AND year(ContractStartDate) = year(now()) AND DATEDIFF(NOW(),PeriodEndDate) > 60`, listStaffId, quarterNum-1).Group("Customer_ID").Find(&so).Error; err != nil {
+		// var so []m.SOMssql
+		var so []m.SOMssqlInfo
+		sqlinfo := `SELECT * FROM so_info 
+		LEFT JOIN (
+												select  so_number,period_end_date
+												from inv_info
+										) total_inv on total_inv.so_number = so_info.so_number
+		LEFT JOIN (
+												select  so_number,rc_number
+												from rc_info
+										) total_rc on total_rc.so_number = so_info.so_number
+		WHERE sale_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
+		if err := dbSale.Ctx().Raw(sqlinfo, listStaffId, quarterNum-1).Scan(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
-				log.Errorln(pkgName, err, "select data error :-")
 				hasErr += 1
+				log.Errorln(pkgName, err, "select data error :-")
 			}
 		}
+		// if err := dbSale.Ctx().Model(&m.SOMssql{}).Where(`sale_code IN (?) AND INCSCDocNo = '' AND quarter(ContractStartDate) = ? AND year(ContractStartDate) = year(now()) AND DATEDIFF(NOW(),PeriodEndDate) > 60`, listStaffId, quarterNum-1).Group("Customer_ID").Find(&so).Error; err != nil {
+		// 	if !gorm.IsRecordNotFoundError(err) {
+		// 		log.Errorln(pkgName, err, "select data error :-")
+		// 		hasErr += 1
+		// 	}
+		// }
 		for _, s := range so {
 			mapCnStaff[s.SaleCode] = append(mapCnStaff[s.SaleCode], s.INCSCDocNo)
 		}
@@ -3216,55 +3293,69 @@ func GetReportExcelSaleFactorEndPoint(c echo.Context) error {
 				department,staff_id,fname,lname,nname,staff_child
 			from (
 				Select
-						TotalContractAmount as revenue,
+				total_contract as revenue,
 						(CASE
-								WHEN TotalContractAmount is not null and sale_factor is not null and sale_factor != 0 THEN TotalContractAmount/sale_factor
+								WHEN total_contract is not null and sale_factor is not null and sale_factor != 0 THEN total_contract/sale_factor
 								ELSE 0 END
 						) as engcost,
 						sale_factor,
-						sale_code,
+						sale_id,
 						in_factor,
-						ex_factor
-				from so_mssql where month(PeriodStartDate) = ? and year(PeriodStartDate) = ?
-				group by sonumber
+						ex_factor,
+						so_info.so_number,
+						period_start_date
+				from so_info 
+				LEFT JOIN (
+					select  so_number,	period_start_date
+					from inv_info
+				) total_inv on total_inv.so_number = so_info.so_number
+				where month(period_start_date) = ? and year(period_start_date) = ?
+				group by so_number
 			) tb_so
-			LEFT JOIN staff_info ON tb_so.sale_code = staff_info.staff_id
+			LEFT JOIN staff_info ON tb_so.sale_id = staff_info.staff_id
 			where department in (
 				SELECT department FROM staff_info WHERE staff_child = '' and department <> 'Sale JV' GROUP BY department
 			)
 			GROUP BY staff_id ORDER BY real_sf desc`
 
-	countCompany := `SELECT COUNT(Customer_ID) as count_so , department ,fname,lname,staff_id
+	countCompany := `SELECT COUNT(customer_id) as count_so , department ,fname,lname,staff_id
 			from (
 					Select
-									Customer_ID, Customer_name, sale_code
-					from so_mssql where month(PeriodStartDate) = ? and year(PeriodStartDate) = ?
-					group by Customer_ID
+					customer_id, sale_id,
+					so_info.so_number,
+					period_start_date
+					from so_info 
+					LEFT JOIN (
+						select  so_number,	period_start_date
+						from inv_info
+					) total_inv on total_inv.so_number = so_info.so_number
+					where month(period_start_date) = ? and year(period_start_date) = ?
+					group by customer_id
 			) tb_so
-			LEFT JOIN staff_info ON tb_so.sale_code = staff_info.staff_id
+			LEFT JOIN staff_info ON tb_so.sale_id = staff_info.staff_id
 			where department in (
 					SELECT department FROM staff_info WHERE  department <> 'Sale JV' GROUP BY department
 			) GROUP BY staff_id`
 	sqlFactor := `select
-					sum(in_factor)/count(sonumber) as in_fac,
-					sum(ex_factor)/count(sonumber) as ex_fac
+					sum(in_factor)/count(so_number) as in_fac,
+					sum(ex_factor)/count(so_number) as ex_fac
 
 				from (
 				Select
-					TotalContractAmount as revenue,
+				total_contract as revenue,
 					(CASE
-						WHEN TotalContractAmount is not null and sale_factor is not null and sale_factor != 0 THEN TotalContractAmount/sale_factor
+						WHEN total_contract is not null and sale_factor is not null and sale_factor != 0 THEN total_contract/sale_factor
 						ELSE 0 END
 					) as engcost,
 					sale_factor,
 					in_factor,
 					ex_factor,
-					sale_code,
-				sonumber
-				from so_mssql
-				group by sonumber
+					sale_id,
+					so_number
+				from so_info
+				group by so_number
 				) tb_so
-				LEFT JOIN staff_info ON tb_so.sale_code = staff_info.staff_id
+				LEFT JOIN staff_info ON tb_so.sale_id = staff_info.staff_id
 				where department in (
 				SELECT department FROM staff_info WHERE department <> 'Sale JV' GROUP BY department)`
 	sqlFilter := `select * from staff_info where INSTR(CONCAT_WS('|', staff_id, fname, lname, nname, position, department,one_id), ?) `

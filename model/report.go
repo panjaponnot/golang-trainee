@@ -3,7 +3,7 @@ package model
 import "time"
 
 type OrgChart struct {
-	Order      	 int  	 `json:"order"`
+	Order        int     `json:"order"`
 	StaffId      string  `json:"staff_id"`
 	Fname        string  `json:"fname" gorm:"column:fname"`
 	Lname        string  `json:"lname"`
@@ -42,25 +42,25 @@ type InvBefore struct {
 }
 
 type SoExport struct {
-	CostsheetNumber         string  `json:"costsheet_number" gorm:"column:costsheetnumber"`
-	SoNumber        				string  `json:"so_number" gorm:"column:sonumber"`
-	ContractStartDate    	  string  `json:"ContractStartDate" gorm:"column:ContractStartDate"`
-	ContractEndDate         string  `json:"ContractEndDate" gorm:"column:ContractEndDate"`
-	PriceSale           		float64 `json:"pricesale" gorm:"column:pricesale"`
-	TotalContractAmount  		float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
-	SOWebStatus        	 	  string  `json:"SOWebStatus" gorm:"column:SOWebStatus"`
-	CustomerId   	        	string  `json:"Customer_ID" gorm:"column:Customer_ID"`
-	CustomerName          	string  `json:"Customer_Name" gorm:"column:Customer_Name"`
-	SaleCode         				string  `json:"sale_code" gorm:"column:sale_code"`
-	SaleName          			string  `json:"sale_name" gorm:"column:sale_name"`
-	SaleTeam          			string  `json:"sale_team" gorm:"column:sale_team"`
-	PeriodAmount          	float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
-	SaleFactor            	float64 `json:"sale_factor" gorm:"column:sale_factor"`
-	Infactor         				float64 `json:"in_factor" gorm:"column:in_factor"`
-	ExFactor          			float64 `json:"ex_factor" gorm:"column:ex_factor"`
-	SoRefer          				string  `json:"so_refer" gorm:"column:so_refer"`
-	SoType			          	string  `json:"SOType" gorm:"column:SOType"`
-	Detail		            	string  `json:"detail" gorm:"column:detail"`
+	CostsheetNumber     string  `json:"costsheet_number" gorm:"column:costsheetnumber"`
+	SoNumber            string  `json:"so_number" gorm:"column:sonumber"`
+	ContractStartDate   string  `json:"ContractStartDate" gorm:"column:ContractStartDate"`
+	ContractEndDate     string  `json:"ContractEndDate" gorm:"column:ContractEndDate"`
+	PriceSale           float64 `json:"pricesale" gorm:"column:pricesale"`
+	TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
+	SOWebStatus         string  `json:"SOWebStatus" gorm:"column:SOWebStatus"`
+	CustomerId          string  `json:"Customer_ID" gorm:"column:Customer_ID"`
+	CustomerName        string  `json:"Customer_Name" gorm:"column:Customer_Name"`
+	SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+	SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
+	SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
+	PeriodAmount        float64 `json:"PeriodAmount" gorm:"column:PeriodAmount"`
+	SaleFactor          float64 `json:"sale_factor" gorm:"column:sale_factor"`
+	Infactor            float64 `json:"in_factor" gorm:"column:in_factor"`
+	ExFactor            float64 `json:"ex_factor" gorm:"column:ex_factor"`
+	SoRefer             string  `json:"so_refer" gorm:"column:so_refer"`
+	SoType              string  `json:"SOType" gorm:"column:SOType"`
+	Detail              string  `json:"detail" gorm:"column:detail"`
 }
 
 type SummaryCustomer struct {
@@ -146,6 +146,40 @@ type SOMssql struct {
 	Remark            string   `json:"remark"`
 	GetCN             string   `json:"get_cn" gorm:"column:getCN"`
 	Inv               *Invoice `json:"invoice" gorm:"foreignkey:BLSCDocNo;association_foreignkey:invoice_no"`
+}
+
+type SOMssqlInfo struct {
+	// BlscDocNo         string   `json:"blsc_doc_no" gorm:"column:BLSCDocNo"`
+	SOnumber   string `json:"so_number" gorm:"column:so_number"`
+	CSnumber   string `json:"cs_number" gorm:"column:cs_number"`
+	INCSCDocNo string `json:"rc_number" gorm:"column:rc_number"`
+	CustomerId string `json:"customer_id" gorm:"column:customer_id"`
+	// CustomerName      string   `json:"customer_name" gorm:"column:Customer_Name"`
+	ContractStartDate string  `json:"contract_start_date" gorm:"column:contract_start_date"`
+	ContractEndDate   string  `json:"contract_end_date" gorm:"column:contract_end_date"`
+	SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
+	SaleCode          string  `json:"sale_id" gorm:"column:sale_id"`
+	SaleLead          string  `json:"sale_lead" gorm:"column:sale_lead"`
+	Day               string  `json:"day" gorm:"column:days"`
+	SoMonth           string  `json:"so_month" gorm:"column:so_month"`
+	SOWebStatus       string  `json:"so_web_status" gorm:"column:so_web_status"`
+	PriceSale         float64 `json:"total_contract" gorm:"column:total_contract"`
+	PeriodAmount      float64 `json:"total_contract_per_month" gorm:"column:total_contract_per_month"`
+	TotalAmount       float64 `json:"total_contract" gorm:"column:total_contract"`
+	StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
+	PayType           string  `json:"pay_type" gorm:"column:pay_type"`
+	SoType            string  `json:"so_type" gorm:"column:so_type"`
+	// INCSCDocNo        string   `json:"INCSCDocNo" gorm:"column:INCSCDocNo"`
+	Prefix     string `json:"prefix"`
+	Fname      string `json:"fname"`
+	Lname      string `json:"lname"`
+	Nname      string `json:"nname"`
+	Position   string `json:"position"`
+	Department string `json:"department"`
+	Status     string `json:"status"`
+	Remark     string `json:"remark"`
+	// GetCN             string   `json:"get_cn" gorm:"column:getCN"`
+	// Inv               *Invoice `json:"invoice" gorm:"foreignkey:BLSCDocNo;association_foreignkey:invoice_no"`
 }
 
 func (SOMssql) TableName() string {
