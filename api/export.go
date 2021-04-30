@@ -3546,7 +3546,7 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 	}
 
 	type SOCus struct {
-		BLSCDocNo   string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
+		Inv_Number  string  `json:"inv_number" gorm:"column:inv_number"`
 		StaffID     string  `json:"staff_id" gorm:"column:staff_id"`
 		Fname       string  `json:"fname" gorm:"column:fname"`
 		Lname       string  `json:"lname" gorm:"column:lname"`
@@ -3554,18 +3554,18 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 		Department  string  `json:"department" gorm:"column:department"`
 		SoAmount    float64 `json:"so_amount" gorm:"column:so_amount"`
 		Amount      float64 `json:"amount" gorm:"column:amount"`
-		SOWebStatus string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		CustomerID  string  `json:"Customer_ID" gorm:"column:Customer_ID"`
-		CusnameThai string  `json:"Customer_Name" gorm:"column:Customer_Name"`
+		SOWebStatus string  `json:"so_web_status" gorm:"column:so_web_status"`
+		CustomerID  string  `json:"customer_id" gorm:"column:customer_id"`
+		CusnameThai string  `json:"customer_nameTH" gorm:"column:customer_nameTH"`
 		// CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"` //ไม่มีในcolumn so_ms
-		BusinessType string  `json:"Business_type" gorm:"column:Business_type"`
+		BusinessType string  `json:"business_type" gorm:"column:business_type"`
 		JobStatus    string  `json:"Job_Status" gorm:"column:Job_Status"`
-		SoType       string  `json:"SO_Type" gorm:"column:SOType"`
-		SaleFactor   float64 `json:"SaleFactors" gorm:"column:SaleFactors"`
+		SoType       string  `json:"SO_Type" gorm:"column:so_type"`
+		SaleFactor   float64 `json:"sale_factor" gorm:"column:sale_factor"`
 		InFactor     float64 `json:"in_factor" gorm:"column:in_factor"`
 		ExFactor     float64 `json:"ex_factor" gorm:"column:ex_factor"`
-		StartDate    string  `json:"PeriodStartDate" gorm:"column:PeriodStartDate"`
-		EndDate      string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
+		StartDate    string  `json:"period_start_date" gorm:"column:period_start_date"`
+		EndDate      string  `json:"period_end_date" gorm:"column:period_end_date"`
 		Detail       string  `json:"detail" gorm:"column:detail"`
 	}
 	type TrackInvoice struct {
@@ -3598,24 +3598,37 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 	}{}
 
 	sql := `
-			 SELECT
-			 invoice_no
-				FROM (
-					SELECT
-					invoice_no,SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor
-					FROM (
-						SELECT *,CONCAT(BLSCDocNo) as invoice_no FROM so_mssql
-						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
-						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate
-						and sale_code in (?)
-					) sub_data
-				) so_group
-				GROUP by BLSCDocNo
+		SELECT
+		invoice_no
+		FROM (
+			SELECT
+			invoice_no,cs_number,so_number,contract_start_date,contract_end_date,inv_number,period_start_date,period_end_date,customer_id,customer_nameTH,
+				sale_id,sale_name,amount, sale_factor, in_factor, ex_factor
+			FROM (
+				SELECT cs_number,inv.so_number,contract_start_date,contract_end_date,inv_number,period_start_date,
+				period_end_date,cus.customer_id,customer_nameTH,inv.sale_id,si.sale_name,amount, sale_factor, in_factor, ex_factor
+				,CONCAT(inv_number) as invoice_no 
+				FROM so_info
+				LEFT JOIN (
+					select inv_number,period_start_date,period_end_date,amount,sv_number,so_number,sale_id,active_inactive
+					from inv_info
+					)inv on so_info.sv_number = inv.sv_number
+				LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
+				LEFT JOIN (
+					select *,CONCAT(fname,' ',lname) as sale_name
+					from staff_info
+					)
+					si on si.staff_id = inv.sale_id
+				WHERE inv.active_inactive = 1 and inv_number <> ''
+				and period_start_date <= ? and period_end_date >= ?
+				and period_start_date <= period_end_date
+				and inv.sale_id in (?)
+			) sub_data
+		) so_group
+		GROUP by inv_number
 			 `
 
-	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId).Scan(&so).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId).Scan(&so).Error; err != nil {
 		log.Errorln(pkgName, err, "select data error -:")
 		return echo.ErrInternalServerError
 	}
@@ -3662,33 +3675,49 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 	wg.Add(3)
 	go func() {
 
-		sqlSum := `		SELECT *,
+		sqlSum := `		select *
+		from (
+			SELECT so_info.*,staff_info.*,inv.inv_number,inv.period_start_date,inv.period_end_date,
+			cus.customer_nameTH,cus.business_type,
 					(CASE
-						WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+						WHEN DATEDIFF(period_end_date, period_start_date)+1 = 0
 						THEN 0
-						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-						THEN PeriodAmount
-						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-						THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-						WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-						THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-						WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-						THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-						WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-						THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+						WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date <= ?
+						THEN total_contract_per_month
+						WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date > ?
+						THEN (DATEDIFF(?, period_start_date)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+						WHEN period_start_date < ? AND period_end_date <= ? AND period_end_date > ?
+						THEN (DATEDIFF(period_end_date, ?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+						WHEN period_start_date < ? AND period_end_date = ?
+						THEN 1*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+						WHEN period_start_date < ? AND period_end_date > ?
+						THEN (DATEDIFF(?,?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date,period_start_date)+1))
 						ELSE 0 END
 					) as so_amount,
-					sum(PeriodAmount) as amount
-	 			FROM so_mssql
-				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active' 
-						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
-						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail), ?)
-						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
-						and INSTR(CONCAT_WS('|', sale_code), ?)
-						group by BLSCDocNo
+					sum(total_contract_per_month) as amount,
+					(CASE
+						WHEN inv.sale_id = owner and owner_old <> '' and period_start_date < cc.update_date and owner <> owner_old Then 'change'
+						WHEN inv.sale_id <> owner Then 'not change'
+						Else 'not change' END
+					) as status_code
+	 			FROM so_info
+				LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+				LEFT JOIN (
+					select inv_number,period_start_date,period_end_date,amount,sale_id,active_inactive,sv_number
+					from inv_info
+					)inv on so_info.sv_number = inv.sv_number
+				LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
+				left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
+				WHERE inv.active_inactive = 1
+				and period_start_date <= ? and period_end_date >= ?
+				and period_start_date <= period_end_date and inv_number IN (?)
+				and inv.sale_id in (?)
+				and INSTR(CONCAT_WS('|', inv_number, staff_id, fname,lname,nname,department,so_web_status,cus.customer_id,customer_nameTH,so_type,detail), ?)
+				and INSTR(CONCAT_WS('|', inv_number), ?)
+				and INSTR(CONCAT_WS('|', inv.sale_id), ?)
+				group by inv_number
+		) data
+
 					;`
 
 		if err := dbSale.Ctx().Raw(sqlSum, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, InvNumber, StaffId).Scan(&sum).Error; err != nil {
@@ -3699,54 +3728,73 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 	}()
 	go func() {
 		sql := `SELECT
-		sum(amount) as amount, 
+		sum(total_contract_per_month) as amount,
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor,
 		SUM(so_amount) as pro_rate,
-		(sum(amount)/sum(amount_engcost)) as sale_factor
+		(sum(total_contract_per_month)/sum(amount_engcost)) as sale_factor
 		from (
 			SELECT
-				sum(TotalContractAmount) as amount,
+				sum(total_contract) as amount,
 				sum(eng_cost) as amount_engcost,
 				sale_factor,
-				in_factor,sale_code,sale_name,ex_factor,PeriodAmount,so_amount
+				in_factor,sale_id,sale_name,ex_factor,total_contract_per_month as PeriodAmount,so_amount,total_contract_per_month
 				FROM (
 					SELECT
-						SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,
+						cs_number,so_number,contract_start_date,contract_end_date,inv_number,period_start_date,period_end_date,customer_id,customer_nameTH,
+						sale_id,sale_name,total_contract_per_month, sale_factor, in_factor, ex_factor,total_contract,
 						(case
-							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
+							when total_contract_per_month is not null and sale_factor is not null then total_contract_per_month/sale_factor
 							else 0 end
 						) as eng_cost,
 						(CASE
-							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+							WHEN DATEDIFF(period_end_date, period_start_date)+1 = 0
 							THEN 0
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-							THEN PeriodAmount
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+							WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date <= ?
+							THEN total_contract_per_month
+							WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date > ?
+							THEN (DATEDIFF(?, period_start_date)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+							WHEN period_start_date < ? AND period_end_date <= ? AND period_end_date > ?
+							THEN (DATEDIFF(period_end_date, ?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+							WHEN period_start_date < ? AND period_end_date = ?
+							THEN 1*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+							WHEN period_start_date < ? AND period_end_date > ?
+							THEN (DATEDIFF(?,?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date,period_start_date)+1))
 							ELSE 0 END
-						) as so_amount
+						) as so_amount,
+						(CASE
+							WHEN sale_id = owner and owner_old <> '' and period_start_date < sub_data.update_date and owner <> owner_old Then 'change'
+							WHEN sale_id <> owner Then 'not change'
+							Else 'not change' END
+						) as status_code
 					FROM (
-						SELECT * FROM so_mssql
-						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
-						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
+						SELECT so_info.*,si.*,cc.*,cus.customer_nameTH,cus.business_type,inv.inv_number,inv.period_start_date,inv.period_end_date,inv.amount,
+						inv.active_inactives
+						FROM so_info
+						LEFT JOIN (
+							select *,CONCAT(fname,' ',lname) as sale_name
+							from staff_info
+							)
+							si on si.staff_id = so_info.sale_id
+						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.Customer_ID = cc.cc_customer_id
+						LEFT JOIN (
+							select inv_number,period_start_date,period_end_date,amount,sale_id,active_inactive as active_inactives,sv_number
+							from inv_info
+							)inv on so_info.sv_number = inv.sv_number
+						LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
+						WHERE inv.active_inactives = 1 and inv_number <> ''
+						and period_start_date <= ? and period_end_date >= ?
+						and period_start_date <= period_end_date and inv_number IN (?)
 
-						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail), ?)
-						and INSTR(CONCAT_WS('|', sale_code), ?)
-						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
+						and so_info.sale_id in (?)
+						and INSTR(CONCAT_WS('|', inv_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
+						and INSTR(CONCAT_WS('|', so_info.sale_id), ?)
+						and INSTR(CONCAT_WS('|', inv_number), ?)
 					) sub_data
 				) so_group
-				WHERE so_amount <> 0 group by BLSCDocNo
+				WHERE so_amount <> 0
+				group by inv_number
+
 			) cust_group`
 
 		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listInv, listId, search, StaffId, InvNumber).Scan(&soTotal).Error; err != nil {
@@ -3757,17 +3805,26 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 	}()
 	go func() {
 
-		sqlSum := `	SELECT distinct Customer_ID
-	 			FROM so_mssql
-				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active' 
-						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate and BLSCDocNo IN (?) 
-						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail), ?)
-						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
-						and INSTR(CONCAT_WS('|', sale_code), ?)
-						group by BLSCDocNo
+		sqlSum := `	SELECT distinct so_info.customer_id
+	 			FROM so_info
+				 LEFT JOIN (
+					select *,CONCAT(fname,' ',lname) as sale_name
+					from staff_info
+					)
+					si on si.staff_id = so_info.sale_id
+				 LEFT JOIN (
+					select inv_number,period_start_date,period_end_date,amount,sale_id,active_inactive as active_inactives,sv_number
+					from inv_info
+				)inv on so_info.sv_number = inv.sv_number
+				LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
+						WHERE so_info.active_inactive = 1
+						and period_start_date <= ? and period_end_date >= ?
+						and period_start_date <= period_end_date and inv_number IN (?)
+						and so_info.sale_id in (?)
+						and INSTR(CONCAT_WS('|', inv_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
+						and INSTR(CONCAT_WS('|', inv_number), ?)
+						and INSTR(CONCAT_WS('|', so_info.sale_id), ?)
+						group by inv_number
 					;`
 
 		if err := dbSale.Ctx().Raw(sqlSum, dateTo, dateFrom, listInv, listId, search, InvNumber, StaffId).Scan(&cus).Error; err != nil {
@@ -3793,7 +3850,7 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 	index := f.NewSheet(mode)
 	// Set value of a cell.
 
-	f.SetCellValue(mode, "A1", "BLSCDocNo")
+	f.SetCellValue(mode, "A1", "Inv Number")
 	f.SetCellValue(mode, "B1", "Staff ID")
 	f.SetCellValue(mode, "C1", "First Name")
 	f.SetCellValue(mode, "D1", "Last Name")
@@ -3837,7 +3894,7 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 
 	for k, v := range sum {
 		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
-		f.SetCellValue(mode, fmt.Sprint(colBLSCDocNo, k+2), v.BLSCDocNo)
+		f.SetCellValue(mode, fmt.Sprint(colBLSCDocNo, k+2), v.Inv_Number)
 		f.SetCellValue(mode, fmt.Sprint(colStaffID, k+2), v.StaffID)
 		f.SetCellValue(mode, fmt.Sprint(colFirstName, k+2), v.Fname)
 		f.SetCellValue(mode, fmt.Sprint(colLastName, k+2), v.Lname)
@@ -3876,35 +3933,35 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 	// SELECT * FROM `so_mssql` JOIN invoice_status ON so_mssql.BLSCDocNo = invoice_status.inv_no;
 
 	type SOCusBill struct {
-		SOnumber            string  `json:"so_number" gorm:"column:sonumber"`
-		ContractStartDate   string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
-		ContractEndDate     string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
-		BLSCDocNo           string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
+		SOnumber            string  `json:"so_number" gorm:"column:so_number"`
+		ContractStartDate   string  `json:"contract_start_date" gorm:"column:contract_start_date"`
+		ContractEndDate     string  `json:"contract_end_date" gorm:"column:contract_end_date"`
+		Inv_Number          string  `json:"inv_number" gorm:"column:inv_number"`
 		PriceSale           float64 `json:"price_sale" gorm:"column:pricesale"`
-		TotalContractAmount float64 `json:"TotalContractAmount" gorm:"column:TotalContractAmount"`
-		SOWebStatus         string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		CustomerId          string  `json:"customer_id" gorm:"column:Customer_ID"`
-		CustomerName        string  `json:"customer_name" gorm:"column:Customer_Name"`
-		SaleCode            string  `json:"sale_code" gorm:"column:sale_code"`
+		TotalContractAmount float64 `json:"total_contract" gorm:"column:total_contract"`
+		SOWebStatus         string  `json:"so_web_status" gorm:"column:so_web_status"`
+		CustomerId          string  `json:"customer_id" gorm:"column:customer_id"`
+		CustomerName        string  `json:"customer_name" gorm:"column:customer_nameTH"`
+		SaleCode            string  `json:"sale_id" gorm:"column:sale_id"`
 		SaleName            string  `json:"sale_name" gorm:"column:sale_name"`
-		SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
-		SaleFactor          float64 `json:"sale_factor" gorm:"column:sale_factor"`
-		InFactor            float64 `json:"in_factor" gorm:"column:in_factor"`
-		ExFactor            float64 `json:"ex_factor" gorm:"column:ex_factor"`
-		SORefer             string  `json:"so_refer" gorm:"column:so_refer"`
-		SoType              string  `json:"SoType" gorm:"column:SoType"`
-		Detail              string  `json:"detail" gorm:"column:detail"`
-		SoAmount            float64 `json:"so_amount" gorm:"column:so_amount"`
-		Amount              float64 `json:"amount" gorm:"column:amount"`
-		InvStatusName       string  `json:"status" gorm:"column:status"`
-		Reason              string  `json:"reason" gorm:"column:reason"`
-		StaffID             string  `json:"staff_id" gorm:"column:staff_id"`
-		Prefix              string  `json:"prefix" gorm:"column:prefix"`
-		Fname               string  `json:"fname" gorm:"column:fname"`
-		Lname               string  `json:"lname" gorm:"column:lname"`
-		Nname               string  `json:"nname" gorm:"column:nname"`
-		Position            string  `json:"position" gorm:"column:position"`
-		Department          string  `json:"department" gorm:"column:department"`
+		// SaleTeam            string  `json:"sale_team" gorm:"column:sale_team"`
+		SaleFactor    float64 `json:"sale_factor" gorm:"column:sale_factor"`
+		InFactor      float64 `json:"in_factor" gorm:"column:in_factor"`
+		ExFactor      float64 `json:"ex_factor" gorm:"column:ex_factor"`
+		SORefer       string  `json:"so_refer" gorm:"column:so_refer"`
+		SoType        string  `json:"so_type" gorm:"column:so_type"`
+		Detail        string  `json:"detail" gorm:"column:detail"`
+		SoAmount      float64 `json:"so_amount" gorm:"column:so_amount"`
+		Amount        float64 `json:"amount" gorm:"column:amount"`
+		InvStatusName string  `json:"status" gorm:"column:status"`
+		Reason        string  `json:"reason" gorm:"column:reason"`
+		StaffID       string  `json:"staff_id" gorm:"column:staff_id"`
+		Prefix        string  `json:"prefix" gorm:"column:prefix"`
+		Fname         string  `json:"fname" gorm:"column:fname"`
+		Lname         string  `json:"lname" gorm:"column:lname"`
+		Nname         string  `json:"nname" gorm:"column:nname"`
+		Position      string  `json:"position" gorm:"column:position"`
+		Department    string  `json:"department" gorm:"column:department"`
 	}
 	type TrackInvoice struct {
 		Amount     float64 `json:"amount" gorm:"column:amount"`
@@ -3988,36 +4045,42 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 	wg := sync.WaitGroup{}
 	wg.Add(4)
 	go func() {
-		sql := `		SELECT *,
-						SUM(CASE
-							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
-							THEN 0
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-							THEN PeriodAmount
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
-							ELSE 0 END
-						) as so_amount,
-						sum(PeriodAmount) as amount,
-						status
-					 FROM billing_info
-					  JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
-					  JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-					 WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
-							and PeriodStartDate <= ? and PeriodEndDate >= ?
-							and PeriodStartDate <= PeriodEndDate
-							and sale_code in (?)
-							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,status,staff_id,prefix,fname,lname,position,department), ?)
-							and INSTR(CONCAT_WS('|', sale_code), ?)
-							and INSTR(CONCAT_WS('|', invoice_no), ?)
-							group by BLSCDocNo
-							;`
+		sql := `		SELECT billing_info.*,inv.inv_number,inv.period_start_date,inv.period_end_date,so_info.*,si.*,cus.*,
+		so_info.total_contract as pricesale,
+		SUM(CASE
+			WHEN DATEDIFF(period_end_date, period_start_date)+1 = 0
+			THEN 0
+			WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date <= ?
+			THEN total_contract_per_month
+			WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date > ?
+			THEN (DATEDIFF(?, period_start_date)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+			WHEN period_start_date < ? AND period_end_date <= ? AND period_end_date > ?
+			THEN (DATEDIFF(period_end_date, ?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+			WHEN period_start_date < ? AND period_end_date = ?
+			THEN 1*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+			WHEN period_start_date < ? AND period_end_date > ?
+			THEN (DATEDIFF(?,?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date,period_start_date)+1))
+			ELSE 0 END
+		) as so_amount,
+		sum(total_contract_per_month) as amount,
+		status
+	 FROM billing_info 
+	 LEFT JOIN inv_info inv ON inv.inv_number = billing_info.invoice_no
+	 JOIN so_info ON so_info.sv_number = inv.sv_number 
+	 LEFT JOIN (
+		select *,CONCAT(fname,' ',lname) as sale_name
+		from staff_info
+		)si ON inv.sale_id = si.staff_id
+	LEFT JOIN customer_info cus on cus.customer_id = inv.customer_id
+	 WHERE inv.active_inactive = 1 and inv.inv_number <> ''
+			and period_start_date <= ? and period_end_date >= ?
+			and period_start_date <= period_end_date
+			and inv.sale_id in (?)
+			and INSTR(CONCAT_WS('|', so_info.so_number,cs_number,inv_number, so_web_status,so_info.customer_id,customer_nameTH,inv.sale_id,sale_name,so_refer,so_type,detail,status,si.staff_id,si.prefix,si.fname,si.lname,si.position,department), ?)
+			and INSTR(CONCAT_WS('|', inv.sale_id), ?)
+			and INSTR(CONCAT_WS('|', invoice_no), ?)
+			group by inv_number
+			;`
 
 		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, StaffId, InvNumber).Scan(&so).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
@@ -4027,58 +4090,65 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, 
+		sql := `SELECT sum(total_contract_per_month) as amount,
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor,
 		sum(ex_factor) as sum_ef, SUM(so_amount) as pro_rate,
-		(sum(amount)/sum(amount_engcost)) as sale_factor
+		(sum(total_contract_per_month)/sum(amount_engcost)) as sale_factor
 		from (
 			SELECT
-				sum(TotalContractAmount) as amount,
+				sum(total_contract) as amount,
 				sum(eng_cost) as amount_engcost,
 				sale_factor,
-				in_factor,sale_code,sale_name,ex_factor,PeriodAmount,so_amount
+				in_factor,sale_id,sale_name,ex_factor,total_contract_per_month as PeriodAmount,so_amount,total_contract_per_month
 				FROM (
 					SELECT
-						SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,
+						cs_number,so_number,contract_start_date,contract_end_date,inv_number,period_start_date,period_end_date,customer_id,customer_nameTH,
+						sale_id,sale_name,total_contract_per_month,sale_factor, in_factor, ex_factor,total_contract,total_contract as price_sale,
 						(case
-							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
+							when total_contract_per_month is not null and sale_factor is not null then total_contract_per_month/sale_factor
 							else 0 end
 						) as eng_cost,
 						(CASE
-							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+							WHEN DATEDIFF(period_end_date, period_start_date)+1 = 0
 							THEN 0
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-							THEN PeriodAmount
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+							WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date <= ?
+							THEN total_contract_per_month
+							WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date > ?
+							THEN (DATEDIFF(?, period_start_date)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+							WHEN period_start_date < ? AND period_end_date <= ? AND period_end_date > ?
+							THEN (DATEDIFF(period_end_date, ?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+							WHEN period_start_date < ? AND period_end_date = ?
+							THEN 1*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+							WHEN period_start_date < ? AND period_end_date > ?
+							THEN (DATEDIFF(?,?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date,period_start_date)+1))
 							ELSE 0 END
 						) as so_amount
 					FROM (
-						SELECT SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount
+						SELECT cs_number,inv.so_number,contract_start_date,contract_end_date,inv_number,period_start_date,period_end_date,cus.customer_id,customer_nameTH,
+						inv.sale_id,sale_name,total_contract_per_month, sale_factor, in_factor, ex_factor,total_contract,owner,owner_old,update_date
 						FROM billing_info
-							JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
-							JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-							WHERE Active_Inactive = 'Active'
-							and BLSCDocNo <> ''
-							and PeriodStartDate <= ? and PeriodEndDate >= ?
-							and PeriodStartDate <= PeriodEndDate
+						LEFT JOIN inv_info inv ON inv.inv_number = billing_info.invoice_no
+						JOIN so_info ON so_info.sv_number = inv.sv_number
+						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.Customer_ID = cc.cc_customer_id
+						LEFT JOIN (
+							select *,CONCAT(fname,' ',lname) as sale_name
+							from staff_info
+							)si ON inv.sale_id = si.staff_id
+						LEFT JOIN customer_info cus on cus.customer_id = inv.customer_id 
+						WHERE inv.active_inactive = 1
+						and inv_number <> ''
+						and period_start_date <= ? and period_end_date >= ?
+						and period_start_date <= period_end_date
 
-							and sale_code in (?)
-							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,status,staff_id,prefix,fname,lname,position,department), ?)
-							and INSTR(CONCAT_WS('|', sale_code), ?)
-							and INSTR(CONCAT_WS('|', invoice_no), ?)
+						and inv.sale_id in (?)
+						and INSTR(CONCAT_WS('|', inv.so_number,cs_number,inv_number, so_web_status,cus.customer_id,customer_nameTH,inv.sale_id,sale_name,so_refer,so_type,detail,status,staff_id,prefix,fname,lname,nname,position,department), ?)
+						and INSTR(CONCAT_WS('|', inv.sale_id), ?)
+						and INSTR(CONCAT_WS('|', invoice_no), ?)
 					) sub_data
 				) so_group
-				WHERE so_amount <> 0 group by BLSCDocNo
+				WHERE so_amount <> 0
+				group by inv_number
 			) cust_group`
 
 		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, StaffId, InvNumber).Scan(&soTotal).Error; err != nil {
@@ -4089,7 +4159,9 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 	}()
 	go func() {
 		sql := `SELECT SUM(has_billing) as has_billing,
-		SUM(no_billing) as no_billing
+		SUM(no_billing) as no_billing,
+		SUM(has_billing_amount) as has_billing_amount,
+		SUM(no_billing_amount) as no_billing_amount
 		FROM(
 				SELECT
 					SUM(CASE
@@ -4097,22 +4169,33 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 				END) has_billing,
 				SUM(CASE
 					WHEN status = 'วางไม่ได้' THEN 1
-				END) no_billing
-				FROM ( 
-							
-			SELECT 
-						status
+				END) no_billing,
+				SUM(CASE
+						WHEN status = 'วางบิลแล้ว' THEN total_contract
+				END) has_billing_amount,
+				SUM(CASE
+						WHEN status = 'วางไม่ได้' THEN total_contract
+				END) no_billing_amount
+				FROM (
+
+			SELECT
+					 status,total_contract
 					 FROM billing_info
-					  JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
-					  JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-					 WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
-							and PeriodStartDate <= ? and PeriodEndDate >= ?
-							and PeriodStartDate <= PeriodEndDate
-							and sale_code in (?)
-							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,status,staff_id,prefix,fname,lname,position,department), ?)
-							and INSTR(CONCAT_WS('|', sale_code), ?)
+					 LEFT JOIN inv_info inv ON inv.inv_number = billing_info.invoice_no
+					 JOIN so_info ON so_info.sv_number = inv.sv_number
+					 LEFT JOIN (
+						select *,CONCAT(fname,' ',lname) as sale_name
+						from staff_info
+						)si ON inv.sale_id = si.staff_id
+					 LEFT JOIN customer_info cus on cus.customer_id = inv.customer_id
+					 WHERE inv.active_inactive = 1 and inv.inv_number <> ''
+							and period_start_date <= ? and period_end_date >= ?
+							and period_start_date <= period_end_date
+							and inv.sale_id in (?)
+							and INSTR(CONCAT_WS('|', so_info.so_number,cs_number,inv_number,so_web_status,inv.customer_id,customer_nameTH,inv.sale_id,sale_name,so_refer,so_type,detail,status,staff_id,prefix,fname,lname,position,department), ?)
+							and INSTR(CONCAT_WS('|', inv.sale_id), ?)
 							and INSTR(CONCAT_WS('|', invoice_no), ?)
-							group by BLSCDocNo
+							group by inv_number
 							) as ss
 							group by status
 							) as aa;`
@@ -4125,19 +4208,24 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `		
-			SELECT distinct Customer_ID
+		sql := `
+			SELECT distinct inv.customer_id
 					 FROM billing_info
-					  JOIN so_mssql ON so_mssql.BLSCDocNo = billing_info.invoice_no
-					  JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-					 WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
-							and PeriodStartDate <= ? and PeriodEndDate >= ?
-							and PeriodStartDate <= PeriodEndDate
-							and sale_code in (?)
-							and INSTR(CONCAT_WS('|', SOnumber,SDPropertyCS28,BLSCDocNo, SOWebStatus,Customer_ID,Customer_Name,sale_code,sale_name,sale_team,so_refer,SoType,detail,status,staff_id,prefix,fname,lname,position,department), ?)
-							and INSTR(CONCAT_WS('|', sale_code), ?)
+					 LEFT JOIN inv_info inv ON inv.inv_number = billing_info.invoice_no
+					 JOIN so_info ON so_info.sv_number = inv.sv_number
+					 LEFT JOIN customer_info cus on cus.customer_id = inv.customer_id
+					 LEFT JOIN (
+						select *,CONCAT(fname,' ',lname) as sale_name
+						from staff_info
+					 )si ON inv.sale_id = si.staff_id
+					 WHERE inv.active_inactive = 1 and inv_number <> ''
+							and period_start_date <= ? and period_end_date >= ?
+							and period_start_date <= period_end_date
+							and inv.sale_id in (?)
+							and INSTR(CONCAT_WS('|', so_info.so_number,cs_number,inv_number,so_web_status,inv.customer_id,customer_nameTH,inv.sale_id,sale_name,so_refer,so_type,detail,status,staff_id,prefix,fname,lname,position,department), ?)
+							and INSTR(CONCAT_WS('|', inv.sale_id), ?)
 							and INSTR(CONCAT_WS('|', invoice_no), ?)
-							group by BLSCDocNo;`
+							group by inv_number;`
 
 		if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, StaffId, InvNumber).Scan(&cus).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
@@ -4179,24 +4267,24 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 	f.SetCellValue(mode, "I1", "Customer Name")
 	f.SetCellValue(mode, "J1", "Sale Code")
 	f.SetCellValue(mode, "K1", "Sale Name")
-	f.SetCellValue(mode, "L1", "Sale Team")
-	f.SetCellValue(mode, "M1", "Sale Factor")
-	f.SetCellValue(mode, "N1", "In Factor")
-	f.SetCellValue(mode, "O1", "Ex Factor")
-	f.SetCellValue(mode, "P1", "SO Refer")
-	f.SetCellValue(mode, "Q1", "So Type")
-	f.SetCellValue(mode, "R1", "Detail")
-	f.SetCellValue(mode, "S1", "So Amount")
-	f.SetCellValue(mode, "T1", "Amount")
-	f.SetCellValue(mode, "U1", "InvStatus Name")
-	f.SetCellValue(mode, "V1", "Reason")
-	f.SetCellValue(mode, "W1", "StaffID")
-	f.SetCellValue(mode, "X1", "Prefix")
-	f.SetCellValue(mode, "Y1", "First Name")
-	f.SetCellValue(mode, "Z1", "Last Name")
-	f.SetCellValue(mode, "AA1", "Nick Name")
-	f.SetCellValue(mode, "AB1", "Position")
-	f.SetCellValue(mode, "AC1", "Department")
+	// f.SetCellValue(mode, "L1", "Sale Team")
+	f.SetCellValue(mode, "L1", "Sale Factor")
+	f.SetCellValue(mode, "M1", "In Factor")
+	f.SetCellValue(mode, "N1", "Ex Factor")
+	f.SetCellValue(mode, "O1", "SO Refer")
+	f.SetCellValue(mode, "P1", "So Type")
+	f.SetCellValue(mode, "Q1", "Detail")
+	f.SetCellValue(mode, "R1", "So Amount")
+	f.SetCellValue(mode, "S1", "Amount")
+	f.SetCellValue(mode, "T1", "InvStatus Name")
+	f.SetCellValue(mode, "U1", "Reason")
+	f.SetCellValue(mode, "V1", "StaffID")
+	f.SetCellValue(mode, "W1", "Prefix")
+	f.SetCellValue(mode, "X1", "First Name")
+	f.SetCellValue(mode, "Y1", "Last Name")
+	f.SetCellValue(mode, "Z1", "Nick Name")
+	f.SetCellValue(mode, "AA1", "Position")
+	f.SetCellValue(mode, "AB1", "Department")
 
 	colSOnumber := "A"
 	colContractStartDate := "B"
@@ -4209,31 +4297,31 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 	colCustomerName := "I"
 	colSaleCode := "J"
 	colSaleName := "K"
-	colSaleTeam := "L"
-	colSaleFactor := "M"
-	colInFactor := "N"
-	colExFactor := "O"
-	colSORefer := "P"
-	colSoType := "Q"
-	colDetail := "R"
-	colSoAmount := "S"
-	colAmount := "T"
-	colInvStatusName := "U"
-	colReason := "V"
-	colStaffID := "W"
-	colPrefix := "X"
-	colFirstName := "Y"
-	colLastName := "Z"
-	colNickName := "AA"
-	colPosition := "AB"
-	colDepartment := "AC"
+	// colSaleTeam := "L"
+	colSaleFactor := "L"
+	colInFactor := "M"
+	colExFactor := "N"
+	colSORefer := "O"
+	colSoType := "P"
+	colDetail := "Q"
+	colSoAmount := "R"
+	colAmount := "S"
+	colInvStatusName := "T"
+	colReason := "U"
+	colStaffID := "V"
+	colPrefix := "W"
+	colFirstName := "X"
+	colLastName := "Y"
+	colNickName := "Z"
+	colPosition := "AA"
+	colDepartment := "AB"
 
 	for k, v := range so {
 		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
 		f.SetCellValue(mode, fmt.Sprint(colSOnumber, k+2), v.SOnumber)
 		f.SetCellValue(mode, fmt.Sprint(colContractStartDate, k+2), v.ContractStartDate)
 		f.SetCellValue(mode, fmt.Sprint(colContractEndDate, k+2), v.ContractEndDate)
-		f.SetCellValue(mode, fmt.Sprint(colBLSCDocNo, k+2), v.BLSCDocNo)
+		f.SetCellValue(mode, fmt.Sprint(colBLSCDocNo, k+2), v.Inv_Number)
 		f.SetCellValue(mode, fmt.Sprint(colPriceSale, k+2), v.PriceSale)
 		f.SetCellValue(mode, fmt.Sprint(colTotalContractAmount, k+2), v.TotalContractAmount)
 		f.SetCellValue(mode, fmt.Sprint(colSOWebStatus, k+2), v.SOWebStatus)
@@ -4241,7 +4329,7 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 		f.SetCellValue(mode, fmt.Sprint(colCustomerName, k+2), v.CustomerName)
 		f.SetCellValue(mode, fmt.Sprint(colSaleCode, k+2), v.SaleCode)
 		f.SetCellValue(mode, fmt.Sprint(colSaleName, k+2), v.SaleName)
-		f.SetCellValue(mode, fmt.Sprint(colSaleTeam, k+2), v.SaleTeam)
+		// f.SetCellValue(mode, fmt.Sprint(colSaleTeam, k+2), v.SaleTeam)
 		f.SetCellValue(mode, fmt.Sprint(colSaleFactor, k+2), v.SaleFactor)
 		f.SetCellValue(mode, fmt.Sprint(colInFactor, k+2), v.InFactor)
 		f.SetCellValue(mode, fmt.Sprint(colExFactor, k+2), v.ExFactor)
@@ -4276,7 +4364,7 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 
 	type SOCus struct {
-		BLSCDocNo   string  `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
+		Inv_number  string  `json:"inv_number" gorm:"column:inv_number"`
 		StaffID     string  `json:"staff_id" gorm:"column:staff_id"`
 		Fname       string  `json:"fname" gorm:"column:fname"`
 		Lname       string  `json:"lname" gorm:"column:lname"`
@@ -4285,19 +4373,19 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 		SoAmount    float64 `json:"so_amount" gorm:"column:so_amount"`
 		Amount      float64 `json:"amount" gorm:"column:amount"`
 		SOWebStatus string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		CustomerID  string  `json:"Customer_ID" gorm:"column:Customer_ID"`
-		CusnameThai string  `json:"Customer_Name" gorm:"column:Customer_Name"`
-		// CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"` //ไม่มีในcolumn so_ms
-		BusinessType string  `json:"Business_type" gorm:"column:Business_type"`
+		CustomerID  string  `json:"customer_id" gorm:"column:customer_id"`
+		CusnameThai string  `json:"customer_nameTH" gorm:"column:customer_nameTH"`
+		// CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"`
+		BusinessType string  `json:"business_type" gorm:"column:business_type"`
 		JobStatus    string  `json:"Job_Status" gorm:"column:Job_Status"`
-		SoType       string  `json:"SOType" gorm:"column:SOType"`
+		SoType       string  `json:"so_type" gorm:"column:so_type"`
 		SaleFactor   float64 `json:"SaleFactors" gorm:"column:SaleFactors"`
 		InFactor     float64 `json:"in_factor" gorm:"column:in_factor"`
 		ExFactor     float64 `json:"ex_factor" gorm:"column:ex_factor"`
-		StartDate    string  `json:"PeriodStartDate" gorm:"column:PeriodStartDate"`
-		EndDate      string  `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
+		StartDate    string  `json:"period_start_date" gorm:"column:period_start_date"`
+		EndDate      string  `json:"period_end_date" gorm:"column:period_end_date"`
 		Detail       string  `json:"detail" gorm:"column:detail"`
-		Remark       string  `json:"remark" gorm:"column:remark"`
+		// Remark       string  `json:"remark" gorm:"column:remark"`
 	}
 	type TrackInvoice struct {
 		Amount     float64 `json:"amount" gorm:"column:amount"`
@@ -4374,34 +4462,39 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 	go func() {
-		sql := `		SELECT *,
+		sql := `SELECT so_info.*,inv.*,cus.business_type,cus.customer_nameTH,staff_info.*,
 					SUM(CASE
-						WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+						WHEN DATEDIFF(period_end_date, period_start_date)+1 = 0
 						THEN 0
-						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-						THEN PeriodAmount
-						WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-						THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-						WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-						THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-						WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-						THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-						WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-						THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+						WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date <= ?
+						THEN amount
+						WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date > ?
+						THEN (DATEDIFF(?, period_start_date)+1)*(amount/(DATEDIFF(period_end_date, period_start_date)+1))
+						WHEN period_start_date < ? AND period_end_date <= ? AND period_end_date > ?
+						THEN (DATEDIFF(period_end_date, ?)+1)*(amount/(DATEDIFF(period_end_date, period_start_date)+1))
+						WHEN period_start_date < ? AND period_end_date = ?
+						THEN 1*(amount/(DATEDIFF(period_end_date, period_start_date)+1))
+						WHEN period_start_date < ? AND period_end_date > ?
+						THEN (DATEDIFF(?,?)+1)*(amount/(DATEDIFF(period_end_date,period_start_date)+1))
 						ELSE 0 END
 					) as so_amount,
-					sum(PeriodAmount) as amount
-	 			FROM so_mssql
-				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
-						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate
-						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail,remark), ?)
-						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
-						and INSTR(CONCAT_WS('|', sale_code), ?)
-						group by BLSCDocNo
-						;`
+					sum(amount) as amount
+	 			FROM so_info
+				LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
+				LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+				LEFT JOIN (
+					select inv_number,sv_number,period_start_date,period_end_date,amount
+					from inv_info
+				) inv on inv.sv_number = so_info.sv_number
+				WHERE active_inactive = 1 and inv_number <> ''
+				and period_start_date <= ? and period_end_date >= ?
+				and period_start_date <= period_end_date
+				and so_info.sale_id in (?)
+				and INSTR(CONCAT_WS('|', inv_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
+				and INSTR(CONCAT_WS('|', inv_number), ?)
+				and INSTR(CONCAT_WS('|', so_info.sale_id), ?)
+				group by inv_number
+				;`
 
 		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, InvNumber, StaffId).Scan(&so).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
@@ -4410,55 +4503,62 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT 
-		sum(amount) as amount, 
+		sql := `SELECT
+		sum(amount) as amount,
 		AVG(in_factor) as in_factor,
 		AVG(ex_factor) as ex_factor,
 		SUM(so_amount) as pro_rate,
 		(sum(amount)/sum(amount_engcost)) as sale_factor
 		from (
 			SELECT
-				sum(TotalContractAmount) as amount,
+				sum(total_contract) as amount,
 				sum(eng_cost) as amount_engcost,
 				sale_factor,
-				in_factor,sale_code,sale_name,ex_factor,PeriodAmount,so_amount
+				in_factor,ex_factor,so_amount
 				FROM (
 					SELECT
-						SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,
+						inv_number,sale_factor, in_factor, ex_factor,total_contract,
 						(case
-							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
+							when total_contract_per_month is not null and sale_factor is not null then total_contract_per_month/sale_factor
 							else 0 end
 						) as eng_cost,
 						(CASE
-							WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+							WHEN DATEDIFF(period_end_date, period_start_date)+1 = 0
 							THEN 0
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-							THEN PeriodAmount
-							WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-							THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-							WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+							WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date <= ?
+							THEN amount
+							WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date > ?
+							THEN (DATEDIFF(?, period_start_date)+1)*(amount/(DATEDIFF(period_end_date, period_start_date)+1))
+							WHEN period_start_date < ? AND period_end_date <= ? AND period_end_date > ?
+							THEN (DATEDIFF(period_end_date, ?)+1)*(amount/(DATEDIFF(period_end_date, period_start_date)+1))
+							WHEN period_start_date < ? AND period_end_date = ?
+							THEN 1*(amount/(DATEDIFF(period_end_date, period_start_date)+1))
+							WHEN period_start_date < ? AND period_end_date > ?
+							THEN (DATEDIFF(?,?)+1)*(amount/(DATEDIFF(period_end_date,period_start_date)+1))
 							ELSE 0 END
 						) as so_amount
 					FROM (
-						SELECT * FROM so_mssql
-						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
-						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate
+						SELECT so_info.*,cc.*,staff_info.*,inv.inv_number,inv.period_start_date,inv.period_end_date,inv.amount
+						FROM so_info
+						LEFT JOIN (select customer_id,customer_nameTH,business_type from customer_info) cus on cus.customer_id = so_info.customer_id
+						LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
+						LEFT JOIN (
+							select inv_number,sv_number,period_start_date,period_end_date,amount
+							from inv_info inv
+						) inv on so_info.sv_number = inv.sv_number
+						WHERE active_inactive = 1 and inv_number <> ''
+						and period_start_date <= ? and period_end_date >= ?
+						and period_start_date <= period_end_date
 
-						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail,remark), ?)
-						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
-						and INSTR(CONCAT_WS('|', sale_code), ?)
+						and sale_id in (?)
+						and INSTR(CONCAT_WS('|', inv_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
+						and INSTR(CONCAT_WS('|', inv_number), ?)
+						and INSTR(CONCAT_WS('|', sale_id), ?)
 					) sub_data
 				) so_group
-				WHERE so_amount <> 0 group by BLSCDocNo
+				WHERE so_amount <> 0 
+				group by inv_number
 			) cust_group`
 
 		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, InvNumber, StaffId).Scan(&soTotal).Error; err != nil {
@@ -4468,18 +4568,24 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `		SELECT distinct Customer_ID
-	 			FROM so_mssql
-				 LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active' and BLSCDocNo <> ''
-						and PeriodStartDate <= ? and PeriodEndDate >= ?
-						and PeriodStartDate <= PeriodEndDate
-						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', BLSCDocNo, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail,remark), ?)
-						and INSTR(CONCAT_WS('|', BLSCDocNo), ?)
-						and INSTR(CONCAT_WS('|', sale_code), ?)
-						group by BLSCDocNo
-						;`
+		sql := `SELECT distinct so_info.customer_id
+		FROM so_info
+	   LEFT JOIN (select customer_id,customer_nameTH,business_type from customer_info) cus on cus.customer_id = so_info.customer_id
+	   LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+	   left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
+	   LEFT JOIN (
+		   select inv_number,sv_number,period_start_date,period_end_date,amount
+		   from inv_info inv
+	   ) inv on so_info.sv_number = inv.sv_number
+	   WHERE active_inactive = 1 and inv_number <> ''
+	   and period_start_date <= ? and period_end_date >= ?
+	   and period_start_date <= period_end_date
+	   and so_info.sale_id in (?)
+	   and INSTR(CONCAT_WS('|', inv_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
+	   and INSTR(CONCAT_WS('|', inv_number), ?)
+	   and INSTR(CONCAT_WS('|', so_info.sale_id), ?)
+	   group by inv_number
+			   ;`
 
 		if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, InvNumber, StaffId).Scan(&cus).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
@@ -4509,7 +4615,7 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 	index := f.NewSheet(mode)
 	// Set value of a cell.
 
-	f.SetCellValue(mode, "A1", "BLSCDocNo")
+	f.SetCellValue(mode, "A1", "Inv_number")
 	f.SetCellValue(mode, "B1", "Staff ID")
 	f.SetCellValue(mode, "C1", "First Name")
 	f.SetCellValue(mode, "D1", "Last Name")
@@ -4529,7 +4635,7 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 	f.SetCellValue(mode, "R1", "Start Date")
 	f.SetCellValue(mode, "S1", "End Date")
 	f.SetCellValue(mode, "T1", "Detail")
-	f.SetCellValue(mode, "U1", "Remark")
+	// f.SetCellValue(mode, "U1", "Remark")
 
 	colBLSCDocNo := "A"
 	colStaffID := "B"
@@ -4551,11 +4657,11 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 	colStartDate := "R"
 	colEndDate := "S"
 	colDetail := "T"
-	colRemark := "U"
+	// colRemark := "U"
 
 	for k, v := range so {
 		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
-		f.SetCellValue(mode, fmt.Sprint(colBLSCDocNo, k+2), v.BLSCDocNo)
+		f.SetCellValue(mode, fmt.Sprint(colBLSCDocNo, k+2), v.Inv_number)
 		f.SetCellValue(mode, fmt.Sprint(colStaffID, k+2), v.StaffID)
 		f.SetCellValue(mode, fmt.Sprint(colFirstName, k+2), v.Fname)
 		f.SetCellValue(mode, fmt.Sprint(colLastName, k+2), v.Lname)
@@ -4575,7 +4681,7 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 		f.SetCellValue(mode, fmt.Sprint(colStartDate, k+2), v.StartDate)
 		f.SetCellValue(mode, fmt.Sprint(colEndDate, k+2), v.EndDate)
 		f.SetCellValue(mode, fmt.Sprint(colDetail, k+2), v.Detail)
-		f.SetCellValue(mode, fmt.Sprint(colRemark, k+2), v.Remark)
+		// f.SetCellValue(mode, fmt.Sprint(colRemark, k+2), v.Remark)
 
 	}
 
@@ -4655,7 +4761,7 @@ func GetExcelDetailSoEndPoint(c echo.Context) error {
 	}
 
 	type SOCus struct {
-		SOnumber    string  `json:"sonumber" gorm:"column:sonumber"`
+		SOnumber    string  `json:"so_number" gorm:"column:so_number"`
 		StaffID     string  `json:"staff_id" gorm:"column:staff_id"`
 		Fname       string  `json:"fname" gorm:"column:fname"`
 		Lname       string  `json:"lname" gorm:"column:lname"`
@@ -4663,20 +4769,20 @@ func GetExcelDetailSoEndPoint(c echo.Context) error {
 		Department  string  `json:"department" gorm:"column:department"`
 		SoAmount    float64 `json:"so_amount" gorm:"column:so_amount"`
 		Amount      float64 `json:"amount" gorm:"column:amount"`
-		SOWebStatus string  `json:"so_web_status" gorm:"column:SOWebStatus"`
-		CustomerID  string  `json:"Customer_ID" gorm:"column:Customer_ID"`
-		CusnameThai string  `json:"Customer_Name" gorm:"column:Customer_Name"`
+		SOWebStatus string  `json:"so_web_status" gorm:"column:so_web_status"`
+		CustomerID  string  `json:"customer_id" gorm:"column:customer_id"`
+		CusnameThai string  `json:"customer_nameTH" gorm:"column:customer_nameTH"`
 		// CusnameEng   string  `json:"Customer_Name" gorm:"column:Customer_Name"` //ไม่มีในcolumn so_ms
-		BusinessType string  `json:"Business_type" gorm:"column:Business_type"`
+		BusinessType string  `json:"business_type" gorm:"column:business_type"`
 		JobStatus    string  `json:"Job_Status" gorm:"column:Job_Status"`
-		SoType       string  `json:"SOType" gorm:"column:SOType"`
-		SaleFactor   float64 `json:"SaleFactors" gorm:"column:SaleFactors"`
+		SoType       string  `json:"so_type" gorm:"column:so_type"`
+		SaleFactor   float64 `json:"sale_factor" gorm:"column:sale_factor"`
 		InFactor     float64 `json:"in_factor" gorm:"column:in_factor"`
 		ExFactor     float64 `json:"ex_factor" gorm:"column:ex_factor"`
-		StartDate    string  `json:"ContractStartDate" gorm:"column:ContractStartDate"`
-		EndDate      string  `json:"ContractEndDate" gorm:"column:ContractEndDate"`
+		StartDate    string  `json:"contract_start_date" gorm:"column:contract_start_date"`
+		EndDate      string  `json:"contract_end_date" gorm:"column:contract_end_date"`
 		Detail       string  `json:"detail" gorm:"column:detail"`
-		Remark       string  `json:"remark" gorm:"column:remark"`
+		// Remark       string  `json:"remark" gorm:"column:remark"`
 	}
 	type TrackInvoice struct {
 		Amount     float64 `json:"amount" gorm:"column:amount"`
@@ -4690,42 +4796,47 @@ func GetExcelDetailSoEndPoint(c echo.Context) error {
 	var soTotal []TrackInvoice
 	var sum []SOCus
 	cus := []struct {
-		CustomerID string `json:"Customer_ID" gorm:"column:Customer_ID"`
+		CustomerID string `json:"customer_id" gorm:"column:customer_id"`
 	}{}
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 	go func() {
 
-		sql := `SELECT *,
+		sql := `SELECT so_info.*,cus.customer_nameTH,cus.business_type,si.*,
 		SUM(CASE
-			WHEN DATEDIFF(ContractEndDate, ContractStartDate)+1 = 0
+			WHEN DATEDIFF(contract_end_date, contract_start_date)+1 = 0
 			THEN 0
-			WHEN ContractStartDate >= ? AND ContractStartDate <= ? AND ContractEndDate <= ?
-			THEN PeriodAmount
-			WHEN ContractStartDate >= ? AND ContractStartDate <= ? AND ContractEndDate > ?
-			THEN (DATEDIFF(?, ContractStartDate)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate, ContractStartDate)+1))
-			WHEN ContractStartDate < ? AND ContractEndDate <= ? AND ContractEndDate > ?
-			THEN (DATEDIFF(ContractEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate, ContractStartDate)+1))
-			WHEN ContractStartDate < ? AND ContractEndDate = ?
-			THEN 1*(PeriodAmount/(DATEDIFF(ContractEndDate, ContractStartDate)+1))
-			WHEN ContractStartDate < ? AND ContractEndDate > ?
-			THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate,ContractStartDate)+1))
+			WHEN contract_start_date >= ? AND contract_start_date <= ? AND contract_end_date <= ?
+			THEN total_contract_per_month
+			WHEN contract_start_date >= ? AND contract_start_date <= ? AND contract_end_date > ?
+			THEN (DATEDIFF(?, contract_start_date)+1)*(total_contract_per_month/(DATEDIFF(contract_end_date, contract_start_date)+1))
+			WHEN contract_start_date < ? AND contract_end_date <= ? AND contract_end_date > ?
+			THEN (DATEDIFF(contract_end_date, ?)+1)*(total_contract_per_month/(DATEDIFF(contract_end_date, contract_start_date)+1))
+			WHEN contract_start_date < ? AND contract_end_date = ?
+			THEN 1*(total_contract_per_month/(DATEDIFF(contract_end_date, contract_start_date)+1))
+			WHEN contract_start_date < ? AND contract_end_date > ?
+			THEN (DATEDIFF(?,?)+1)*(total_contract_per_month/(DATEDIFF(contract_end_date,contract_start_date)+1))
 			ELSE 0 END
 		) as so_amount,
 		in_factor as in_factor,
 		ex_factor as ex_factor,
-		sum(PeriodAmount) as amount
-		FROM so_mssql
-		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-					WHERE Active_Inactive = 'Active'
-					and ContractStartDate <= ? and ContractEndDate >= ?
-					and ContractStartDate <= ContractEndDate
-					and sale_code in (?)
-					and INSTR(CONCAT_WS('|', sonumber, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail,remark), ?)
-					and INSTR(CONCAT_WS('|', sonumber), ?)
-					and INSTR(CONCAT_WS('|', sale_code), ?)
-					group by sonumber
-					 ;`
+		sum(total_contract_per_month) as amount
+		FROM so_info
+		LEFT JOIN (
+			select *
+			from staff_info
+			)
+			si on si.staff_id = so_info.sale_id
+		LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
+		WHERE active_inactive = 1
+		and contract_start_date <= ? and contract_end_date >= ?
+		and contract_start_date <= contract_end_date
+		and so_info.sale_id in (?)
+		and INSTR(CONCAT_WS('|', so_number,si.staff_id,fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
+		and INSTR(CONCAT_WS('|', so_number), ?)
+		and INSTR(CONCAT_WS('|', so_info.sale_id), ?)
+		group by so_number
+			;`
 
 		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, SONumber, StaffId).Scan(&sum).Error; err != nil {
 			log.Errorln(pkgName, err, "select data error -:")
@@ -4735,54 +4846,63 @@ func GetExcelDetailSoEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-		sql := `SELECT sum(amount) as amount, 
+		sql := `SELECT sum(amount) as amount,
 		AVG(in_factor) as in_factor,
-		AVG(ex_factor) as ex_factor, 
+		AVG(ex_factor) as ex_factor,
 		SUM(so_amount) as pro_rate,
 		(sum(amount)/sum(amount_engcost)) as sale_factor
 		from (
 			SELECT
-				sum(TotalContractAmount) as amount,
+				sum(total_contract) as amount,
 				sum(eng_cost) as amount_engcost,
 				sale_factor,
-				in_factor,sale_code,sale_name,ex_factor,PeriodAmount,so_amount
+				in_factor,sale_id,sale_name,ex_factor,total_contract_per_month,so_amount
 				FROM (
 					SELECT
-						SDPropertyCS28,sonumber,ContractStartDate,ContractEndDate,BLSCDocNo,PeriodStartDate,PeriodEndDate,GetCN,INCSCDocNo,Customer_ID,Customer_Name,
-						sale_code,sale_name,sale_team,PeriodAmount, sale_factor, in_factor, ex_factor,TotalContractAmount,	
+						cs_number,so_number,contract_start_date,contract_end_date,period_start_date,period_end_date,customer_id,customer_nameTH,
+						sale_id,total_contract_per_month, sale_factor, in_factor, ex_factor,total_contract,sale_name,
 						(case
-							when PeriodAmount is not null and sale_factor is not null then PeriodAmount/sale_factor
+							when total_contract_per_month is not null and sale_factor is not null then total_contract_per_month/sale_factor
 							else 0 end
 						) as eng_cost,
 						(CASE
-							WHEN DATEDIFF(ContractEndDate, ContractStartDate)+1 = 0
+							WHEN DATEDIFF(contract_end_date, contract_start_date)+1 = 0
 							THEN 0
-							WHEN ContractStartDate >= ? AND ContractStartDate <= ? AND ContractEndDate <= ?
-							THEN PeriodAmount
-							WHEN ContractStartDate >= ? AND ContractStartDate <= ? AND ContractEndDate > ?
-							THEN (DATEDIFF(?, ContractStartDate)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate, ContractStartDate)+1))
-							WHEN ContractStartDate < ? AND ContractEndDate <= ? AND ContractEndDate > ?
-							THEN (DATEDIFF(ContractEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate, ContractStartDate)+1))
-							WHEN ContractStartDate < ? AND ContractEndDate = ?
-							THEN 1*(PeriodAmount/(DATEDIFF(ContractEndDate, ContractStartDate)+1))
-							WHEN ContractStartDate < ? AND ContractEndDate > ?
-							THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(ContractEndDate,ContractStartDate)+1))
+							WHEN contract_start_date >= ? AND contract_start_date <= ? AND contract_end_date <= ?
+							THEN total_contract_per_month
+							WHEN contract_start_date >= ? AND contract_start_date <= ? AND contract_end_date > ?
+							THEN (DATEDIFF(?, contract_start_date)+1)*(total_contract_per_month/(DATEDIFF(contract_end_date, contract_start_date)+1))
+							WHEN contract_start_date < ? AND contract_end_date <= ? AND contract_end_date > ?
+							THEN (DATEDIFF(contract_end_date, ?)+1)*(total_contract_per_month/(DATEDIFF(contract_end_date, contract_start_date)+1))
+							WHEN contract_start_date < ? AND contract_end_date = ?
+							THEN 1*(total_contract_per_month/(DATEDIFF(contract_end_date, contract_start_date)+1))
+							WHEN contract_start_date < ? AND contract_end_date > ?
+							THEN (DATEDIFF(?,?)+1)*(total_contract_per_month/(DATEDIFF(contract_end_date,contract_start_date)+1))
 							ELSE 0 END
 						) as so_amount
-					FROM (
-						SELECT * FROM so_mssql
-						LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-						WHERE Active_Inactive = 'Active'
-						and ContractStartDate <= ? and ContractEndDate >= ?
-						and ContractStartDate <= ContractEndDate
 
-						and sale_code in (?)
-						and INSTR(CONCAT_WS('|', sonumber, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail,remark), ?)
-						and INSTR(CONCAT_WS('|', sonumber), ?)
-						and INSTR(CONCAT_WS('|', sale_code), ?)
+					FROM (
+						SELECT so_info.*,cc.*,cus.customer_nameTH,cus.business_type,inv.period_start_date,inv.period_end_date,si.*
+						FROM so_info
+						LEFT JOIN (
+							select *,CONCAT(fname,' ',lname) as sale_name
+							from staff_info
+							) si ON so_info.sale_id = si.staff_id
+						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
+						LEFT JOIN (select customer_id,customer_nameTH,business_type from customer_info) cus on cus.customer_id = so_info.customer_id
+						LEFT JOIN (select sv_number,period_start_date,period_end_date from inv_info) inv on so_info.sv_number = inv.sv_number
+						WHERE active_inactive = 1
+						and contract_start_date <= ? and contract_end_date >= ?
+						and contract_start_date <= contract_end_date
+
+						and sale_id in (?)
+						and INSTR(CONCAT_WS('|', so_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
+						and INSTR(CONCAT_WS('|', so_number), ?)
+						and INSTR(CONCAT_WS('|', sale_id), ?)
 					) sub_data
 				) so_group
-				WHERE so_amount <> 0 group by sonumber
+				WHERE so_amount <> 0
+				group by so_number
 			) cust_group`
 
 		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateFrom, listId, search, SONumber, StaffId).Scan(&soTotal).Error; err != nil {
@@ -4792,18 +4912,23 @@ func GetExcelDetailSoEndPoint(c echo.Context) error {
 		wg.Done()
 	}()
 	go func() {
-
-		sql := `SELECT distinct Customer_ID
-		FROM so_mssql
-		LEFT JOIN staff_info ON so_mssql.sale_code = staff_info.staff_id
-					WHERE Active_Inactive = 'Active'
-					and ContractStartDate <= ? and ContractEndDate >= ?
-					and ContractStartDate <= ContractEndDate
-					and sale_code in (?)
-					and INSTR(CONCAT_WS('|', sonumber, staff_id, fname,lname,nname,department,SOWebStatus,Customer_ID,Customer_Name,SOType,detail,remark), ?)
-					and INSTR(CONCAT_WS('|', sonumber), ?)
-					and INSTR(CONCAT_WS('|', sale_code), ?)
-					group by sonumber
+		sql := `select *
+		from (
+		SELECT distinct so_info.customer_id
+		FROM so_info
+		LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+		left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
+		LEFT JOIN (select sv_number,period_start_date from inv_info) inv on so_info.sv_number = inv.sv_number
+		LEFT JOIN (select customer_id,customer_nameTH,business_type from customer_info) cus on cus.customer_id = so_info.customer_id
+		WHERE active_inactive = 1
+		and contract_start_date <= ? and contract_end_date >= ?
+		and contract_start_date <= contract_end_date
+		and sale_id in (?)
+		and INSTR(CONCAT_WS('|', so_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
+		and INSTR(CONCAT_WS('|', so_number), ?)
+		and INSTR(CONCAT_WS('|', sale_id), ?)
+		group by so_number
+		) data
 					 ;`
 
 		if err := dbSale.Ctx().Raw(sql, dateTo, dateFrom, listId, search, SONumber, StaffId).Scan(&cus).Error; err != nil {
@@ -4849,7 +4974,7 @@ func GetExcelDetailSoEndPoint(c echo.Context) error {
 	f.SetCellValue(mode, "R1", "Start Date")
 	f.SetCellValue(mode, "S1", "End Date")
 	f.SetCellValue(mode, "T1", "Detail")
-	f.SetCellValue(mode, "U1", "Remark")
+	// f.SetCellValue(mode, "U1", "Remark")
 
 	colSOnumber := "A"
 	colStaffID := "B"
@@ -4871,7 +4996,7 @@ func GetExcelDetailSoEndPoint(c echo.Context) error {
 	colStartDate := "R"
 	colEndDate := "S"
 	colDetail := "T"
-	colRemark := "U"
+	// colRemark := "U"
 
 	for k, v := range sum {
 		// log.Infoln(pkgName, "====>", fmt.Sprint(colSaleId, k+2))
@@ -4895,7 +5020,7 @@ func GetExcelDetailSoEndPoint(c echo.Context) error {
 		f.SetCellValue(mode, fmt.Sprint(colStartDate, k+2), v.StartDate)
 		f.SetCellValue(mode, fmt.Sprint(colEndDate, k+2), v.EndDate)
 		f.SetCellValue(mode, fmt.Sprint(colDetail, k+2), v.Detail)
-		f.SetCellValue(mode, fmt.Sprint(colRemark, k+2), v.Remark)
+		// f.SetCellValue(mode, fmt.Sprint(colRemark, k+2), v.Remark)
 
 	}
 
@@ -5309,7 +5434,7 @@ func GetExcelTrackingCostsheetEndPoint(c echo.Context) error {
 
 	type Costsheet_Val struct {
 		Doc_number_eform string `json:"doc_number_eform" gorm:"column:doc_number_eform"`
-		Sonumber         string `json:"sonumber" gorm:"column:sonumber"`
+		Sonumber         string `json:"so_number" gorm:"column:so_number"`
 		StartDate_P1     string `json:"StartDate_P1" gorm:"column:StartDate_P1"`
 		EndDate_P1       string `json:"EndDate_P1" gorm:"column:EndDate_P1"`
 		Status_eform     string `json:"status_eform" gorm:"column:status_eform"`
@@ -5347,7 +5472,7 @@ func GetExcelTrackingCostsheetEndPoint(c echo.Context) error {
 	sql := `select QW.*
 	from 
 	(
-		select ci.doc_number_eform,smt.sonumber,ci.StartDate_P1,
+		select ci.doc_number_eform,smt.so_number,ci.StartDate_P1,
 		 ci.EndDate_P1,ci.status_eform,ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.EmployeeID,ci.Sale_Team,
 		 ci.Sales_Name,ci.Sales_Surname,ci.Int_INET,(ci.Ext_JV+ci.Ext) as External,
 		  (CASE
@@ -5366,17 +5491,17 @@ func GetExcelTrackingCostsheetEndPoint(c echo.Context) error {
 			 	ELSE 0 END
 			) as so_amount,
 			(CASE
-				WHEN smt.sonumber is not null or smt.sonumber not like ''
+				WHEN smt.so_number is not null or smt.so_number not like ''
 				THEN 'ออก so เสร็จสิ้น'
 				ELSE 'ยังไม่ออก so'
 			END) so_status
 		from costsheet_info ci
 		LEFT JOIN (
-			select * 
-			from so_mssql
-			where SDPropertyCS28 <> ''
-			group by sonumber
-			)smt on ci.doc_number_eform = smt.SDPropertyCS28
+			select so_number,cs_number
+			from so_info
+			where cs_number <> ''
+			group by so_number
+			)smt on ci.doc_number_eform = smt.cs_number
 		LEFT JOIN staff_info si on ci.EmployeeID = si.staff_id 
 		where INSTR(CONCAT_WS('|', ci.tracking_id,ci.doc_id,ci.doc_number_eform,ci.Customer_ID,
 		ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,ci.Sale_Team,
@@ -5492,13 +5617,13 @@ func GetExcelTrackingCostsheetEndPoint(c echo.Context) error {
 
 func GetExcelTrackingInvoiceEndPoint(c echo.Context) error {
 	type SO_Data struct {
-		Sonumber         string `json:"sonumber" gorm:"column:sonumber"`
-		BLSCDocNo        string `json:"BLSCDocNo" gorm:"column:BLSCDocNo"`
-		PeriodStartDate  string `json:"PeriodStartDate" gorm:"column:PeriodStartDate"`
-		PeriodEndDate    string `json:"PeriodEndDate" gorm:"column:PeriodEndDate"`
-		Customer_ID      string `json:"Customer_ID" gorm:"column:Customer_ID"`
-		Customer_Name    string `json:"Customer_Name" gorm:"column:Customer_Name"`
-		Sale_code        string `json:"sale_code" gorm:"column:sale_code"`
+		Sonumber         string `json:"so_number" gorm:"column:so_number"`
+		BLSCDocNo        string `json:"inv_number" gorm:"column:inv_number"`
+		PeriodStartDate  string `json:"period_start_date" gorm:"column:period_start_date"`
+		PeriodEndDate    string `json:"period_end_date" gorm:"column:period_end_date"`
+		Customer_ID      string `json:"customer_id" gorm:"column:customer_id"`
+		Customer_Name    string `json:"customer_nameTH" gorm:"column:customer_nameTH"`
+		Sale_code        string `json:"sale_code" gorm:"column:sale_id"`
 		Sale_team        string `json:"sale_team" gorm:"column:sale_team"`
 		Sale_name        string `json:"sale_name" gorm:"column:sale_name"`
 		In_factor        string `json:"in_factor" gorm:"column:in_factor"`
@@ -5530,56 +5655,71 @@ func GetExcelTrackingInvoiceEndPoint(c echo.Context) error {
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
-	sql := `select SOO.sonumber,SOO.BLSCDocNo,SOO.PeriodStartDate,SOO.PeriodEndDate,SOO.Customer_ID,
-	SOO.Customer_Name,SOO.sale_code,SOO.sale_team,SOO.sale_name,SOO.in_factor,SOO.ex_factor,
+	sql := `select SOO.so_number,SOO.inv_number,SOO.period_start_date,SOO.period_end_date,SOO.customer_id,
+	SOO.customer_nameTH,SOO.sale_id,SOO.department as sale_team,CONCAT(SOO.prefix,SOO.fname, ' ', lname) as sale_name,SOO.in_factor,SOO.ex_factor,
 	(CASE
-		WHEN BLSCDocNo is not null or BLSCDocNo not like ''
+		WHEN inv_number is not null or inv_number not like ''
 		THEN 'ออก invoice เสร็จสิ้น'
 		ELSE 'ยังไม่ออก invoice'
 	END) active_so_status,
 	(CASE
 		WHEN DATEDIFF(?, ?) = 0
 		THEN 0
-		WHEN DATEDIFF(PeriodEndDate, PeriodStartDate)+1 = 0
+		WHEN DATEDIFF(period_end_date, period_start_date)+1 = 0
 		THEN 0
-		WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate <= ?
-		THEN PeriodAmount
-		WHEN PeriodStartDate >= ? AND PeriodStartDate <= ? AND PeriodEndDate > ?
-		THEN (DATEDIFF(?, PeriodStartDate)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-		WHEN PeriodStartDate < ? AND PeriodEndDate <= ? AND PeriodEndDate > ?
-		THEN (DATEDIFF(PeriodEndDate, ?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-		WHEN PeriodStartDate < ? AND PeriodEndDate = ?
-		THEN 1*(PeriodAmount/(DATEDIFF(PeriodEndDate, PeriodStartDate)+1))
-		WHEN PeriodStartDate < ? AND PeriodEndDate > ?
-		THEN (DATEDIFF(?,?)+1)*(PeriodAmount/(DATEDIFF(PeriodEndDate,PeriodStartDate)+1))
+		WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date <= ?
+		THEN total_contract_per_month	
+		WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date > ?
+		THEN (DATEDIFF(?, period_start_date)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+		WHEN period_start_date < ? AND period_end_date <= ? AND period_end_date > ?
+		THEN (DATEDIFF(period_end_date, ?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+		WHEN period_start_date < ? AND period_end_date = ?
+		THEN 1*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+		WHEN period_start_date < ? AND period_end_date > ?
+		THEN (DATEDIFF(?,?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date,period_start_date)+1))
 		ELSE 0 END
 	) so_amount
 	FROM (
-		SELECT sonumber,BLSCDocNo,PeriodStartDate,PeriodEndDate,PeriodAmount,Customer_ID,
-		Customer_Name,sale_code,sale_team,sale_name,in_factor,ex_factor 
-		FROM so_mssql
-		WHERE Active_Inactive = 'Active' `
+		SELECT so_info.so_number,inv_number,period_start_date,period_end_date,total_contract_per_month,so_info.customer_id,
+		customer_nameTH,sale_id,department,prefix,fname,lname,in_factor,ex_factor 
+		FROM so_info
+		LEFT JOIN (
+			select  inv_number ,so_number, period_start_date,period_end_date
+			from inv_info
+		   ) total_inv on total_inv.so_number = so_info.so_number
+		   left join
+		   (
+				   select staff_id, prefix, fname, lname, nname, position, department from staff_info
+
+		   ) tb_sale on so_info.sale_id = tb_sale.staff_id
+		   left join
+		   (
+				   select customer_id,customer_nameTH from customer_info
+
+		   ) tb_cus on so_info.customer_id = tb_cus.customer_id
+		WHERE active_inactive = 1 
+		and inv_number is not null or inv_number not like ''`
 	if St_date != "" || En_date != "" {
 		sql = sql + ` AND `
 		if St_date != "" {
-			sql = sql + ` PeriodStartDate >= '` + St_date + `' AND PeriodStartDate <= '` + En_date + `' `
+			sql = sql + ` period_start_date >= '` + St_date + `' AND period_start_date <= '` + En_date + `' `
 			if En_date != "" {
 				sql = sql + ` AND `
 			}
 		}
 		if En_date != "" {
-			sql = sql + ` PeriodEndDate <= '` + En_date + `' AND PeriodEndDate >= '` + St_date + `' `
+			sql = sql + ` period_end_date <= '` + En_date + `' AND period_end_date >= '` + St_date + `' `
 		}
 	} else {
 		St_date = dateFrom.String()
 		En_date = dateTo.String()
 	}
-	sql = sql + ` group by sonumber
+	sql = sql + ` group by so_number
 	) SOO
-	LEFT JOIN (select staff_id from staff_info) si on SOO.sale_code = si.staff_id
+	LEFT JOIN (select staff_id from staff_info) si on SOO.sale_id = si.staff_id
 	WHERE INSTR(CONCAT_WS('|', si.staff_id), ?) AND
-	INSTR(CONCAT_WS('|', SOO.sonumber,SOO.BLSCDocNo,SOO.Customer_ID,SOO.Customer_Name,SOO.sale_code,
-	SOO.sale_team,SOO.sale_name), ?)`
+	INSTR(CONCAT_WS('|', SOO.so_number,SOO.inv_number,SOO.customer_id,SOO.customer_nameTH,SOO.sale_id,
+	SOO.department,SOO.fname,SOO.lname), ?)`
 
 	if err := dbSale.Ctx().Raw(sql, St_date, En_date, St_date, En_date, En_date, St_date, En_date, En_date,
 		En_date, St_date, En_date, St_date, St_date, St_date, St_date, St_date, En_date,
@@ -5656,11 +5796,11 @@ func GetExcelTrackingInvoiceEndPoint(c echo.Context) error {
 func GetExcelTrackingBillingEndPoint(c echo.Context) error {
 	type Invoice_Data struct {
 		Invoice_no    string `json:"invoice_no" gorm:"column:invoice_no"`
-		So_number     string `json:"sonumber" gorm:"column:sonumber"`
+		So_number     string `json:"so_number" gorm:"column:so_number"`
 		Status        string `json:"status" gorm:"column:status"`
 		Reason        string `json:"reason" gorm:"column:reason"`
-		Customer_ID   string `json:"Customer_ID" gorm:"column:Customer_ID"`
-		Customer_Name string `json:"Customer_Name" gorm:"column:Customer_Name"`
+		Customer_ID   string `json:"customer_id" gorm:"column:customer_id"`
+		Customer_Name string `json:"customer_nameTH" gorm:"column:customer_nameTH"`
 		Sale_team     string `json:"sale_team" gorm:"column:sale_team"`
 		Sale_name     string `json:"sale_name" gorm:"column:sale_name"`
 		In_factor     string `json:"in_factor" gorm:"column:in_factor"`
@@ -5692,52 +5832,63 @@ func GetExcelTrackingBillingEndPoint(c echo.Context) error {
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
-	sql := `select bi.invoice_no,BL.sonumber,bi.status,bi.reason,BL.Customer_ID,BL.Customer_Name,
-	BL.sale_team,BL.sale_name,BL.in_factor,BL.ex_factor,BL.so_amount
+	sql := `select bi.invoice_no,BL.so_number as so_number,bi.status,bi.reason,BL.customer_id,tb_cus.customer_nameTH,
+	department AS sale_team,CONCAT(si.prefix,si.fname, ' ', si.lname) as sale_name,BL.in_factor,BL.ex_factor,BL.so_amount
 	from (select *,
 		(CASE
 			WHEN DATEDIFF(?, ?) = 0
 			THEN 0
-			WHEN DATEDIFF(smt.PeriodEndDate,smt.PeriodStartDate)+1 = 0
+			WHEN DATEDIFF(period_end_date,period_start_date)+1 = 0
 			THEN 0
-			WHEN smt.PeriodStartDate >= ? AND smt.PeriodStartDate <= ? AND smt.PeriodEndDate <= ?
-			THEN PeriodAmount
-			WHEN smt.PeriodStartDate >= ? AND smt.PeriodStartDate <= ? AND smt.PeriodEndDate > ?
-			THEN (DATEDIFF(?, smt.PeriodStartDate)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate, smt.PeriodStartDate)+1))
-			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate <= ? AND smt.PeriodEndDate > ?
-			THEN (DATEDIFF(smt.PeriodEndDate, ?)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate, smt.PeriodStartDate)+1))
-			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate = ?
-			THEN 1*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate, smt.PeriodStartDate)+1))
-			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate > ?
-			THEN (DATEDIFF(?,?)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate,smt.PeriodStartDate)+1))
+			WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date <= ?
+			THEN total_contract_per_month
+			WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date > ?
+			THEN (DATEDIFF(?, period_start_date)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+			WHEN period_start_date < ? AND period_end_date <= ? AND period_end_date > ?
+			THEN (DATEDIFF(period_end_date, ?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+			WHEN period_start_date < ? AND period_end_date = ?
+			THEN 1*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+			WHEN period_start_date < ? AND period_end_date > ?
+			THEN (DATEDIFF(?,?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date,period_start_date)+1))
 			ELSE 0 END
 		) so_amount
-		from so_mssql smt
-		WHERE smt.Active_Inactive = 'Active' 
-		AND smt.sonumber is not null 
-		AND smt.sonumber not like ''`
+		from so_info smt
+		LEFT JOIN (
+			select  inv_number ,so_number as so, period_start_date,period_end_date
+			from inv_info
+		   ) total_inv on total_inv.so = smt.so_number
+		WHERE smt.active_inactive = 1
+		AND smt.so_number is not null 
+		AND smt.so_number not like ''`
 	if St_date != "" || En_date != "" {
 		sql = sql + ` AND `
 		if St_date != "" {
-			sql = sql + ` PeriodStartDate >= '` + St_date + `' AND PeriodStartDate <= '` + En_date + `' `
+			sql = sql + ` period_start_date >= '` + St_date + `' AND period_start_date <= '` + En_date + `' `
 			if En_date != "" {
 				sql = sql + ` AND `
 			}
 		}
 		if En_date != "" {
-			sql = sql + ` PeriodEndDate <= '` + En_date + `' AND PeriodEndDate >= '` + St_date + `' `
+			sql = sql + ` period_end_date <= '` + En_date + `' AND period_end_date >= '` + St_date + `' `
 		}
 	} else {
 		St_date = dateFrom.String()
 		En_date = dateTo.String()
 	}
-	sql = sql + ` group by smt.sonumber
+	sql = sql + ` group by smt.so_number
 	) BL
-	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
-	LEFT JOIN billing_info bi on BL.BLSCDocNo = bi.invoice_no
-	WHERE  INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
-	INSTR(CONCAT_WS('|',bi.invoice_no,BL.sonumber,bi.status,bi.reason,BL.Customer_ID,BL.Customer_Name,
-	BL.sale_team,BL.sale_name), ?)`
+	LEFT JOIN (select * from staff_info) si on BL.sale_id = si.staff_id
+	left join
+		   (
+				   select customer_id,customer_nameTH from customer_info
+
+		   ) tb_cus on BL.customer_id = tb_cus.customer_id
+	
+	LEFT JOIN billing_info bi on BL.inv_number = bi.invoice_no
+	WHERE  INSTR(CONCAT_WS('|', si.staff_id), ?) 
+	and inv_number is not null or inv_number not like ''
+	AND INSTR(CONCAT_WS('|',bi.invoice_no,BL.so_number,bi.status,bi.reason,BL.customer_id,customer_nameTH,
+        department,fname,lname), ?)`
 
 	if err := dbSale.Ctx().Raw(sql, St_date, En_date, St_date, En_date, En_date, St_date, En_date, En_date,
 		En_date, St_date, En_date, St_date, St_date, St_date, St_date, St_date, En_date,
@@ -5807,13 +5958,13 @@ func GetExcelTrackingBillingEndPoint(c echo.Context) error {
 
 func GetExcelTrackingReceiptEndPoint(c echo.Context) error {
 	type Invoice_Data struct {
-		So_number      string `json:"sonumber" gorm:"column:sonumber"`
+		So_number      string `json:"so_number" gorm:"column:so_number"`
 		Invoice_no     string `json:"invoice_no" gorm:"column:invoice_no"`
 		INCSCDocNo     string `json:"INCSCDocNo" gorm:"column:INCSCDocNo"`
 		Status         string `json:"status" gorm:"column:status"`
 		Reason         string `json:"reason" gorm:"column:reason"`
-		Customer_ID    string `json:"Customer_ID" gorm:"column:Customer_ID"`
-		Customer_Name  string `json:"Customer_Name" gorm:"column:Customer_Name"`
+		Customer_ID    string `json:"customer_id" gorm:"column:customer_id"`
+		Customer_Name  string `json:"customer_nameTH" gorm:"column:customer_nameTH"`
 		Sale_team      string `json:"sale_team" gorm:"column:sale_team"`
 		Sale_name      string `json:"sale_name" gorm:"column:sale_name"`
 		In_factor      string `json:"in_factor" gorm:"column:in_factor"`
@@ -5846,10 +5997,10 @@ func GetExcelTrackingReceiptEndPoint(c echo.Context) error {
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
-	sql := `select bi.invoice_no,BL.sonumber,BL.INCSCDocNo,bi.status,bi.reason,BL.Customer_ID,BL.Customer_Name,
-	BL.sale_team,BL.sale_name,BL.in_factor,BL.ex_factor,BL.so_amount,
+	sql := `select bi.invoice_no,BL.so_number,BL.inv_number as INCSCDocNo,bi.status,bi.reason,BL.customer_id,tb_cus.customer_nameTH,
+	department AS sale_team,CONCAT(si.prefix,si.fname, ' ', si.lname) as sale_name,BL.in_factor,BL.ex_factor,BL.so_amount,
 	(CASE
-		WHEN BL.INCSCDocNo is not null AND BL.INCSCDocNo not like ''
+		WHEN BL.inv_number is not null AND BL.inv_number not like ''
 		THEN 'วาง Reciept เสร็จสิ้น'
 		ELSE 'ยังไม่วาง Reciept'
 		END
@@ -5858,44 +6009,53 @@ func GetExcelTrackingReceiptEndPoint(c echo.Context) error {
 		(CASE
 			WHEN DATEDIFF(?, ?) = 0
 			THEN 0
-			WHEN DATEDIFF(smt.PeriodEndDate,smt.PeriodStartDate)+1 = 0
+			WHEN DATEDIFF(period_end_date,period_start_date)+1 = 0
 			THEN 0
-			WHEN smt.PeriodStartDate >= ? AND smt.PeriodStartDate <= ? AND smt.PeriodEndDate <= ?
-			THEN PeriodAmount
-			WHEN smt.PeriodStartDate >= ? AND smt.PeriodStartDate <= ? AND smt.PeriodEndDate > ?
-			THEN (DATEDIFF(?, smt.PeriodStartDate)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate, smt.PeriodStartDate)+1))
-			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate <= ? AND smt.PeriodEndDate > ?
-			THEN (DATEDIFF(smt.PeriodEndDate, ?)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate, smt.PeriodStartDate)+1))
-			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate = ?
-			THEN 1*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate, smt.PeriodStartDate)+1))
-			WHEN smt.PeriodStartDate < ? AND smt.PeriodEndDate > ?
-			THEN (DATEDIFF(?,?)+1)*(smt.PeriodAmount/(DATEDIFF(smt.PeriodEndDate,smt.PeriodStartDate)+1))
+			WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date <= ?
+			THEN total_contract_per_month
+			WHEN period_start_date >= ? AND period_start_date <= ? AND period_end_date > ?
+			THEN (DATEDIFF(?, period_start_date)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+			WHEN period_start_date < ? AND period_end_date <= ? AND period_end_date > ?
+			THEN (DATEDIFF(period_end_date, ?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+			WHEN period_start_date < ? AND period_end_date = ?
+			THEN 1*(total_contract_per_month/(DATEDIFF(period_end_date, period_start_date)+1))
+			WHEN period_start_date < ? AND period_end_date > ?
+			THEN (DATEDIFF(?,?)+1)*(total_contract_per_month/(DATEDIFF(period_end_date,period_start_date)+1))
 			ELSE 0 END
 		) so_amount
-		from so_mssql smt
-		WHERE smt.Active_Inactive = 'Active'`
+		from so_info smt
+		LEFT JOIN (
+			select  inv_number ,so_number as so, period_start_date,period_end_date
+			from inv_info
+		   ) total_inv on total_inv.so = smt.so_number
+		WHERE smt.active_inactive = 1`
 	if St_date != "" || En_date != "" {
 		sql = sql + ` AND `
 		if St_date != "" {
-			sql = sql + ` PeriodStartDate >= '` + St_date + `' AND PeriodStartDate <= '` + En_date + `' `
+			sql = sql + ` period_start_date >= '` + St_date + `' AND period_start_date <= '` + En_date + `' `
 			if En_date != "" {
 				sql = sql + ` AND `
 			}
 		}
 		if En_date != "" {
-			sql = sql + ` PeriodEndDate <= '` + En_date + `' AND PeriodEndDate >= '` + St_date + `' `
+			sql = sql + ` period_end_date <= '` + En_date + `' AND period_end_date >= '` + St_date + `' `
 		}
 	} else {
 		St_date = dateFrom.String()
 		En_date = dateTo.String()
 	}
-	sql = sql + ` group by smt.sonumber
+	sql = sql + ` group by smt.so_number
 	) BL
-	LEFT JOIN (select staff_id from staff_info) si on BL.sale_code = si.staff_id
-	LEFT JOIN billing_info bi on BL.BLSCDocNo = bi.invoice_no
+	LEFT JOIN (select * from staff_info) si on BL.sale_id = si.staff_id
+	left join
+		   (
+				   select customer_id,customer_nameTH from customer_info
+
+		   ) tb_cus on BL.customer_id = tb_cus.customer_id
+	LEFT JOIN billing_info bi on BL.inv_number = bi.invoice_no
 	WHERE bi.status like '%วางบิลแล้ว%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
-	INSTR(CONCAT_WS('|',bi.invoice_no,BL.sonumber,BL.INCSCDocNo,bi.status,bi.reason,BL.Customer_ID,
-	BL.Customer_Name,BL.sale_team,BL.sale_name), ?)`
+	INSTR(CONCAT_WS('|',bi.invoice_no,BL.so_number,BL.inv_number,bi.status,bi.reason,BL.customer_id,
+	customer_nameTH,department,fname,lname), ?)`
 
 	if err := dbSale.Ctx().Raw(sql, St_date, En_date, St_date, En_date, En_date, St_date, En_date, En_date,
 		En_date, St_date, En_date, St_date, St_date, St_date, St_date, St_date, En_date,
