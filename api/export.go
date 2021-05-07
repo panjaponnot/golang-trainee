@@ -5427,8 +5427,8 @@ FROM(
 }
 
 func GetExcelTrackingCostsheetEndPoint(c echo.Context) error {
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
+	// St_date := strings.TrimSpace(c.QueryParam("startdate"))
+	// En_date := strings.TrimSpace(c.QueryParam("enddate"))
 	staffid := strings.TrimSpace(c.QueryParam("staff_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
 
@@ -5463,7 +5463,7 @@ func GetExcelTrackingCostsheetEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
-	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+	if c.QueryParam("startdate") == "" || c.QueryParam("enddate") == "" {
 		dayStart = 1
 	}
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
@@ -5506,36 +5506,37 @@ func GetExcelTrackingCostsheetEndPoint(c echo.Context) error {
 		where INSTR(CONCAT_WS('|', ci.tracking_id,ci.doc_id,ci.doc_number_eform,ci.Customer_ID,
 		ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,ci.Sale_Team,
 		ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?)
-		and INSTR(CONCAT_WS('|', si.staff_id), ?) `
-	if St_date != "" || En_date != "" {
-		sql = sql + ` AND `
-		if St_date != "" {
-			sql = sql + ` ci.StartDate_P1 >= '` + St_date + `' AND ci.StartDate_P1 <= '` + En_date + `' `
-			if En_date != "" {
-				sql = sql + ` AND `
-			}
-		}
-		if En_date != "" {
-			sql = sql + ` ci.EndDate_P1 <= '` + En_date + `' AND ci.EndDate_P1 >= '` + St_date + `' `
-		}
-		sql = sql + `) QW`
+		and INSTR(CONCAT_WS('|', si.staff_id), ?) 
+		and ci.StartDate_P1 >= ? AND ci.StartDate_P1 <= ? ) QW`
+	// if St_date != "" || En_date != "" {
+	// 	sql = sql + ` AND `
+	// 	if St_date != "" {
+	// 		sql = sql + ` ci.StartDate_P1 >= '` + St_date + `' AND ci.StartDate_P1 <= '` + En_date + `' `
+	// 		if En_date != "" {
+	// 			sql = sql + ` AND `
+	// 		}
+	// 	}
+	// 	if En_date != "" {
+	// 		sql = sql + ` ci.EndDate_P1 <= '` + En_date + `' AND ci.EndDate_P1 >= '` + St_date + `' `
+	// 	}
+	// 	sql = sql + `) QW`
 
-		if err := dbSale.Ctx().Raw(sql, St_date, En_date, En_date, St_date, En_date,
-			En_date, En_date, St_date, En_date, St_date, St_date, St_date, St_date,
-			St_date, En_date, En_date, St_date, search, staffid).Scan(&dataRaw).Error; err != nil {
-			errr += 1
-			return echo.ErrInternalServerError
-		}
-	} else {
-		sql = sql + `) QW`
-
-		if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo,
-			dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo,
-			dateFrom, search, staffid).Scan(&dataRaw).Error; err != nil {
-			errr += 1
-			return echo.ErrInternalServerError
-		}
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo,
+		dateTo, dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom,
+		dateFrom, dateTo, dateTo, dateFrom, search, staffid, dateFrom, dateTo).Scan(&dataRaw).Error; err != nil {
+		errr += 1
+		return echo.ErrInternalServerError
 	}
+	// } else {
+	// 	sql = sql + `) QW`
+
+	// 	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo, dateTo, dateFrom, dateTo,
+	// 		dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo, dateTo,
+	// 		dateFrom, search, staffid).Scan(&dataRaw).Error; err != nil {
+	// 		errr += 1
+	// 		return echo.ErrInternalServerError
+	// 	}
+	// }
 
 	fmt.Println(dateFrom)
 	fmt.Println(dateTo)
@@ -5632,8 +5633,8 @@ func GetExcelTrackingInvoiceEndPoint(c echo.Context) error {
 		So_amount        string `json:"so_amount" gorm:"column:so_amount"`
 	}
 
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
+	// St_date := strings.TrimSpace(c.QueryParam("startdate"))
+	// En_date := strings.TrimSpace(c.QueryParam("enddate"))
 	staffid := strings.TrimSpace(c.QueryParam("staff_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
 
@@ -5649,7 +5650,7 @@ func GetExcelTrackingInvoiceEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
-	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+	if c.QueryParam("startdate") == "" || c.QueryParam("enddate") == "" {
 		dayStart = 1
 	}
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
@@ -5698,32 +5699,18 @@ func GetExcelTrackingInvoiceEndPoint(c echo.Context) error {
 
 		   ) tb_cus on so_info.customer_id = tb_cus.customer_id
 		WHERE active_inactive = 1 
-		and inv_number is not null or inv_number not like ''`
-	if St_date != "" || En_date != "" {
-		sql = sql + ` AND `
-		if St_date != "" {
-			sql = sql + ` period_start_date >= '` + St_date + `' AND period_start_date <= '` + En_date + `' `
-			if En_date != "" {
-				sql = sql + ` AND `
-			}
-		}
-		if En_date != "" {
-			sql = sql + ` period_end_date <= '` + En_date + `' AND period_end_date >= '` + St_date + `' `
-		}
-	} else {
-		St_date = dateFrom.String()
-		En_date = dateTo.String()
-	}
-	sql = sql + ` group by so_number
+		and inv_number <> ''
+		and period_start_date >= ? AND period_end_date <= ? 
+	 group by so_number
 	) SOO
 	LEFT JOIN (select staff_id from staff_info) si on SOO.sale_id = si.staff_id
 	WHERE INSTR(CONCAT_WS('|', si.staff_id), ?) AND
 	INSTR(CONCAT_WS('|', SOO.so_number,SOO.inv_number,SOO.customer_id,SOO.customer_nameTH,SOO.sale_id,
 	SOO.department,SOO.fname,SOO.lname), ?)`
 
-	if err := dbSale.Ctx().Raw(sql, St_date, En_date, St_date, En_date, En_date, St_date, En_date, En_date,
-		En_date, St_date, En_date, St_date, St_date, St_date, St_date, St_date, En_date,
-		En_date, St_date, staffid, search).Scan(&dataRaw).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo,
+		dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo,
+		dateTo, dateFrom, dateFrom, dateTo, staffid, search).Scan(&dataRaw).Error; err != nil {
 		errr += 1
 	}
 
@@ -5810,8 +5797,8 @@ func GetExcelTrackingBillingEndPoint(c echo.Context) error {
 
 	var dataRaw []Invoice_Data
 
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
+	// St_date := strings.TrimSpace(c.QueryParam("startdate"))
+	// En_date := strings.TrimSpace(c.QueryParam("enddate"))
 	staff_id := strings.TrimSpace(c.QueryParam("staff_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
 
@@ -5826,7 +5813,7 @@ func GetExcelTrackingBillingEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
-	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+	if c.QueryParam("startdate") == "" || c.QueryParam("enddate") == "" {
 		dayStart = 1
 	}
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
@@ -5858,24 +5845,9 @@ func GetExcelTrackingBillingEndPoint(c echo.Context) error {
 			from inv_info
 		   ) total_inv on total_inv.so = smt.so_number
 		WHERE smt.active_inactive = 1
-		AND smt.so_number is not null 
-		AND smt.so_number not like ''`
-	if St_date != "" || En_date != "" {
-		sql = sql + ` AND `
-		if St_date != "" {
-			sql = sql + ` period_start_date >= '` + St_date + `' AND period_start_date <= '` + En_date + `' `
-			if En_date != "" {
-				sql = sql + ` AND `
-			}
-		}
-		if En_date != "" {
-			sql = sql + ` period_end_date <= '` + En_date + `' AND period_end_date >= '` + St_date + `' `
-		}
-	} else {
-		St_date = dateFrom.String()
-		En_date = dateTo.String()
-	}
-	sql = sql + ` group by smt.so_number
+		AND smt.so_number <> ''
+		and period_start_date >= ? AND period_end_date <= ?
+		group by smt.so_number
 	) BL
 	LEFT JOIN (select * from staff_info) si on BL.sale_id = si.staff_id
 	left join
@@ -5890,9 +5862,9 @@ func GetExcelTrackingBillingEndPoint(c echo.Context) error {
 	AND INSTR(CONCAT_WS('|',bi.invoice_no,BL.so_number,bi.status,bi.reason,BL.customer_id,customer_nameTH,
         department,fname,lname), ?)`
 
-	if err := dbSale.Ctx().Raw(sql, St_date, En_date, St_date, En_date, En_date, St_date, En_date, En_date,
-		En_date, St_date, En_date, St_date, St_date, St_date, St_date, St_date, En_date,
-		En_date, St_date, staff_id, search).Scan(&dataRaw).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo,
+		dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo,
+		dateTo, dateFrom, dateFrom, dateTo, staff_id, search).Scan(&dataRaw).Error; err != nil {
 		errr += 1
 	}
 
@@ -5975,8 +5947,8 @@ func GetExcelTrackingReceiptEndPoint(c echo.Context) error {
 
 	var dataRaw []Invoice_Data
 
-	St_date := strings.TrimSpace(c.QueryParam("startdate"))
-	En_date := strings.TrimSpace(c.QueryParam("enddate"))
+	// St_date := strings.TrimSpace(c.QueryParam("startdate"))
+	// En_date := strings.TrimSpace(c.QueryParam("enddate"))
 	staff_id := strings.TrimSpace(c.QueryParam("staff_id"))
 	search := strings.TrimSpace(c.QueryParam("search"))
 
@@ -5991,7 +5963,7 @@ func GetExcelTrackingReceiptEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
-	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+	if c.QueryParam("startdate") == "" || c.QueryParam("enddate") == "" {
 		dayStart = 1
 	}
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
@@ -6028,23 +6000,9 @@ func GetExcelTrackingReceiptEndPoint(c echo.Context) error {
 			select  inv_number ,so_number as so, period_start_date,period_end_date
 			from inv_info
 		   ) total_inv on total_inv.so = smt.so_number
-		WHERE smt.active_inactive = 1`
-	if St_date != "" || En_date != "" {
-		sql = sql + ` AND `
-		if St_date != "" {
-			sql = sql + ` period_start_date >= '` + St_date + `' AND period_start_date <= '` + En_date + `' `
-			if En_date != "" {
-				sql = sql + ` AND `
-			}
-		}
-		if En_date != "" {
-			sql = sql + ` period_end_date <= '` + En_date + `' AND period_end_date >= '` + St_date + `' `
-		}
-	} else {
-		St_date = dateFrom.String()
-		En_date = dateTo.String()
-	}
-	sql = sql + ` group by smt.so_number
+		WHERE smt.active_inactive = 1
+		and period_start_date >= ? AND period_end_date <= ?
+		group by smt.so_number
 	) BL
 	LEFT JOIN (select * from staff_info) si on BL.sale_id = si.staff_id
 	left join
@@ -6057,9 +6015,9 @@ func GetExcelTrackingReceiptEndPoint(c echo.Context) error {
 	INSTR(CONCAT_WS('|',bi.invoice_no,BL.so_number,BL.inv_number,bi.status,bi.reason,BL.customer_id,
 	customer_nameTH,department,fname,lname), ?)`
 
-	if err := dbSale.Ctx().Raw(sql, St_date, En_date, St_date, En_date, En_date, St_date, En_date, En_date,
-		En_date, St_date, En_date, St_date, St_date, St_date, St_date, St_date, En_date,
-		En_date, St_date, staff_id, search).Scan(&dataRaw).Error; err != nil {
+	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo,
+		dateTo, dateFrom, dateTo, dateFrom, dateFrom, dateFrom, dateFrom, dateFrom, dateTo,
+		dateTo, dateFrom, dateFrom, dateTo, staff_id, search).Scan(&dataRaw).Error; err != nil {
 		errr += 1
 	}
 
