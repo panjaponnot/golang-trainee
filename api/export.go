@@ -132,7 +132,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
                 else tb_expire.remark end
         ) as remark  from (
                 SELECT *  from (
-                SELECT  active_inactive,has_refer,so_number,s.customer_id,customer_nameTH,DATE_FORMAT(contract_start_date, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(contract_end_date, '%Y-%m-%d') as ContractEndDate,so_refer,sale_id,
+                SELECT  active_inactive,has_refer,so_number,s.customer_id,customer_nameTH,DATE_FORMAT(contract_start_date, '%Y-%m-%d') as ContractStartDate,DATE_FORMAT(contract_end_date, '%Y-%m-%d') as ContractEndDate,so_refer,sale_cus_id as sale_id,
                                 DATEDIFF(contract_end_date, NOW()) as days, month(contract_end_date) as so_month, so_web_status,total_contract,
                                         total_contract_per_month, SUM(total_contract_per_month) as TotalAmount,
                                         staff_id,prefix,fname,lname,nname,position,department, so_type, pay_type
@@ -144,7 +144,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
                                 ) tb_sale on s.sale_id = tb_sale.staff_id
                                 left join
                                 (
-                                        select customer_id,customer_nameTH from customer_info
+                                        select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
                                 ) tb_cus on s.customer_id = tb_cus.customer_id
                                 WHERE active_inactive = 1 and has_refer = 0 and staff_id IN (?) and year(contract_end_date) = ?
@@ -336,7 +336,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			datediff(contract_end_date,contract_start_date) as days ,check_so.remark_sale as remark,'sale' as role,
 			TIMESTAMPDIFF(month,contract_start_date,DATE_ADD(contract_end_date, INTERVAL 3 DAY)) as months
 	FROM (
-			select so_number,customer_id,contract_start_date,contract_end_date,so_refer,sale_id,total_contract_per_month,
+			select so_number,customer_id,contract_start_date,contract_end_date,so_refer,sale_cus_id as sale_id,total_contract_per_month,
 			in_factor,sale_factor,(	total_contract/1.07) as total_contract,
 			so_web_status
 			from so_info
@@ -346,7 +346,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 	LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
 	 left join
 					(
-							select customer_id,customer_nameTH from customer_info
+							select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 					) tb_cus on so_info.customer_id = tb_cus.customer_id
 					WHERE check_so.status_sale = 0 and check_so.remark_sale <> ''
@@ -387,7 +387,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			datediff(contract_end_date,contract_start_date) as days ,check_so.remark_sale as remark,'sale' as role,
 			TIMESTAMPDIFF(month,contract_start_date,DATE_ADD(contract_end_date, INTERVAL 3 DAY)) as months
 	FROM (
-			select so_number,customer_id,contract_start_date,contract_end_date,so_refer,sale_id,total_contract_per_month,
+			select so_number,customer_id,contract_start_date,contract_end_date,so_refer,sale_cus_id as sale_id,total_contract_per_month,
 			in_factor,sale_factor,(	total_contract/1.07) as total_contract,
 			so_web_status
 			from so_info
@@ -397,7 +397,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 	LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
 	 left join
 					(
-							select customer_id,customer_nameTH from customer_info
+							select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 					) tb_cus on so_info.customer_id = tb_cus.customer_id
 	WHERE sale_id in (?)
@@ -572,7 +572,7 @@ func GetReportExcelTrackingEndPoint(c echo.Context) error {
 	}
 
 	sql := `SELECT cs_number as costsheetnumber, so_number, DATE_FORMAT(contract_start_date, "%Y-%m-%d") as ContractStartDate,DATE_FORMAT(contract_end_date, "%Y-%m-%d") as ContractEndDate,total_contract, 	total_contract as TotalContractAmount, so_web_status,
-	tb_cus.customer_id, customer_nameTH, sale_id, 			
+	tb_cus.customer_id, customer_nameTH, sale_cus_id as sale_id, 			
 	IFNULL(prefix, '') as prefix,
 		IFNULL(fname, '') as fname,
 		IFNULL(lname, '') as lname,
@@ -582,7 +582,7 @@ func GetReportExcelTrackingEndPoint(c echo.Context) error {
 	LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
 		 left join
 				(
-						select customer_id,customer_nameTH from customer_info
+						select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 				) tb_cus on so_info.customer_id = tb_cus.customer_id
 	WHERE active_inactive = 1
 							and sale_id in (?)
@@ -1451,8 +1451,13 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 									group by staff_id
 					) staff_detail
 					LEFT JOIN (
-							select total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+							select total_contract,so_number,sale_cus_id as sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
 							from so_info
+							left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and 	active_inactive = 1
 							group by so_number
 					) total_so on total_so.sale_id = staff_detail.staff_id
@@ -1460,8 +1465,13 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 			) tb_main
 			LEFT join (
 					select sum(total_contract_per_month) as inv_amount, sale_id from (
-							select total_contract_per_month,sale_id
+							select total_contract_per_month,sale_cus_id as sale_id
 							from so_info
+							left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 							group by so_number
 					) tb_inv group by sale_id
@@ -1488,8 +1498,13 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 			LEFT JOIN (
 					select total_contract_per_month,sale_id,so_number, type_sale
 					from (
-							select 	total_contract_per_month,sale_id,so_number , 'normal' as type_sale
+							select 	total_contract_per_month,sale_cus_id as sale_id,so_number , 'normal' as type_sale
 							from so_info
+							left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 							group by so_number
 					) tb_inv_old
@@ -1537,6 +1552,12 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 		// var so []m.SOMssql
 		var so []m.SOMssqlInfo
 		sqlinfo := `SELECT * FROM so_info 
+		left join
+		(
+				select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+		) tb_cus on so_info.customer_id = tb_cus.customer_id
+		
 		LEFT JOIN (
 												select  so_number,period_end_date
 												from inv_info
@@ -1545,7 +1566,7 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 												select  so_number,rc_number
 												from rc_info
 										) total_rc on total_rc.so_number = so_info.so_number
-		WHERE sale_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
+		WHERE sale_cus_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
 		if err := dbSale.Ctx().Raw(sqlinfo, listStaffId, quarterNum-1).Scan(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
 				hasErr += 1
@@ -1929,8 +1950,13 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 					group by staff_id
 			) staff_detail
 			LEFT JOIN (
-				select total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+				select total_contract,so_number,sale_cus_id as sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 1
 				group by so_number
 			) total_so on total_so.sale_id = staff_detail.staff_id
@@ -1938,8 +1964,13 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 		) tb_main
 		LEFT join (
 			select sum(total_contract_per_month) as inv_amount, sale_id from (
-				select total_contract_per_month,sale_id
+				select total_contract_per_month,sale_cus_id as sale_id
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and Active_Inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv group by sale_id
@@ -1966,8 +1997,13 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 		LEFT JOIN (
 			select total_contract_per_month,sale_id,so_number, type_sale
 			from (
-				select total_contract_per_month,sale_id,so_number , 'normal' as type_sale
+				select total_contract_per_month,sale_cus_id as sale_id,so_number , 'normal' as type_sale
 				from so_info
+				left join
+				(
+						select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+				) tb_cus on s.customer_id = tb_cus.customer_id
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
@@ -2016,6 +2052,12 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 		// var so []m.SOMssql
 		var so []m.SOMssqlInfo
 		sqlinfo := `SELECT * FROM so_info 
+		left join
+		(
+				select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+		) tb_cus on so_info.customer_id = tb_cus.customer_id
+		
 		LEFT JOIN (
 												select  so_number,period_end_date
 												from inv_info
@@ -2024,7 +2066,7 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 												select  so_number,rc_number
 												from rc_info
 										) total_rc on total_rc.so_number = so_info.so_number
-		WHERE sale_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
+		WHERE sale_cus_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
 		if err := dbSale.Ctx().Raw(sqlinfo, listStaffId, quarterNum-1).Scan(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
 				hasErr += 1
@@ -2396,8 +2438,13 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 					group by staff_id
 			) staff_detail
 			LEFT JOIN (
-				select 	total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+				select 	total_contract,so_number,sale_cus_id as sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 1
 				group by so_number
 			) total_so on total_so.sale_id = staff_detail.staff_id
@@ -2405,8 +2452,13 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 		) tb_main
 		LEFT join (
 			select sum(total_contract_per_month) as inv_amount, sale_id from (
-				select total_contract_per_month,sale_id
+				select total_contract_per_month,sale_cus_id as sale_id
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id		
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv group by sale_id
@@ -2433,8 +2485,13 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 		LEFT JOIN (
 			select total_contract_per_month,sale_id,so_number, type_sale
 			from (
-				select total_contract_per_month,sale_id,so_number , 'normal' as type_sale
+				select total_contract_per_month,sale_cus_id as sale_id,so_number , 'normal' as type_sale
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
@@ -2482,6 +2539,12 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 		// var so []m.SOMssql
 		var so []m.SOMssqlInfo
 		sqlinfo := `SELECT * FROM so_info 
+		left join
+		(
+				select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+		) tb_cus on so_info.customer_id = tb_cus.customer_id
+		
 		LEFT JOIN (
 												select  so_number,period_end_date
 												from inv_info
@@ -2490,7 +2553,7 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 												select  so_number,rc_number
 												from rc_info
 										) total_rc on total_rc.so_number = so_info.so_number
-		WHERE sale_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
+		WHERE sale_cus_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
 		if err := dbSale.Ctx().Raw(sqlinfo, listStaffId, quarterNum-1).Scan(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
 				hasErr += 1
@@ -2862,8 +2925,14 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 						group by staff_id
 				) staff_detail
 				LEFT JOIN (
-					select 	total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+					select 	total_contract,so_number,sale_cus_id as sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
 					from so_info
+					left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+							
 					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 1
 					group by so_number
 				) total_so on total_so.sale_id = staff_detail.staff_id
@@ -2871,8 +2940,14 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 			) tb_main
 			LEFT join (
 				select sum(total_contract_per_month) as inv_amount, sale_id from (
-					select total_contract_per_month,sale_id
+					select total_contract_per_month,sale_cus_id as sale_id
 					from so_info
+					left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+						
 					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 					group by so_number
 				) tb_inv group by sale_id
@@ -2933,11 +3008,17 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 						group by staff_id
 				) staff_detail
 				LEFT JOIN (
-					SELECT 	total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
-						,sale_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
+					SELECT 	total_contract,so_number,sale_cus_id as sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+						,sale_cus_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
 						limit 1,1
 						) as sale_lead
 						FROM so_info
+						left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+
 						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
 						group by so_number
 				) total_so on total_so.sale_lead = staff_detail.staff_id
@@ -2945,11 +3026,17 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 			) tb_main
 			LEFT join (
 				select sum(total_contract_per_month) as inv_amount,sale_lead from (
-					SELECT 	total_contract_per_month,sale_id
-						,sale_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
+					SELECT 	total_contract_per_month,sale_cus_id as sale_id
+						,sale_cus_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
 						limit 1,1
 						) as sale_lead
 						FROM so_info
+						left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+
 						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
 						group by so_number
 				) tb_inv group by sale_lead
@@ -2976,16 +3063,28 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 		LEFT JOIN (
 			select total_contract_per_month,sale_id,so_number, type_sale
 			from (
-				select total_contract_per_month,sale_id,sale_id as staff_sale,so_number , 'normal' as type_sale
+				select total_contract_per_month,sale_cus_id as sale_id,sale_cus_id as staff_sale,so_number , 'normal' as type_sale
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 				union
 				select 	total_contract_per_month,so_number
-				,sale_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
+				,sale_cus_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
 				limit 1,1
 				) as sale_id, 'lead'
 				FROM so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
@@ -3034,6 +3133,12 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 		// var so []m.SOMssql
 		var so []m.SOMssqlInfo
 		sqlinfo := `SELECT * FROM so_info 
+		left join
+		(
+				select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+		) tb_cus on so_info.customer_id = tb_cus.customer_id
+		
 		LEFT JOIN (
 												select  so_number,period_end_date
 												from inv_info
@@ -3042,7 +3147,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 												select  so_number,rc_number
 												from rc_info
 										) total_rc on total_rc.so_number = so_info.so_number
-		WHERE sale_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
+		WHERE sale_cus_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
 		if err := dbSale.Ctx().Raw(sqlinfo, listStaffId, quarterNum-1).Scan(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
 				hasErr += 1
@@ -3299,12 +3404,18 @@ func GetReportExcelSaleFactorEndPoint(c echo.Context) error {
 								ELSE 0 END
 						) as engcost,
 						sale_factor,
-						sale_id,
+						sale_cus_id as sale_id,
 						in_factor,
 						ex_factor,
 						so_info.so_number,
 						period_start_date
 				from so_info 
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+
 				LEFT JOIN (
 					select  so_number,	period_start_date
 					from inv_info
@@ -3321,16 +3432,22 @@ func GetReportExcelSaleFactorEndPoint(c echo.Context) error {
 	countCompany := `SELECT COUNT(customer_id) as count_so , department ,fname,lname,staff_id
 			from (
 					Select
-					customer_id, sale_id,
+					so_info.customer_id,sale_cus_id as sale_id,
 					so_info.so_number,
 					period_start_date
 					from so_info 
+					left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+
 					LEFT JOIN (
 						select  so_number,	period_start_date
 						from inv_info
 					) total_inv on total_inv.so_number = so_info.so_number
 					where month(period_start_date) = ? and year(period_start_date) = ?
-					group by customer_id
+					group by so_info.customer_id
 			) tb_so
 			LEFT JOIN staff_info ON tb_so.sale_id = staff_info.staff_id
 			where department in (
@@ -3350,9 +3467,14 @@ func GetReportExcelSaleFactorEndPoint(c echo.Context) error {
 					sale_factor,
 					in_factor,
 					ex_factor,
-					sale_id,
+					sale_cus_id as sale_id,
 					so_number
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 				group by so_number
 				) tb_so
 				LEFT JOIN staff_info ON tb_so.sale_id = staff_info.staff_id
@@ -3610,8 +3732,9 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 				,CONCAT(inv_number) as invoice_no 
 				FROM so_info
 				LEFT JOIN (
-					select inv_number,period_start_date,period_end_date,amount,sv_number,so_number,sale_id,active_inactive
+					select inv_number,period_start_date,period_end_date,amount,sv_number,so_number,sale_cus_id as sale_id,active_inactive
 					from inv_info
+					LEFT JOIN (select customer_id,sale_id as sale_cus_id from customer_info) cus on cus.customer_id = inv_info.customer_id
 					)inv on so_info.sv_number = inv.sv_number
 				LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
 				LEFT JOIN (
@@ -3701,11 +3824,13 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 						Else 'not change' END
 					) as status_code
 	 			FROM so_info
-				LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+				
 				LEFT JOIN (
-					select inv_number,period_start_date,period_end_date,amount,sale_id,active_inactive,sv_number
+					select inv_number,period_start_date,period_end_date,amount,sale_cus_id as sale_id,active_inactive,sv_number
 					from inv_info
+					LEFT JOIN (select customer_id,sale_id as sale_cus_id from customer_info) cus on cus.customer_id = inv_info.customer_id
 					)inv on so_info.sv_number = inv.sv_number
+				LEFT JOIN staff_info ON inv.sale_id = staff_info.staff_id	
 				LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
 				left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
 				WHERE inv.active_inactive = 1
@@ -3771,24 +3896,26 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 						SELECT so_info.*,si.*,cc.*,cus.customer_nameTH,cus.business_type,inv.inv_number,inv.period_start_date,inv.period_end_date,inv.amount,
 						inv.active_inactives
 						FROM so_info
+
+						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.Customer_ID = cc.cc_customer_id
+						LEFT JOIN (
+							select inv_number,period_start_date,period_end_date,amount,sale_cus_id as sale_id,active_inactive as active_inactives,sv_number
+							from inv_info
+							LEFT JOIN (select customer_id,sale_id as sale_cus_id from customer_info) cus on cus.customer_id = inv_info.customer_id
+							)inv on so_info.sv_number = inv.sv_number
 						LEFT JOIN (
 							select *,CONCAT(fname,' ',lname) as sale_name
 							from staff_info
 							)
-							si on si.staff_id = so_info.sale_id
-						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.Customer_ID = cc.cc_customer_id
-						LEFT JOIN (
-							select inv_number,period_start_date,period_end_date,amount,sale_id,active_inactive as active_inactives,sv_number
-							from inv_info
-							)inv on so_info.sv_number = inv.sv_number
+							si on si.staff_id = inv.sale_id
 						LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
 						WHERE inv.active_inactives = 1 and inv_number <> ''
 						and period_start_date <= ? and period_end_date >= ?
 						and period_start_date <= period_end_date and inv_number IN (?)
 
-						and so_info.sale_id in (?)
+						and inv.sale_id in (?)
 						and INSTR(CONCAT_WS('|', inv_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
-						and INSTR(CONCAT_WS('|', so_info.sale_id), ?)
+						and INSTR(CONCAT_WS('|', inv.sale_id), ?)
 						and INSTR(CONCAT_WS('|', inv_number), ?)
 					) sub_data
 				) so_group
@@ -3807,23 +3934,25 @@ func GetExcelDetailReceiptEndPoint(c echo.Context) error {
 
 		sqlSum := `	SELECT distinct so_info.customer_id
 	 			FROM so_info
+
 				 LEFT JOIN (
+					select inv_number,period_start_date,period_end_date,amount,sale_cus_id as sale_id,active_inactive as active_inactives,sv_number
+					from inv_info
+					LEFT JOIN (select customer_id,sale_id as sale_cus_id from customer_info) cus on cus.customer_id = inv_info.customer_id
+				)inv on so_info.sv_number = inv.sv_number
+				LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
+				LEFT JOIN (
 					select *,CONCAT(fname,' ',lname) as sale_name
 					from staff_info
 					)
-					si on si.staff_id = so_info.sale_id
-				 LEFT JOIN (
-					select inv_number,period_start_date,period_end_date,amount,sale_id,active_inactive as active_inactives,sv_number
-					from inv_info
-				)inv on so_info.sv_number = inv.sv_number
-				LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
+					si on si.staff_id = inv.sale_id
 						WHERE so_info.active_inactive = 1
 						and period_start_date <= ? and period_end_date >= ?
 						and period_start_date <= period_end_date and inv_number IN (?)
-						and so_info.sale_id in (?)
+						and inv.sale_id in (?)
 						and INSTR(CONCAT_WS('|', inv_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
 						and INSTR(CONCAT_WS('|', inv_number), ?)
-						and INSTR(CONCAT_WS('|', so_info.sale_id), ?)
+						and INSTR(CONCAT_WS('|', inv.sale_id), ?)
 						group by inv_number
 					;`
 
@@ -4065,7 +4194,12 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 		sum(total_contract_per_month) as amount,
 		status
 	 FROM billing_info 
-	 LEFT JOIN inv_info inv ON inv.inv_number = billing_info.invoice_no
+
+	 LEFT JOIN (
+		select inv_info.customer_id,inv_number,period_start_date,period_end_date,amount,sv_number,so_number,sale_cus_id as sale_id,active_inactive
+		from inv_info
+		LEFT JOIN (select customer_id,sale_id as sale_cus_id from customer_info) cus on cus.customer_id = inv_info.customer_id
+		)inv on billing_info.invoice_no = inv.inv_number
 	 JOIN so_info ON so_info.sv_number = inv.sv_number 
 	 LEFT JOIN (
 		select *,CONCAT(fname,' ',lname) as sale_name
@@ -4128,7 +4262,13 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 						SELECT cs_number,inv.so_number,contract_start_date,contract_end_date,inv_number,period_start_date,period_end_date,cus.customer_id,customer_nameTH,
 						inv.sale_id,sale_name,total_contract_per_month, sale_factor, in_factor, ex_factor,total_contract,owner,owner_old,update_date
 						FROM billing_info
-						LEFT JOIN inv_info inv ON inv.inv_number = billing_info.invoice_no
+
+						LEFT JOIN (
+							select inv_info.customer_id,inv_number,period_start_date,period_end_date,amount,sv_number,so_number,sale_cus_id as sale_id,active_inactive
+							from inv_info
+							LEFT JOIN (select customer_id,sale_id as sale_cus_id from customer_info) cus on cus.customer_id = inv_info.customer_id
+							)inv on billing_info.invoice_no = inv.inv_number
+
 						JOIN so_info ON so_info.sv_number = inv.sv_number
 						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.Customer_ID = cc.cc_customer_id
 						LEFT JOIN (
@@ -4181,7 +4321,11 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 			SELECT
 					 status,total_contract
 					 FROM billing_info
-					 LEFT JOIN inv_info inv ON inv.inv_number = billing_info.invoice_no
+					 LEFT JOIN (
+						select inv_info.customer_id,inv_number,period_start_date,period_end_date,amount,sv_number,so_number,sale_cus_id as sale_id,active_inactive
+						from inv_info
+						LEFT JOIN (select customer_id,sale_id as sale_cus_id from customer_info) cus on cus.customer_id = inv_info.customer_id
+						)inv on billing_info.invoice_no = inv.inv_number
 					 JOIN so_info ON so_info.sv_number = inv.sv_number
 					 LEFT JOIN (
 						select *,CONCAT(fname,' ',lname) as sale_name
@@ -4211,7 +4355,11 @@ func GetExcelDetailBillingEndPoint(c echo.Context) error {
 		sql := `
 			SELECT distinct inv.customer_id
 					 FROM billing_info
-					 LEFT JOIN inv_info inv ON inv.inv_number = billing_info.invoice_no
+					 LEFT JOIN (
+						select inv_info.customer_id,inv_number,period_start_date,period_end_date,amount,sv_number,so_number,sale_cus_id as sale_id,active_inactive
+						from inv_info
+						LEFT JOIN (select customer_id,sale_id as sale_cus_id from customer_info) cus on cus.customer_id = inv_info.customer_id
+						)inv on billing_info.invoice_no = inv.inv_number
 					 JOIN so_info ON so_info.sv_number = inv.sv_number
 					 LEFT JOIN customer_info cus on cus.customer_id = inv.customer_id
 					 LEFT JOIN (
@@ -4462,7 +4610,7 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 	go func() {
-		sql := `SELECT so_info.*,inv.*,cus.business_type,cus.customer_nameTH,staff_info.*,
+		sql := `SELECT so_info.*,inv.*,cus.sale_cus_id,cus.business_type,cus.customer_nameTH,staff_info.*,
 					SUM(CASE
 						WHEN DATEDIFF(period_end_date, period_start_date)+1 = 0
 						THEN 0
@@ -4480,8 +4628,13 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 					) as so_amount,
 					sum(amount) as amount
 	 			FROM so_info
-				LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
-				LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+				left join
+				(
+					select sale_id as sale_cus_id,customer_id,customer_nameTH,business_type from customer_info
+
+				) cus on so_info.customer_id = cus.customer_id
+				
+				LEFT JOIN staff_info ON cus.sale_cus_id = staff_info.staff_id
 				LEFT JOIN (
 					select inv_number,sv_number,period_start_date,period_end_date,amount
 					from inv_info
@@ -4489,10 +4642,10 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 				WHERE active_inactive = 1 and inv_number <> ''
 				and period_start_date <= ? and period_end_date >= ?
 				and period_start_date <= period_end_date
-				and so_info.sale_id in (?)
+				and cus.sale_cus_id in (?)
 				and INSTR(CONCAT_WS('|', inv_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
 				and INSTR(CONCAT_WS('|', inv_number), ?)
-				and INSTR(CONCAT_WS('|', so_info.sale_id), ?)
+				and INSTR(CONCAT_WS('|', cus.sale_cus_id), ?)
 				group by inv_number
 				;`
 
@@ -4540,8 +4693,15 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 					FROM (
 						SELECT so_info.*,cc.*,staff_info.*,inv.inv_number,inv.period_start_date,inv.period_end_date,inv.amount
 						FROM so_info
-						LEFT JOIN (select customer_id,customer_nameTH,business_type from customer_info) cus on cus.customer_id = so_info.customer_id
-						LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+
+						left join
+				(
+					select sale_id as sale_cus_id,customer_id,customer_nameTH,business_type from customer_info
+
+				) cus on so_info.customer_id = cus.customer_id
+
+						
+						LEFT JOIN staff_info ON cus.sale_id = staff_info.staff_id
 						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
 						LEFT JOIN (
 							select inv_number,sv_number,period_start_date,period_end_date,amount
@@ -4551,10 +4711,10 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 						and period_start_date <= ? and period_end_date >= ?
 						and period_start_date <= period_end_date
 
-						and sale_id in (?)
+						and cus.sale_cus_id in (?)
 						and INSTR(CONCAT_WS('|', inv_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
 						and INSTR(CONCAT_WS('|', inv_number), ?)
-						and INSTR(CONCAT_WS('|', sale_id), ?)
+						and INSTR(CONCAT_WS('|', cus.sale_cus_id), ?)
 					) sub_data
 				) so_group
 				WHERE so_amount <> 0 
@@ -4570,8 +4730,14 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 	go func() {
 		sql := `SELECT distinct so_info.customer_id
 		FROM so_info
-	   LEFT JOIN (select customer_id,customer_nameTH,business_type from customer_info) cus on cus.customer_id = so_info.customer_id
-	   LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+
+		left join
+		(
+			select sale_id as sale_cus_id,customer_id,customer_nameTH,business_type from customer_info
+
+		) cus on so_info.customer_id = cus.customer_id
+		
+	   LEFT JOIN staff_info ON cus.sale_id = staff_info.staff_id
 	   left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
 	   LEFT JOIN (
 		   select inv_number,sv_number,period_start_date,period_end_date,amount
@@ -4580,10 +4746,10 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 	   WHERE active_inactive = 1 and inv_number <> ''
 	   and period_start_date <= ? and period_end_date >= ?
 	   and period_start_date <= period_end_date
-	   and so_info.sale_id in (?)
+	   and cus.sale_cus_id in (?)
 	   and INSTR(CONCAT_WS('|', inv_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
 	   and INSTR(CONCAT_WS('|', inv_number), ?)
-	   and INSTR(CONCAT_WS('|', so_info.sale_id), ?)
+	   and INSTR(CONCAT_WS('|', cus.sale_cus_id), ?)
 	   group by inv_number
 			   ;`
 
@@ -4822,19 +4988,25 @@ func GetExcelDetailSoEndPoint(c echo.Context) error {
 		ex_factor as ex_factor,
 		sum(total_contract_per_month) as amount
 		FROM so_info
+
+		left join
+		(
+			select sale_id as sale_cus_id,customer_id,customer_nameTH,business_type from customer_info
+
+		) cus on so_info.customer_id = cus.customer_id
+
 		LEFT JOIN (
 			select *
 			from staff_info
-			)
-			si on si.staff_id = so_info.sale_id
-		LEFT JOIN customer_info cus on cus.customer_id = so_info.customer_id
+		)
+			si on si.staff_id = cus.sale_cus_id
 		WHERE active_inactive = 1
 		and contract_start_date <= ? and contract_end_date >= ?
 		and contract_start_date <= contract_end_date
-		and so_info.sale_id in (?)
+		and cus.sale_cus_id in (?)
 		and INSTR(CONCAT_WS('|', so_number,si.staff_id,fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
 		and INSTR(CONCAT_WS('|', so_number), ?)
-		and INSTR(CONCAT_WS('|', so_info.sale_id), ?)
+		and INSTR(CONCAT_WS('|', cus.sale_cus_id), ?)
 		group by so_number
 			;`
 
@@ -4884,21 +5056,31 @@ func GetExcelDetailSoEndPoint(c echo.Context) error {
 					FROM (
 						SELECT so_info.*,cc.*,cus.customer_nameTH,cus.business_type,inv.period_start_date,inv.period_end_date,si.*
 						FROM so_info
+
+						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
+
+						left join
+						(
+							select sale_id as sale_cus_id,customer_id,customer_nameTH,business_type from customer_info
+				
+						) cus on so_info.customer_id = cus.customer_id
+						
 						LEFT JOIN (
 							select *,CONCAT(fname,' ',lname) as sale_name
 							from staff_info
-							) si ON so_info.sale_id = si.staff_id
-						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
-						LEFT JOIN (select customer_id,customer_nameTH,business_type from customer_info) cus on cus.customer_id = so_info.customer_id
-						LEFT JOIN (select sv_number,period_start_date,period_end_date from inv_info) inv on so_info.sv_number = inv.sv_number
+							) si ON cus.sale_cus_id = si.staff_id
+
+						LEFT JOIN (select sv_number,period_start_date,period_end_date 
+							from inv_info
+							) inv on so_info.sv_number = inv.sv_number
 						WHERE active_inactive = 1
 						and contract_start_date <= ? and contract_end_date >= ?
 						and contract_start_date <= contract_end_date
 
-						and sale_id in (?)
+						and sale_cus_id in (?)
 						and INSTR(CONCAT_WS('|', so_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
 						and INSTR(CONCAT_WS('|', so_number), ?)
-						and INSTR(CONCAT_WS('|', sale_id), ?)
+						and INSTR(CONCAT_WS('|', sale_cus_id), ?)
 					) sub_data
 				) so_group
 				WHERE so_amount <> 0
@@ -4916,17 +5098,24 @@ func GetExcelDetailSoEndPoint(c echo.Context) error {
 		from (
 		SELECT distinct so_info.customer_id
 		FROM so_info
-		LEFT JOIN staff_info ON so_info.sale_id = staff_info.staff_id
+
+
+		
 		left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
 		LEFT JOIN (select sv_number,period_start_date from inv_info) inv on so_info.sv_number = inv.sv_number
-		LEFT JOIN (select customer_id,customer_nameTH,business_type from customer_info) cus on cus.customer_id = so_info.customer_id
+		left join
+						(
+							select sale_id as sale_cus_id,customer_id,customer_nameTH,business_type from customer_info
+				
+						) cus on so_info.customer_id = cus.customer_id
+		LEFT JOIN staff_info ON cus.sale_cus_id = staff_info.staff_id
 		WHERE active_inactive = 1
 		and contract_start_date <= ? and contract_end_date >= ?
 		and contract_start_date <= contract_end_date
-		and sale_id in (?)
+		and cus.sale_cus_id in (?)
 		and INSTR(CONCAT_WS('|', so_number, staff_id, fname,lname,nname,department,so_web_status,so_info.customer_id,customer_nameTH,so_type,detail), ?)
 		and INSTR(CONCAT_WS('|', so_number), ?)
-		and INSTR(CONCAT_WS('|', sale_id), ?)
+		and INSTR(CONCAT_WS('|', cus.sale_cus_id), ?)
 		group by so_number
 		) data
 					 ;`
@@ -5167,14 +5356,19 @@ func GetExcelDetailCostsheetEndPoint(c echo.Context) error {
 		sum(COALESCE(Int_INET, 0))/100 as in_factor, 
 		sum((COALESCE(Ext_JV, 0) + COALESCE(Ext, 0)))/100 as ex_factor
 		FROM costsheet_info
-		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
+		left join
+		(
+			select sale_id as sale_cus_id,customer_id as customer_cs_id,customer_nameTH from customer_info
+
+		) tb_cus on costsheet_info.Customer_ID = tb_cus.customer_cs_id
+		LEFT JOIN staff_info ON tb_cus.sale_cus_id = staff_info.staff_id
 				 WHERE doc_number_eform <> ''
 				 	and StartDate_P1 <= ? and EndDate_P1 >= ?
 					and StartDate_P1 <= EndDate_P1
-					and EmployeeID in (?)
-					and INSTR(CONCAT_WS('|', doc_number_eform, staff_id, fname,lname,nname,department,status,Customer_ID,Cusname_thai,Cusname_Eng), ?)
+					and costsheet_info.Customer_ID in (?)
+					and INSTR(CONCAT_WS('|', doc_number_eform, staff_id, fname,lname,nname,department,status,costsheet_info.Customer_ID,Cusname_thai,Cusname_Eng), ?)
 					and INSTR(CONCAT_WS('|', doc_number_eform), ?)
-					and INSTR(CONCAT_WS('|', EmployeeID), ?)
+					and INSTR(CONCAT_WS('|', costsheet_info.Customer_ID), ?)
 					group by doc_number_eform
 					 ;`
 
@@ -5230,16 +5424,22 @@ func GetExcelDetailCostsheetEndPoint(c echo.Context) error {
 							ELSE 0 END
 						) as so_amount
 					FROM (
-						SELECT * FROM costsheet_info
-						LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
+						SELECT * 
+						FROM costsheet_info
+						left join
+						(
+							select sale_id as sale_cus_id,customer_id as customer_cs_id,customer_nameTH from customer_info
+
+						) tb_cus on costsheet_info.Customer_ID = tb_cus.customer_cs_id
+						LEFT JOIN staff_info ON tb_cus.sale_cus_id = staff_info.staff_id
 						WHERE doc_number_eform <> ''
 						and StartDate_P1 <= ? and EndDate_P1 >= ?
 						and StartDate_P1 <= EndDate_P1
 
-						and EmployeeID in (?)
-						and INSTR(CONCAT_WS('|', doc_number_eform, staff_id, fname,lname,nname,department,status,Customer_ID,Cusname_thai,Cusname_Eng), ?)
+						and costsheet_info.Customer_ID in (?)
+						and INSTR(CONCAT_WS('|', doc_number_eform, staff_id, fname,lname,nname,department,status,costsheet_info.Customer_ID,Cusname_thai,Cusname_Eng), ?)
 						and INSTR(CONCAT_WS('|', doc_number_eform), ?)
-						and INSTR(CONCAT_WS('|', EmployeeID), ?)
+						and INSTR(CONCAT_WS('|', costsheet_info.Customer_ID), ?)
 					) sub_data
 				) so_group
 				group by doc_number_eform
@@ -5256,14 +5456,19 @@ func GetExcelDetailCostsheetEndPoint(c echo.Context) error {
 	go func() {
 		sql := `SELECT distinct Customer_ID
 		FROM costsheet_info
-		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
+						left join
+						(
+							select sale_id as sale_cus_id,customer_id as customer_cs_id,customer_nameTH from customer_info
+
+						) tb_cus on costsheet_info.Customer_ID = tb_cus.customer_cs_id
+						LEFT JOIN staff_info ON tb_cus.sale_cus_id = staff_info.staff_id
 				 WHERE doc_number_eform <> ''
 				 	and StartDate_P1 <= ? and EndDate_P1 >= ?
 					and StartDate_P1 <= EndDate_P1
-					and EmployeeID in (?)
-					and INSTR(CONCAT_WS('|', doc_number_eform, staff_id, fname,lname,nname,department,status,Customer_ID,Cusname_thai,Cusname_Eng), ?)
+					and costsheet_info.Customer_ID in (?)
+					and INSTR(CONCAT_WS('|', doc_number_eform, staff_id, fname,lname,nname,department,status,costsheet_info.Customer_ID,Cusname_thai,Cusname_Eng), ?)
 					and INSTR(CONCAT_WS('|', doc_number_eform), ?)
-					and INSTR(CONCAT_WS('|', EmployeeID), ?)
+					and INSTR(CONCAT_WS('|', costsheet_info.Customer_ID), ?)
 					group by doc_number_eform
 					 ;`
 
@@ -5308,14 +5513,19 @@ FROM(
 		FROM ( 
 			SELECT status_eform
 			FROM costsheet_info
-		LEFT JOIN staff_info ON costsheet_info.EmployeeID = staff_info.staff_id
+			left join
+			(
+				select sale_id as sale_cus_id,customer_id as customer_cs_id,customer_nameTH from customer_info
+
+			) tb_cus on costsheet_info.Customer_ID = tb_cus.customer_cs_id
+			LEFT JOIN staff_info ON tb_cus.sale_cus_id = staff_info.staff_id
 				 WHERE doc_number_eform <> ''
 				 	and StartDate_P1 <= ? and EndDate_P1 >= ?
 					and StartDate_P1 <= EndDate_P1
-					and EmployeeID in (?)
-					and INSTR(CONCAT_WS('|', doc_number_eform, staff_id, fname,lname,nname,department,status,Customer_ID,Cusname_thai,Cusname_Eng), ?)
+					and costsheet_info.Customer_ID in (?)
+					and INSTR(CONCAT_WS('|', doc_number_eform, staff_id, fname,lname,nname,department,status,costsheet_info.Customer_ID,Cusname_thai,Cusname_Eng), ?)
 					and INSTR(CONCAT_WS('|', doc_number_eform), ?)
-					and INSTR(CONCAT_WS('|', EmployeeID), ?)
+					and INSTR(CONCAT_WS('|', costsheet_info.Customer_ID), ?)
 					group by doc_number_eform
 					) as ss
 					group by status_eform
@@ -5473,7 +5683,7 @@ func GetExcelTrackingCostsheetEndPoint(c echo.Context) error {
 	from 
 	(
 		select ci.doc_number_eform,smt.so_number,ci.StartDate_P1,
-		 ci.EndDate_P1,ci.status_eform,ci.Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.EmployeeID,ci.Sale_Team,
+		 ci.EndDate_P1,ci.status_eform,tb_cus.customer_tb_id as Customer_ID,ci.Cusname_thai,ci.Cusname_Eng,ci.EmployeeID,ci.Sale_Team,
 		 ci.Sales_Name,ci.Sales_Surname,ci.Int_INET,(ci.Ext_JV+ci.Ext) as External,
 		  (CASE
 			 	WHEN DATEDIFF(ci.EndDate_P1,ci.StartDate_P1)+1 = 0
@@ -5496,16 +5706,22 @@ func GetExcelTrackingCostsheetEndPoint(c echo.Context) error {
 				ELSE 'ยังไม่ออก so'
 			END) so_status
 		from costsheet_info ci
+		left join
+		(
+			select sale_id as sale_cus_id,customer_id as customer_tb_id,customer_nameTH from customer_info
+
+		) tb_cus on ci.Customer_ID = tb_cus.customer_tb_id
 		LEFT JOIN (
 			select so_number,cs_number
 			from so_info
 			where cs_number <> ''
+			and active_inactive = 1
 			group by so_number
 			)smt on ci.doc_number_eform = smt.cs_number
-		LEFT JOIN staff_info si on ci.EmployeeID = si.staff_id 
+		LEFT JOIN staff_info si on tb_cus.customer_tb_id = si.staff_id 
 		where INSTR(CONCAT_WS('|', ci.tracking_id,ci.doc_id,ci.doc_number_eform,ci.Customer_ID,
 		ci.Cusname_thai,ci.Cusname_Eng,ci.ID_PreSale,ci.cvm_id,ci.Business_type,ci.Sale_Team,
-		ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,ci.EmployeeID,ci.status_eform), ?)
+		ci.Job_Status,ci.SO_Type,ci.Sales_Name,ci.Sales_Surname,tb_cus.customer_tb_id,ci.status_eform), ?)
 		and INSTR(CONCAT_WS('|', si.staff_id), ?) 
 		and ci.StartDate_P1 >= ? AND ci.StartDate_P1 <= ? ) QW`
 	// if St_date != "" || En_date != "" {
@@ -5682,22 +5898,22 @@ func GetExcelTrackingInvoiceEndPoint(c echo.Context) error {
 	) so_amount
 	FROM (
 		SELECT so_info.so_number,inv_number,period_start_date,period_end_date,total_contract_per_month,so_info.customer_id,
-		customer_nameTH,sale_id,department,prefix,fname,lname,in_factor,ex_factor 
+		customer_nameTH,sale_cus_id as sale_id,department,prefix,fname,lname,in_factor,ex_factor 
 		FROM so_info
-		LEFT JOIN (
-			select  inv_number ,so_number, period_start_date,period_end_date
-			from inv_info
-		   ) total_inv on total_inv.so_number = so_info.so_number
-		   left join
+		left join
+		   (
+				   select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+		   ) tb_cus on so_info.customer_id = tb_cus.customer_id	
+		left join
 		   (
 				   select staff_id, prefix, fname, lname, nname, position, department from staff_info
 
-		   ) tb_sale on so_info.sale_id = tb_sale.staff_id
-		   left join
-		   (
-				   select customer_id,customer_nameTH from customer_info
-
-		   ) tb_cus on so_info.customer_id = tb_cus.customer_id
+		   ) tb_sale on tb_cus.sale_cus_id = tb_sale.staff_id
+		LEFT JOIN (
+					select  inv_number ,so_number, period_start_date,period_end_date
+					from inv_info
+				) total_inv on total_inv.so_number = so_info.so_number
 		WHERE active_inactive = 1 
 		and inv_number <> ''
 		and period_start_date >= ? AND period_end_date <= ? 
@@ -5819,7 +6035,7 @@ func GetExcelTrackingBillingEndPoint(c echo.Context) error {
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
-	sql := `select bi.invoice_no,BL.so_number as so_number,bi.status,bi.reason,BL.customer_id,tb_cus.customer_nameTH,
+	sql := `select bi.invoice_no,BL.so_number as so_number,bi.status,bi.reason,BL.customer_id,BL.customer_nameTH,
 	department AS sale_team,CONCAT(si.prefix,si.fname, ' ', si.lname) as sale_name,BL.in_factor,BL.ex_factor,BL.so_amount
 	from (select *,
 		(CASE
@@ -5840,6 +6056,11 @@ func GetExcelTrackingBillingEndPoint(c echo.Context) error {
 			ELSE 0 END
 		) so_amount
 		from so_info smt
+		left join
+		(
+				select sale_id as sale_cus_id,customer_id as customer_cus_id,customer_nameTH from customer_info
+
+		) tb_cus on smt.customer_id = tb_cus.customer_cus_id
 		LEFT JOIN (
 			select  inv_number ,so_number as so, period_start_date,period_end_date
 			from inv_info
@@ -5849,17 +6070,12 @@ func GetExcelTrackingBillingEndPoint(c echo.Context) error {
 		and period_start_date >= ? AND period_end_date <= ?
 		group by smt.so_number
 	) BL
-	LEFT JOIN (select * from staff_info) si on BL.sale_id = si.staff_id
-	left join
-		   (
-				   select customer_id,customer_nameTH from customer_info
 
-		   ) tb_cus on BL.customer_id = tb_cus.customer_id
-	
+	LEFT JOIN (select * from staff_info) si on BL.sale_cus_id = si.staff_id
 	LEFT JOIN billing_info bi on BL.inv_number = bi.invoice_no
 	WHERE  INSTR(CONCAT_WS('|', si.staff_id), ?) 
 	and inv_number is not null or inv_number not like ''
-	AND INSTR(CONCAT_WS('|',bi.invoice_no,BL.so_number,bi.status,bi.reason,BL.customer_id,customer_nameTH,
+	AND INSTR(CONCAT_WS('|',bi.invoice_no,BL.so_number,bi.status,bi.reason,BL.customer_cus_id,customer_nameTH,
         department,fname,lname), ?)`
 
 	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo,
@@ -5969,7 +6185,7 @@ func GetExcelTrackingReceiptEndPoint(c echo.Context) error {
 	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
 	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
 
-	sql := `select bi.invoice_no,BL.so_number,BL.inv_number as INCSCDocNo,bi.status,bi.reason,BL.customer_id,tb_cus.customer_nameTH,
+	sql := `select bi.invoice_no,BL.so_number,BL.inv_number as INCSCDocNo,bi.status,bi.reason,BL.customer_id,BL.customer_nameTH,
 	department AS sale_team,CONCAT(si.prefix,si.fname, ' ', si.lname) as sale_name,BL.in_factor,BL.ex_factor,BL.so_amount,
 	(CASE
 		WHEN BL.inv_number is not null AND BL.inv_number not like ''
@@ -5996,6 +6212,11 @@ func GetExcelTrackingReceiptEndPoint(c echo.Context) error {
 			ELSE 0 END
 		) so_amount
 		from so_info smt
+		left join
+		(
+				select sale_id as sale_cus_id,customer_id as customer_cus_id,customer_nameTH from customer_info
+
+		) tb_cus on smt.customer_id = tb_cus.customer_cus_id
 		LEFT JOIN (
 			select  inv_number ,so_number as so, period_start_date,period_end_date
 			from inv_info
@@ -6004,15 +6225,10 @@ func GetExcelTrackingReceiptEndPoint(c echo.Context) error {
 		and period_start_date >= ? AND period_end_date <= ?
 		group by smt.so_number
 	) BL
-	LEFT JOIN (select * from staff_info) si on BL.sale_id = si.staff_id
-	left join
-		   (
-				   select customer_id,customer_nameTH from customer_info
-
-		   ) tb_cus on BL.customer_id = tb_cus.customer_id
+	LEFT JOIN (select * from staff_info) si on BL.sale_cus_id = si.staff_id
 	LEFT JOIN billing_info bi on BL.inv_number = bi.invoice_no
 	WHERE bi.status like '%วางบิลแล้ว%' AND INSTR(CONCAT_WS('|', si.staff_id), ?) AND 
-	INSTR(CONCAT_WS('|',bi.invoice_no,BL.so_number,BL.inv_number,bi.status,bi.reason,BL.customer_id,
+	INSTR(CONCAT_WS('|',bi.invoice_no,BL.so_number,BL.inv_number,bi.status,bi.reason,BL.customer_cus_id,
 	customer_nameTH,department,fname,lname), ?)`
 
 	if err := dbSale.Ctx().Raw(sql, dateFrom, dateTo, dateFrom, dateTo, dateTo, dateFrom, dateTo, dateTo,
