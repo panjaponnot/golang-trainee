@@ -87,16 +87,16 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
 	rawData := []struct {
 		SOnumber          string  `json:"so_number" gorm:"column:so_number"`
 		CustomerId        string  `json:"customer_id" gorm:"column:customer_id"`
-		CustomerName      string  `json:"customer_nameTH" gorm:"column:customer_nameTH"`
+		CustomerName      string  `json:"customer_name" gorm:"column:customer_nameTH"`
 		ContractStartDate string  `json:"contract_start_date" gorm:"column:ContractStartDate"`
 		ContractEndDate   string  `json:"contract_end_date" gorm:"column:ContractEndDate"`
 		SORefer           string  `json:"so_refer" gorm:"column:so_refer"`
-		SaleCode          string  `json:"sale_id" gorm:"column:sale_id"`
+		SaleCode          string  `json:"sale_code" gorm:"column:sale_id"`
 		Day               string  `json:"day" gorm:"column:days"`
 		SoMonth           string  `json:"so_month" gorm:"column:so_month"`
 		SOWebStatus       string  `json:"so_web_status" gorm:"column:so_web_status"`
-		PriceSale         float64 `json:"total_contract" gorm:"column:total_contract"`
-		PeriodAmount      float64 `json:"total_contract_per_month" gorm:"column:total_contract_per_month"`
+		PriceSale         float64 `json:"price_sale" gorm:"column:total_contract"`
+		PeriodAmount      float64 `json:"period_amount" gorm:"column:total_contract_per_month"`
 		TotalAmount       float64 `json:"total_amount" gorm:"column:TotalAmount"`
 		StaffId           string  `json:"staff_id" gorm:"column:staff_id"`
 		PayType           string  `json:"pay_type" gorm:"column:pay_type"`
@@ -147,7 +147,10 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
                                         select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
                                 ) tb_cus on s.customer_id = tb_cus.customer_id
-                                WHERE active_inactive = 1 and has_refer = 0 and staff_id IN (?) and year(contract_end_date) = ?
+                                WHERE active_inactive = 1 
+									and has_refer = 0 
+									and staff_id IN (?) 
+									and year(contract_end_date) = ?
                                 group by so_number
                         ) as tb_so_number
                 ) as tb_ch_so
@@ -326,7 +329,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 	if len(user) != 0 {
 
 		if err := dbSale.Ctx().Raw(`SELECT * FROM (SELECT check_so.status_so as status_so,check_so.status_sale as status_sale,so_info.so_number,tb_cus.customer_id,customer_nameTH,one_id, contract_start_date,contract_end_date,
-			so_refer,sale_id,total_contract_per_month,so_type,pay_type,
+			so_refer,sale_cus_id as sale_id,total_contract_per_month,so_type,pay_type,
 			in_factor,sale_factor,
 			SUM(total_contract_per_month) as TotalAmount_old,
 			IFNULL(prefix, '') as prefix,
@@ -336,7 +339,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			datediff(contract_end_date,contract_start_date) as days ,check_so.remark_sale as remark,'sale' as role,
 			TIMESTAMPDIFF(month,contract_start_date,DATE_ADD(contract_end_date, INTERVAL 3 DAY)) as months
 	FROM (
-			select so_number,customer_id,contract_start_date,contract_end_date,so_refer,sale_cus_id as sale_id,total_contract_per_month,
+			select so_number,customer_id,contract_start_date,contract_end_date,so_refer,sale_id,total_contract_per_month,
 			in_factor,sale_factor,(	total_contract/1.07) as total_contract,
 			so_web_status
 			from so_info
@@ -377,7 +380,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 		}
 
 		if err := dbSale.Ctx().Raw(`SELECT * FROM (SELECT check_so.status_so as status_so,check_so.status_sale as status_sale,so_info.so_number,tb_cus.customer_id,customer_nameTH,one_id, contract_start_date,contract_end_date,
-			so_refer,sale_id,total_contract_per_month,so_type,pay_type,
+			so_refer,sale_cus_id as sale_id,total_contract_per_month,so_type,pay_type,
 			in_factor,sale_factor,
 			SUM(total_contract_per_month) as TotalAmount_old,
 			IFNULL(prefix, '') as prefix,
@@ -387,7 +390,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			datediff(contract_end_date,contract_start_date) as days ,check_so.remark_sale as remark,'sale' as role,
 			TIMESTAMPDIFF(month,contract_start_date,DATE_ADD(contract_end_date, INTERVAL 3 DAY)) as months
 	FROM (
-			select so_number,customer_id,contract_start_date,contract_end_date,so_refer,sale_cus_id as sale_id,total_contract_per_month,
+			select so_number,customer_id,contract_start_date,contract_end_date,so_refer,sale_id,total_contract_per_month,
 			in_factor,sale_factor,(	total_contract/1.07) as total_contract,
 			so_web_status
 			from so_info

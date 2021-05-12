@@ -171,8 +171,13 @@ func GetRankingBaseSale(c echo.Context) error {
 									group by staff_id
 					) staff_detail
 					LEFT JOIN (
-							select total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+							select total_contract,so_number,sale_cus_id as sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
 							from so_info
+							left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and 	active_inactive = 1
 							group by so_number
 					) total_so on total_so.sale_id = staff_detail.staff_id
@@ -180,8 +185,13 @@ func GetRankingBaseSale(c echo.Context) error {
 			) tb_main
 			LEFT join (
 					select sum(total_contract_per_month) as inv_amount, sale_id from (
-							select total_contract_per_month,sale_id
+							select total_contract_per_month,sale_cus_id as sale_id
 							from so_info
+							left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 							group by so_number
 					) tb_inv group by sale_id
@@ -208,8 +218,13 @@ func GetRankingBaseSale(c echo.Context) error {
 			LEFT JOIN (
 					select total_contract_per_month,sale_id,so_number, type_sale
 					from (
-							select 	total_contract_per_month,sale_id,so_number , 'normal' as type_sale
+							select 	total_contract_per_month,sale_cus_id as sale_id,so_number , 'normal' as type_sale
 							from so_info
+							left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 							group by so_number
 					) tb_inv_old
@@ -263,6 +278,12 @@ func GetRankingBaseSale(c echo.Context) error {
 		// }
 		var so []m.SOMssqlInfo
 		sqlinfo := `SELECT * FROM so_info 
+		left join
+		(
+				select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+		) tb_cus on so_info.customer_id = tb_cus.customer_id
+		
 		LEFT JOIN (
 												select  so_number,period_end_date
 												from inv_info
@@ -271,7 +292,7 @@ func GetRankingBaseSale(c echo.Context) error {
 												select  so_number,rc_number
 												from rc_info
 										) total_rc on total_rc.so_number = so_info.so_number
-		WHERE sale_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
+		WHERE sale_cus_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
 		if err := dbSale.Ctx().Raw(sqlinfo, listStaffId, quarterNum-1).Scan(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
 				hasErr += 1
@@ -519,8 +540,13 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 					group by staff_id
 			) staff_detail
 			LEFT JOIN (
-				select total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+				select total_contract,so_number,sale_cus_id as sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 1
 				group by so_number
 			) total_so on total_so.sale_id = staff_detail.staff_id
@@ -528,8 +554,13 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 		) tb_main
 		LEFT join (
 			select sum(total_contract_per_month) as inv_amount, sale_id from (
-				select total_contract_per_month,sale_id
+				select total_contract_per_month,sale_cus_id as sale_id
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and Active_Inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv group by sale_id
@@ -556,8 +587,13 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 		LEFT JOIN (
 			select total_contract_per_month,sale_id,so_number, type_sale
 			from (
-				select total_contract_per_month,sale_id,so_number , 'normal' as type_sale
+				select total_contract_per_month,sale_cus_id as sale_id,so_number , 'normal' as type_sale
 				from so_info
+				left join
+				(
+						select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+				) tb_cus on s.customer_id = tb_cus.customer_id
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
@@ -606,6 +642,12 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 		// var so []m.SOMssql
 		var so []m.SOMssqlInfo
 		sqlinfo := `SELECT * FROM so_info 
+		left join
+		(
+				select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+		) tb_cus on so_info.customer_id = tb_cus.customer_id
+		
 		LEFT JOIN (
 												select  so_number,period_end_date
 												from inv_info
@@ -614,7 +656,7 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 												select  so_number,rc_number
 												from rc_info
 										) total_rc on total_rc.so_number = so_info.so_number
-		WHERE sale_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
+		WHERE sale_cus_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
 		if err := dbSale.Ctx().Raw(sqlinfo, listStaffId, quarterNum-1).Scan(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
 				hasErr += 1
@@ -863,8 +905,13 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 					group by staff_id
 			) staff_detail
 			LEFT JOIN (
-				select 	total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+				select 	total_contract,so_number,sale_cus_id as sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 1
 				group by so_number
 			) total_so on total_so.sale_id = staff_detail.staff_id
@@ -872,8 +919,13 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 		) tb_main
 		LEFT join (
 			select sum(total_contract_per_month) as inv_amount, sale_id from (
-				select total_contract_per_month,sale_id
+				select total_contract_per_month,sale_cus_id as sale_id
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id		
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv group by sale_id
@@ -900,8 +952,13 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 		LEFT JOIN (
 			select total_contract_per_month,sale_id,so_number, type_sale
 			from (
-				select total_contract_per_month,sale_id,so_number , 'normal' as type_sale
+				select total_contract_per_month,sale_cus_id as sale_id,so_number , 'normal' as type_sale
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
@@ -949,6 +1006,12 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 		// var so []m.SOMssql
 		var so []m.SOMssqlInfo
 		sqlinfo := `SELECT * FROM so_info 
+		left join
+		(
+				select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+		) tb_cus on so_info.customer_id = tb_cus.customer_id
+		
 		LEFT JOIN (
 												select  so_number,period_end_date
 												from inv_info
@@ -957,7 +1020,7 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 												select  so_number,rc_number
 												from rc_info
 										) total_rc on total_rc.so_number = so_info.so_number
-		WHERE sale_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
+		WHERE sale_cus_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
 		if err := dbSale.Ctx().Raw(sqlinfo, listStaffId, quarterNum-1).Scan(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
 				hasErr += 1
@@ -1205,8 +1268,14 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 						group by staff_id
 				) staff_detail
 				LEFT JOIN (
-					select 	total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+					select 	total_contract,so_number,sale_cus_id as sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
 					from so_info
+					left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+							
 					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 1
 					group by so_number
 				) total_so on total_so.sale_id = staff_detail.staff_id
@@ -1214,8 +1283,14 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 			) tb_main
 			LEFT join (
 				select sum(total_contract_per_month) as inv_amount, sale_id from (
-					select total_contract_per_month,sale_id
+					select total_contract_per_month,sale_cus_id as sale_id
 					from so_info
+					left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+						
 					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 					group by so_number
 				) tb_inv group by sale_id
@@ -1276,11 +1351,17 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 						group by staff_id
 				) staff_detail
 				LEFT JOIN (
-					SELECT 	total_contract,so_number,sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
-						,sale_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
+					SELECT 	total_contract,so_number,sale_cus_id as sale_id,sale_factor,in_factor,(total_contract/sale_factor) as eng_cost
+						,sale_cus_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
 						limit 1,1
 						) as sale_lead
 						FROM so_info
+						left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+
 						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
 						group by so_number
 				) total_so on total_so.sale_lead = staff_detail.staff_id
@@ -1288,11 +1369,17 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 			) tb_main
 			LEFT join (
 				select sum(total_contract_per_month) as inv_amount,sale_lead from (
-					SELECT 	total_contract_per_month,sale_id
-						,sale_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
+					SELECT 	total_contract_per_month,sale_cus_id as sale_id
+						,sale_cus_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
 						limit 1,1
 						) as sale_lead
 						FROM so_info
+						left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+
 						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
 						group by so_number
 				) tb_inv group by sale_lead
@@ -1319,16 +1406,28 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 		LEFT JOIN (
 			select total_contract_per_month,sale_id,so_number, type_sale
 			from (
-				select total_contract_per_month,sale_id,sale_id as staff_sale,so_number , 'normal' as type_sale
+				select total_contract_per_month,sale_cus_id as sale_id,sale_cus_id as staff_sale,so_number , 'normal' as type_sale
 				from so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 				union
 				select 	total_contract_per_month,so_number
-				,sale_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
+				,sale_cus_id as staff_sale,(SELECT staff_id FROM staff_info WHERE staff_child LIKE CONCAT('%', staff_sale ,'%')
 				limit 1,1
 				) as sale_id, 'lead'
 				FROM so_info
+				left join
+							(
+									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+							) tb_cus on so_info.customer_id = tb_cus.customer_id
+
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
@@ -1377,15 +1476,21 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 		// var so []m.SOMssql
 		var so []m.SOMssqlInfo
 		sqlinfo := `SELECT * FROM so_info 
-	LEFT JOIN (
-											select  so_number,period_end_date
-											from inv_info
-									) total_inv on total_inv.so_number = so_info.so_number
-	LEFT JOIN (
-											select  so_number,rc_number
-											from rc_info
-									) total_rc on total_rc.so_number = so_info.so_number
-	WHERE sale_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
+		left join
+		(
+				select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
+
+		) tb_cus on so_info.customer_id = tb_cus.customer_id
+		
+		LEFT JOIN (
+												select  so_number,period_end_date
+												from inv_info
+										) total_inv on total_inv.so_number = so_info.so_number
+		LEFT JOIN (
+												select  so_number,rc_number
+												from rc_info
+										) total_rc on total_rc.so_number = so_info.so_number
+		WHERE sale_cus_id IN (?) AND rc_number IS NULL AND quarter(contract_start_date) = ? AND year(contract_start_date) = year(now()) AND DATEDIFF(NOW(),total_inv.period_end_date) > 60;`
 		if err := dbSale.Ctx().Raw(sqlinfo, listStaffId, quarterNum-1).Scan(&so).Error; err != nil {
 			if !gorm.IsRecordNotFoundError(err) {
 				hasErr += 1
