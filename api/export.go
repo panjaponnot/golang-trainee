@@ -337,7 +337,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			IFNULL(lname, '') as lname,
 			IFNULL(nname, '') as nname, department,	total_contract as TotalAmount,so_web_status,total_contract,
 			datediff(contract_end_date,contract_start_date) as days ,check_so.remark_sale as remark,'sale' as role,
-			TIMESTAMPDIFF(month,contract_start_date,DATE_ADD(contract_end_date, INTERVAL 3 DAY)) as months
+			TIMESTAMPDIFF(month,contract_start_date,DATE_ADD(contract_end_date, INTERVAL 3 DAY)) as months,position
 	FROM (
 			select so_number,customer_id,contract_start_date,contract_end_date,so_refer,sale_id,total_contract_per_month,
 			in_factor,sale_factor,(	total_contract/1.07) as total_contract,
@@ -388,7 +388,7 @@ func GetReportExcelSOEndPoint(c echo.Context) error {
 			IFNULL(lname, '') as lname,
 			IFNULL(nname, '') as nname, department,	total_contract as TotalAmount,so_web_status,total_contract,
 			datediff(contract_end_date,contract_start_date) as days ,check_so.remark_sale as remark,'sale' as role,
-			TIMESTAMPDIFF(month,contract_start_date,DATE_ADD(contract_end_date, INTERVAL 3 DAY)) as months
+			TIMESTAMPDIFF(month,contract_start_date,DATE_ADD(contract_end_date, INTERVAL 3 DAY)) as months,position
 	FROM (
 			select so_number,customer_id,contract_start_date,contract_end_date,so_refer,sale_id,total_contract_per_month,
 			in_factor,sale_factor,(	total_contract/1.07) as total_contract,
@@ -2006,7 +2006,7 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 				(
 						select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
-				) tb_cus on s.customer_id = tb_cus.customer_id
+				) tb_cus on so_info.customer_id = tb_cus.customer_id
 				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
@@ -4704,7 +4704,7 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 				) cus on so_info.customer_id = cus.customer_id
 
 						
-						LEFT JOIN staff_info ON cus.sale_id = staff_info.staff_id
+						LEFT JOIN staff_info ON cus.sale_cus_id = staff_info.staff_id
 						left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
 						LEFT JOIN (
 							select inv_number,sv_number,period_start_date,period_end_date,amount
@@ -4740,7 +4740,7 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 
 		) cus on so_info.customer_id = cus.customer_id
 		
-	   LEFT JOIN staff_info ON cus.sale_id = staff_info.staff_id
+	   LEFT JOIN staff_info ON cus.sale_cus_id = staff_info.staff_id
 	   left join (select customer_id as cc_customer_id, owner, owner_old,update_date from cust_change) cc on so_info.customer_id = cc.cc_customer_id
 	   LEFT JOIN (
 		   select inv_number,sv_number,period_start_date,period_end_date,amount
@@ -4887,11 +4887,14 @@ func GetExcelDetailSoEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
-	startRange := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
-	endRange := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
-	dateFrom := startRange.Format("2006-01-02")
-	dateTo := endRange.Format("2006-01-02")
-	m := endRange.Sub(startRange)
+
+	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+		dayStart = 1
+	}
+	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+
+	m := dateTo.Sub(dateFrom)
 	if m < 0 {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid date"})
 	}
@@ -5249,11 +5252,14 @@ func GetExcelDetailCostsheetEndPoint(c echo.Context) error {
 	}
 	yearStart, monthStart, dayStart := ds.Date()
 	yearEnd, monthEnd, dayEnd := de.Date()
-	startRange := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
-	endRange := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
-	dateFrom := startRange.Format("2006-01-02")
-	dateTo := endRange.Format("2006-01-02")
-	m := endRange.Sub(startRange)
+
+	if c.QueryParam("start_date") == "" || c.QueryParam("end_date") == "" {
+		dayStart = 1
+	}
+	dateFrom := time.Date(yearStart, monthStart, dayStart, 0, 0, 0, 0, time.Local)
+	dateTo := time.Date(yearEnd, monthEnd, dayEnd, 0, 0, 0, 0, time.Local)
+
+	m := dateTo.Sub(dateFrom)
 	if m < 0 {
 		return c.JSON(http.StatusBadRequest, server.Result{Message: "invalid date"})
 	}
