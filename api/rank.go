@@ -178,7 +178,7 @@ func GetRankingBaseSale(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
-							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and 	active_inactive = 1
+							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = 0 and active_inactive = 1 and terminate_status <> ''
 							group by so_number
 					) total_so on total_so.sale_id = staff_detail.staff_id
 					group by staff_id
@@ -192,7 +192,7 @@ func GetRankingBaseSale(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
-							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 							group by so_number
 					) tb_inv group by sale_id
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
@@ -225,7 +225,7 @@ func GetRankingBaseSale(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
-							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 							group by so_number
 					) tb_inv_old
 			) total_new_so on total_new_so.sale_id = staff_detail.staff_id
@@ -561,7 +561,7 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and Active_Inactive = 1 and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = 0 and terminate_status <> '' and Active_Inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv group by sale_id
 		) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
@@ -594,7 +594,7 @@ func GetRankingKeyAccountEndPoint(c echo.Context) error {
 						select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 				) tb_cus on s.customer_id = tb_cus.customer_id
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
 		) total_new_so on total_new_so.sale_id = staff_detail.staff_id
@@ -912,7 +912,7 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 1
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = 0 and active_inactive = 1 and terminate_status <> ''
 				group by so_number
 			) total_so on total_so.sale_id = staff_detail.staff_id
 			group by staff_id
@@ -926,7 +926,7 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id		
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv group by sale_id
 		) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
@@ -959,7 +959,7 @@ func GetRankingRecoveryEndPoint(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
 		) total_new_so on total_new_so.sale_id = staff_detail.staff_id
@@ -1276,7 +1276,7 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
 							
-					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 1
+					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and active_inactive = 1 and so_refer = 0 and terminate_status <> ''
 					group by so_number
 				) total_so on total_so.sale_id = staff_detail.staff_id
 				group by staff_id
@@ -1291,7 +1291,7 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
 						
-					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 					group by so_number
 				) tb_inv group by sale_id
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
@@ -1362,7 +1362,7 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
 
-						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
+						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = 0  and terminate_status <> '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
 						group by so_number
 				) total_so on total_so.sale_lead = staff_detail.staff_id
 				group by staff_id
@@ -1380,7 +1380,7 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
 
-						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
+						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
 						group by so_number
 				) tb_inv group by sale_lead
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_lead
@@ -1414,7 +1414,7 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
 
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 				union
 				select 	total_contract_per_month,so_number
@@ -1428,7 +1428,7 @@ func GetRankingTeamLeadEndPoint(c echo.Context) error {
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
 
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
 		) total_new_so on total_new_so.sale_id = staff_detail.staff_id

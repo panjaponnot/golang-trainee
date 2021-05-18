@@ -149,6 +149,7 @@ func GetReportExcelSOPendingEndPoint(c echo.Context) error {
                                 ) tb_cus on s.customer_id = tb_cus.customer_id
                                 WHERE active_inactive = 1 
 									and has_refer = 0 
+									and terminate_status <> ''
 									and staff_id IN (?) 
 									and year(contract_end_date) = ?
                                 group by so_number
@@ -1461,7 +1462,7 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
-							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and 	active_inactive = 1
+							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and 	active_inactive = 1 and terminate_status <> '' and so_refer = 0
 							group by so_number
 					) total_so on total_so.sale_id = staff_detail.staff_id
 					group by staff_id
@@ -1475,7 +1476,7 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
-							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = 0 and active_inactive = 1 and terminate_status <> '' and so_web_status not like '%%Terminate%%'
 							group by so_number
 					) tb_inv group by sale_id
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
@@ -1508,7 +1509,7 @@ func GettReportExcelRankBaseSaleEndPoint(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
-							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+							WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = 0 and active_inactive = 1 and terminate_status <> '' and so_web_status not like '%%Terminate%%'
 							group by so_number
 					) tb_inv_old
 			) total_new_so on total_new_so.sale_id = staff_detail.staff_id
@@ -1974,7 +1975,7 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and Active_Inactive = 1 and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = 0 and terminate_status <> '' and Active_Inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv group by sale_id
 		) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
@@ -2007,7 +2008,7 @@ func GettReportExcelRankKeyAccEndPoint(c echo.Context) error {
 						select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 				) tb_cus on so_info.customer_id = tb_cus.customer_id
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
 		) total_new_so on total_new_so.sale_id = staff_detail.staff_id
@@ -2462,7 +2463,7 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id		
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now())   and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv group by sale_id
 		) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
@@ -2495,7 +2496,7 @@ func GettReportExcelRankRecoveEndPoint(c echo.Context) error {
 									select sale_id as sale_cus_id,customer_id,customer_nameTH from customer_info
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
 		) total_new_so on total_new_so.sale_id = staff_detail.staff_id
@@ -2951,7 +2952,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
 						
-					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+					WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 					group by so_number
 				) tb_inv group by sale_id
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_id
@@ -3022,7 +3023,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
 
-						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
+						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
 						group by so_number
 				) total_so on total_so.sale_lead = staff_detail.staff_id
 				group by staff_id
@@ -3040,7 +3041,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
 
-						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
+						WHERE quarter(contract_start_date) = ? and year(contract_start_date) = year(now()) and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and 	so_web_status not like '%%Terminate%%'
 						group by so_number
 				) tb_inv group by sale_lead
 			) tb_inv_now on tb_main.staff_id = tb_inv_now.sale_lead
@@ -3074,7 +3075,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
 
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 				union
 				select 	total_contract_per_month,so_number
@@ -3088,7 +3089,7 @@ func GetReportExcelRankTeamLeadEndPoint(c echo.Context) error {
 
 							) tb_cus on so_info.customer_id = tb_cus.customer_id
 
-				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
+				WHERE quarter(contract_start_date) = ? and year(contract_start_date) = ? and so_refer = 0 and terminate_status <> '' and active_inactive = 1 and so_web_status not like '%%Terminate%%'
 				group by so_number
 			) tb_inv_old
 		) total_new_so on total_new_so.sale_id = staff_detail.staff_id
@@ -4641,6 +4642,7 @@ func GetExcelDetailInvoiceEndPoint(c echo.Context) error {
 				LEFT JOIN (
 					select inv_number,sv_number,period_start_date,period_end_date,amount
 					from inv_info
+					WHERE active_inactive = 1 
 				) inv on inv.sv_number = so_info.sv_number
 				WHERE active_inactive = 1 and inv_number <> ''
 				and period_start_date <= ? and period_end_date >= ?

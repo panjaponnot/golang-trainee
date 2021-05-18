@@ -552,6 +552,7 @@ func GetReportSOPendingEndPoint(c echo.Context) error {
 											) tb_cus on s.customer_id = tb_cus.customer_id
 											WHERE active_inactive = 1 
 												and has_refer = 0 
+												and terminate_status <> ''
 												and staff_id IN (?) 
 												and year(contract_end_date) = ?
 											group by so_number
@@ -692,6 +693,7 @@ func GetReportSOPendingTypeEndPoint(c echo.Context) error {
 						) tb_cus on s.customer_id = tb_cus.customer_id
 						WHERE active_inactive = 1 
 							and has_refer = 0 
+							and terminate_status <> ''
 							and staff_id IN (?) 
 							and year(contract_end_date) = ?
 						group by so_number
