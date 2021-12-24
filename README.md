@@ -1,1 +1,1 @@
-# INET - Sale Ranking Server Golang # golang-trainee
+# Sale Ranking Server Golang # golang-trainee
